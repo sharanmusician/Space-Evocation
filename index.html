@@ -3,58 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Traffic Racer | Cockpit View</title>
+    <title>3D Traffic Racer | RHD Interior</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        :root { --neon: #00f2ff; --danger: #ff3366; --panel: #1a1a1e; }
+        :root { --neon: #00f2ff; --danger: #ff3366; --trim: #252528; }
         body { margin: 0; background: #000; height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; overflow: hidden; touch-action: none; }
 
         #viewport {
             position: relative;
             width: 100vw; height: 177.78vw;
             max-width: 56.25vh; max-height: 100vh;
-            background: #050505;
+            background: #000;
             display: flex; flex-direction: column;
-            border: 2px solid #222;
+            border: 2px solid #111;
         }
 
-        /* 3D World Container */
-        #game-view { flex: 1; position: relative; overflow: hidden; background: linear-gradient(180deg, #0a0a12 0%, #1a1a2e 50%, #000 50%); }
+        /* 3D World */
+        #game-view { flex: 1; position: relative; overflow: hidden; background: #050508; }
         canvas { width: 100%; height: 100%; display: block; }
 
-        /* Dashboard & Steering UI */
-        #dashboard {
-            height: 35%;
-            background: linear-gradient(180deg, #1c1c21 0%, #050505 100%);
-            border-top: 6px solid #2a2a2a;
-            padding: 15px;
-            box-sizing: border-box;
-            display: flex; justify-content: space-between; align-items: center;
-            position: relative; z-index: 10;
-        }
-
-        .hud-digital { font-family: 'Orbitron', sans-serif; text-align: center; }
-        .kmh-val { font-size: 38px; color: #fff; text-shadow: 0 0 10px var(--neon); line-height: 1; }
-        
-        #steering-wheel {
-            width: 120px; height: 120px;
-            position: relative; border-radius: 50%;
-            border: 14px solid #111;
-            background: radial-gradient(circle, #2a2a2e 0%, #0a0a0a 80%);
-            box-shadow: 0 10px 20px rgba(0,0,0,1);
-        }
-        .spoke { position: absolute; top: 50%; left: 10%; width: 80%; height: 12px; background: #111; transform: translateY(-50%); }
-        .top-mark { position: absolute; top: -14px; left: 50%; width: 12px; height: 14px; background: var(--danger); transform: translateX(-50%); }
-
-        /* Interior Overlay (Windshield Frame) */
-        #interior-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 65%;
+        /* Real Interior HUD & Frame */
+        #cockpit-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
-            border: 25px solid #111;
-            border-bottom: 40px solid #1a1a1e;
-            box-sizing: border-box;
-            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+            background: linear-gradient(to top, #111 0%, transparent 40%);
         }
+
+        /* The Windshield Frame (A-Pillars) */
+        .pillar { position: absolute; top: 0; width: 35px; height: 65%; background: #1a1a1e; box-shadow: inset 0 0 15px #000; }
+        .pillar-left { left: 0; transform: skewX(-10deg); border-right: 2px solid #222; }
+        .pillar-right { right: 0; transform: skewX(10deg); border-left: 2px solid #222; }
+        .roof { position: absolute; top: 0; width: 100%; height: 25px; background: #151518; }
+
+        /* Dashboard & Steering in Right Corner */
+        #dashboard-container {
+            position: absolute; bottom: 0; width: 100%; height: 38%;
+            background: #111114;
+            border-top: 8px solid #222;
+            display: flex; align-items: center; padding: 20px; box-sizing: border-box;
+            z-index: 100; pointer-events: auto;
+        }
+
+        .instrument-cluster { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .stat { font-family: 'Share Tech Mono', monospace; color: #555; font-size: 10px; }
+        .stat span { color: #fff; font-size: 18px; font-family: 'Orbitron'; display: block; }
+
+        #steering-box { width: 140px; height: 140px; position: relative; margin-left: auto; }
+        #steering-wheel {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 15px solid #1a1a1c;
+            background: radial-gradient(circle, #2a2a2e 0%, #050505 100%);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.9), inset 0 0 20px #000;
+            position: relative; transition: transform 0.1s ease-out;
+        }
+        .wheel-center { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; background: #222; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #333; }
+        .spoke-h { position: absolute; top: 50%; left: 10%; width: 80%; height: 12px; background: #1a1a1c; transform: translateY(-50%); }
+        .top-marker { position: absolute; top: -15px; left: 50%; width: 12px; height: 15px; background: var(--danger); transform: translateX(-50%); }
     </style>
 </head>
 <body>
@@ -62,24 +67,26 @@
     <div id="viewport">
         <div id="game-view">
             <canvas id="gameCanvas"></canvas>
-            <div id="interior-overlay"></div>
+            
+            <div id="cockpit-overlay">
+                <div class="roof"></div>
+                <div class="pillar pillar-left"></div>
+                <div class="pillar pillar-right"></div>
+            </div>
         </div>
 
-        <div id="dashboard">
-            <div class="hud-digital">
-                <div id="kmh" class="kmh-val">00</div>
-                <div style="font-size: 8px; color: #555; letter-spacing: 2px;">KM/H</div>
+        <div id="dashboard-container">
+            <div class="instrument-cluster">
+                <div class="stat">SPEED <span id="kmh">00</span></div>
+                <div class="stat">SCORE <span id="score" style="color: var(--neon);">0</span></div>
             </div>
-            
-            <div id="steering-wheel">
-                <div class="top-mark"></div>
-                <div class="spoke"></div>
-                <div class="spoke" style="transform: rotate(90deg) translateY(-50%);"></div>
-            </div>
-            
-            <div class="hud-digital">
-                <div id="score" style="color: var(--neon); font-size: 20px;">0</div>
-                <div style="font-size: 8px; color: #555;">SCORE</div>
+
+            <div id="steering-box">
+                <div id="steering-wheel">
+                    <div class="top-marker"></div>
+                    <div class="spoke-h"></div>
+                    <div class="wheel-center"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -98,13 +105,13 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // --- 3D CONSTANTS ---
+        // --- 3D ENGINE CONSTANTS ---
         const VANISHING_Y = canvas.height * 0.45;
         const LANES = 4;
         const STEER_LIMIT = 90;
         
-        let gameSpeed = 0.04;
-        let playerX = 0; // -1 to 1 (center of road)
+        let gameSpeed = 0.05;
+        let playerX = 0; // -1 to 1 range
         let wheelRot = 0;
         let lastAngle = 0;
         let isDragging = false;
@@ -113,7 +120,7 @@
         let traffic = [];
         let score = 0;
 
-        // --- INPUT ENGINE ---
+        // --- STEERING INPUT ---
         function getAngle(e) {
             const rect = wheel.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
@@ -139,107 +146,91 @@
         window.addEventListener('touchmove', move, {passive: false});
         window.addEventListener('touchend', () => isDragging = false);
 
-        // --- 3D PROJECTION UTILS ---
+        // --- PROJECTION ---
         function project(x, y, z) {
             const scale = 1 / z;
-            const px = (canvas.width / 2) + (x - playerX * 800) * scale;
+            // Shift perspective slightly left to account for right-hand driver seat
+            const px = (canvas.width * 0.4) + (x - playerX * 1000) * scale;
             const py = VANISHING_Y + (y * scale);
             return { x: px, py: py, scale: scale };
         }
 
         class Enemy {
             constructor(lane) {
-                this.lane = lane; // 0, 1, 2, 3
-                this.laneX = -600 + (lane * 400); 
-                this.z = 20; // Start far away
+                this.lane = lane;
+                this.laneX = -750 + (lane * 500);
+                this.z = 25;
                 this.vSpeed = 0.01 + Math.random() * 0.02;
                 this.hue = Math.random() * 360;
             }
-            update() {
-                this.z -= (gameSpeed - this.vSpeed);
-            }
+            update() { this.z -= (gameSpeed - this.vSpeed); }
             draw() {
-                if (this.z <= 0.1) return;
-                const p = project(this.laneX, 200, this.z);
-                const w = 300 * p.scale;
-                const h = 200 * p.scale;
-
-                ctx.fillStyle = `hsl(${this.hue}, 50%, 40%)`;
+                if (this.z <= 0.2) return;
+                const p = project(this.laneX, 250, this.z);
+                const w = 450 * p.scale;
+                const h = 300 * p.scale;
+                
+                // Vehicle Body
+                ctx.fillStyle = `hsl(${this.hue}, 50%, 35%)`;
                 ctx.fillRect(p.x - w/2, p.py - h, w, h);
                 // Windows
-                ctx.fillStyle = "#000";
-                ctx.fillRect(p.x - w/2 + 5*p.scale, p.py - h + 10*p.scale, w - 10*p.scale, h/3);
-                // Tail lights
+                ctx.fillStyle = "rgba(0,0,0,0.8)";
+                ctx.fillRect(p.x - w/2 + 10*p.scale, p.py - h + 15*p.scale, w - 20*p.scale, h/2.5);
+                // Brake lights
                 ctx.fillStyle = "#f00";
-                ctx.fillRect(p.x - w/2, p.py - 20*p.scale, 15*p.scale, 10*p.scale);
-                ctx.fillRect(p.x + w/2 - 15*p.scale, p.py - 20*p.scale, 15*p.scale, 10*p.scale);
+                ctx.fillRect(p.x - w/2, p.py - 30*p.scale, 20*p.scale, 15*p.scale);
+                ctx.fillRect(p.x + w/2 - 20*p.scale, p.py - 30*p.scale, 20*p.scale, 15*p.scale);
             }
         }
 
         function spawn() {
             let lane = Math.floor(Math.random() * LANES);
-            if (!traffic.some(v => v.lane === lane && v.z > 15)) {
-                traffic.push(new Enemy(lane));
-            }
+            if (!traffic.some(v => v.lane === lane && v.z > 20)) traffic.push(new Enemy(lane));
         }
 
         let lastSpawn = 0;
         function loop(t) {
-            // Physics
-            if (gameSpeed < 0.25) gameSpeed += 0.00005;
-            roadOffset = (roadOffset + (gameSpeed * 100)) % 100;
+            if (gameSpeed < 0.3) gameSpeed += 0.00008;
+            roadOffset = (roadOffset + (gameSpeed * 120)) % 120;
             
-            // Steering
-            playerX += (wheelRot / STEER_LIMIT) * 0.05;
-            playerX = Math.max(-1.5, Math.min(1.5, playerX));
-            if (!isDragging) { wheelRot *= 0.88; wheel.style.transform = `rotate(${wheelRot}deg)`; }
+            playerX += (wheelRot / STEER_LIMIT) * 0.06;
+            playerX = Math.max(-1.8, Math.min(1.8, playerX));
+            if (!isDragging) { wheelRot *= 0.85; wheel.style.transform = `rotate(${wheelRot}deg)`; }
 
-            kmhDisp.innerText = Math.round(gameSpeed * 600).toString().padStart(2, '0');
+            kmhDisp.innerText = Math.round(gameSpeed * 580).toString().padStart(2, '0');
             score++; scoreDisp.innerText = Math.floor(score/10);
 
-            if (t - lastSpawn > 1000) { spawn(); lastSpawn = t; }
+            if (t - lastSpawn > 900) { spawn(); lastSpawn = t; }
 
             // DRAW WORLD
             ctx.fillStyle = "#0a0a0f"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Draw 3D Road
-            for (let z = 20; z > 0.1; z -= 0.5) {
-                const p1 = project(-800, 200, z);
-                const p2 = project(800, 200, z);
-                const pNext = project(-800, 200, z - 0.5);
+            // Draw 3D Ground
+            for (let z = 25; z > 0.1; z -= 0.6) {
+                const p1 = project(-1200, 250, z);
+                const p2 = project(1200, 250, z);
+                const pNext = project(-1200, 250, z - 0.6);
                 
-                // Grass/Shoulder
-                ctx.fillStyle = (Math.floor(z + roadOffset/20) % 2) ? "#111" : "#0a0a0a";
+                // Shoulder/Dirt
+                ctx.fillStyle = (Math.floor(z + roadOffset/20) % 2) ? "#111" : "#080808";
                 ctx.beginPath();
                 ctx.moveTo(0, p1.py); ctx.lineTo(canvas.width, p1.py);
-                ctx.lineTo(canvas.width, pNext.py); ctx.lineTo(0, pNext.py);
-                ctx.fill();
+                ctx.lineTo(canvas.width, pNext.py); ctx.lineTo(0, pNext.py); ctx.fill();
 
-                // Road Surface
-                ctx.fillStyle = "#1a1a1a";
+                // Asphalt
+                ctx.fillStyle = "#1a1a1c";
                 ctx.beginPath();
                 ctx.moveTo(p1.x, p1.py); ctx.lineTo(p2.x, p2.py);
-                ctx.lineTo(project(800, 200, z-0.5).x, project(800, 200, z-0.5).py);
-                ctx.lineTo(project(-800, 200, z-0.5).x, project(-800, 200, z-0.5).py);
+                ctx.lineTo(project(1200, 250, z-0.6).x, project(1200, 250, z-0.6).py);
+                ctx.lineTo(project(-1200, 250, z-0.6).x, project(-1200, 250, z-0.6).py);
                 ctx.fill();
-
-                // Lane Lines
-                if ((Math.floor(z + roadOffset/20) % 2)) {
-                    ctx.fillStyle = "#555";
-                    for(let l=1; l<LANES; l++) {
-                        const lp = project(-800 + (l*400), 200, z);
-                        ctx.fillRect(lp.x - 2, lp.py, 4 * lp.scale, 10);
-                    }
-                }
             }
 
             traffic.forEach(v => {
-                v.update();
-                v.draw();
-                // Collision Detection (3D Depth Check)
-                if (v.z < 0.8 && v.z > 0.3) {
-                    const relativeX = (v.laneX - playerX * 800);
-                    if (Math.abs(relativeX) < 180) location.reload();
+                v.update(); v.draw();
+                if (v.z < 0.9 && v.z > 0.4) {
+                    const relativeX = (v.laneX - playerX * 1000);
+                    if (Math.abs(relativeX) < 250) location.reload();
                 }
             });
             traffic = traffic.filter(v => v.z > 0.1);
