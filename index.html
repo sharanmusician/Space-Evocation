@@ -3,75 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Traffic Engine - Cockpit View</title>
+    <title>3D Traffic Engine - High Speed</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
     <style>
         :root { --glow: #00ffcc; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
-
         #container { position: relative; width: 100vw; height: 100vh; }
 
-        /* LAYER 1: THE OUTSIDE WORLD (RENDERED THROUGH WINDSHIELD) */
-        #gameWorld {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 1; /* Bottom of the stack */
-        }
+        /* LAYER 1: THE OUTSIDE WORLD */
+        #gameWorld { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* LAYER 2: THE WORKING SPEEDO (POSITIONED BEHIND DASH HOLE) */
+        /* LAYER 2: THE SPEEDO (Aligned to Cock.png hole) */
         #speedo-mount {
-            position: absolute;
-            bottom: 12.8%; /* Matches your specific image cluster height */
-            right: 17.5%; /* Matches the RHD dash offset */
-            width: 90px;
-            z-index: 5; /* In front of road, behind car body */
-            text-align: center;
-            font-family: 'Orbitron', sans-serif;
-            pointer-events: none;
+            position: absolute; bottom: 12.8%; right: 17.5%;
+            width: 90px; z-index: 5; text-align: center;
+            font-family: 'Orbitron', sans-serif; pointer-events: none;
         }
-        #digital-kmh { 
-            color: var(--glow); 
-            font-size: 26px; 
-            text-shadow: 0 0 12px var(--glow); 
-            line-height: 1;
-        }
+        #digital-kmh { color: var(--glow); font-size: 26px; text-shadow: 0 0 12px var(--glow); line-height: 1; }
 
-        /* LAYER 3: THE COCKPIT OVERLAY (THE "FRAME") */
-        #cockpit-frame {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 10; /* The "Top" layer you see through */
-            object-fit: fill;
-            pointer-events: none;
-        }
+        /* LAYER 3: THE COCKPIT OVERLAY */
+        #cockpit-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; object-fit: fill; pointer-events: none; }
 
-        /* LAYER 4: THE STEERING INTERFACE */
-        #steering-input {
-            position: absolute;
-            bottom: 4%; right: 7%;
-            width: 160px; height: 160px;
-            z-index: 20;
-        }
-        #steering-input img { width: 100%; height: 100%; user-select: none; }
+        /* LAYER 4: STEERING */
+        #steering-input { position: absolute; bottom: 4%; right: 7%; width: 160px; height: 160px; z-index: 20; }
+        #steering-input img { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
 <div id="container">
     <canvas id="gameWorld"></canvas>
-
     <div id="speedo-mount">
         <div id="digital-kmh">0</div>
         <div style="color: var(--glow); font-size: 8px; font-weight: bold; margin-top: 2px;">KM/H</div>
     </div>
-
     <img src="Cock.png" id="cockpit-frame">
-
-    <div id="steering-input">
-        <img src="wheel.png" id="wheel-art">
-    </div>
+    <div id="steering-input"><img src="wheel.png"></div>
 </div>
 
 <script>
@@ -83,13 +50,11 @@
     const roadImg = new Image(); roadImg.src = 'road.jpg';
     const npcImg = new Image(); npcImg.src = 'traffic_car.png';
 
-    let worldState = {
-        playerX: 0,
-        wheelRot: 0,
-        speed: 0.05,
-        offset: 0,
-        traffic: []
-    };
+    let playerX = 0;
+    let wheelRot = 0;
+    let gameSpeed = 0.08; // Higher base speed
+    let roadOffset = 0;
+    let traffic = [];
 
     function init() {
         canvas.width = window.innerWidth;
@@ -98,33 +63,38 @@
     window.addEventListener('resize', init);
     init();
 
-    // 3D Perspective Math: Aligned to your Windshield Frame
+    // 3D Perspective Logic
     function project(x, y, z) {
         const scale = 1 / z;
-        // The road is centered specifically for the driver perspective on the right
-        const px = (canvas.width * 0.63) + (x - worldState.playerX * 1400) * scale;
+        // Shifted vanishing point to match the RHD perspective of your Cock.png
+        const px = (canvas.width * 0.63) + (x - playerX * 1600) * scale;
         const py = (canvas.height * 0.38) + (y * scale);
         return { x: px, y: py, scale: scale };
     }
 
-    class Opponent {
-        constructor(lane) {
-            this.lane = lane;
-            this.laneX = -800 + (lane * 533); // 4 Lane distribution
-            this.z = 40;
-            this.vSpeed = 0.01 + Math.random() * 0.02;
+    class Vehicle {
+        constructor() {
+            this.lane = Math.floor(Math.random() * 4); // 0 to 3
+            this.laneX = -900 + (this.lane * 600); 
+            this.z = 50; // Spawn very far away (Horizon)
+            this.speed = 0.02 + Math.random() * 0.05; // Different speeds for each car
         }
-        update() { this.z -= (worldState.speed - this.vSpeed); }
-        render() {
-            if (this.z < 0.2) return;
+        update() {
+            // Cars come TOWARDS you
+            this.z -= (gameSpeed - this.speed);
+        }
+        draw() {
+            if (this.z < 0.1 || this.z > 50) return;
             const p = project(this.laneX, 350, this.z);
-            const w = 600 * p.scale;
-            const h = 400 * p.scale;
-            if (npcImg.complete) ctx.drawImage(npcImg, p.x - w/2, p.y - h, w, h);
+            const w = 700 * p.scale;
+            const h = 500 * p.scale;
+            if (npcImg.complete) {
+                ctx.drawImage(npcImg, p.x - w/2, p.y - h, w, h);
+            }
         }
     }
 
-    // High-Response Control Logic
+    // Input Logic
     let isDriving = false, lastA = 0;
     const calcA = (e) => {
         const r = steering.getBoundingClientRect();
@@ -133,57 +103,61 @@
         const py = e.touches ? e.touches[0].clientY : e.clientY;
         return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
     };
-
-    steering.onmousedown = steering.ontouchstart = (e) => { isDriving = true; lastA = calcA(e); e.preventDefault(); };
-    window.onmousemove = window.ontouchmove = (e) => {
+    steering.ontouchstart = (e) => { isDriving = true; lastA = calcA(e); e.preventDefault(); };
+    window.ontouchmove = (e) => {
         if (!isDriving) return;
         let a = calcA(e), d = a - lastA;
         if (d > 180) d -= 360; if (d < -180) d += 360;
-        worldState.wheelRot = Math.max(-90, Math.min(90, worldState.wheelRot + d));
-        steering.style.transform = `rotate(${worldState.wheelRot}deg)`;
+        wheelRot = Math.max(-90, Math.min(90, wheelRot + d));
+        steering.style.transform = `rotate(${wheelRot}deg)`;
         lastA = a;
     };
-    window.onmouseup = window.ontouchend = () => isDriving = false;
+    window.ontouchend = () => isDriving = false;
 
-    function engineLoop() {
-        // Clear frame with background depth color
+    function gameLoop() {
         ctx.fillStyle = "#020205"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        worldState.offset = (worldState.offset + worldState.speed * 80) % 100;
-        worldState.playerX += (worldState.wheelRot / 90) * 0.08;
-        worldState.playerX = Math.max(-2.5, Math.min(2.5, worldState.playerX));
+        roadOffset = (roadOffset + gameSpeed * 100) % 100;
+        playerX += (wheelRot / 90) * 0.12;
+        playerX = Math.max(-2.8, Math.min(2.8, playerX));
         
-        if (!isDriving) { 
-            worldState.wheelRot *= 0.85; 
-            steering.style.transform = `rotate(${worldState.wheelRot}deg)`; 
-        }
+        if (!isDriving) { wheelRot *= 0.8; steering.style.transform = `rotate(${wheelRot}deg)`; }
 
-        // Draw Perspective Road behind Windshield
-        for (let z = 40; z > 0.1; z -= 1.5) {
-            const p = project(0, 350, z), pNext = project(0, 350, z - 1.5);
-            const w = 5000 * p.scale;
+        // DRAW ROAD
+        for (let z = 50; z > 0.1; z -= 2) {
+            const p = project(0, 350, z), pNext = project(0, 350, z - 2);
+            const w = 6000 * p.scale;
             if (roadImg.complete) ctx.drawImage(roadImg, p.x - w/2, p.y, w, pNext.y - p.y);
         }
 
-        // Traffic Management
-        if (Math.random() < 0.02) worldState.traffic.push(new Opponent(Math.floor(Math.random() * 4)));
-        worldState.traffic.forEach((v, i) => {
-            v.update(); v.render();
-            // High-precision collision
-            if (v.z < 1.0 && v.z > 0.6 && Math.abs((v.laneX - worldState.playerX * 1400)) < 350) {
-                location.reload(); 
+        // SPAWN TRAFFIC (More frequent for SA feel)
+        if (Math.random() < 0.03 && traffic.length < 5) {
+            traffic.push(new Vehicle());
+        }
+
+        // UPDATE & DRAW TRAFFIC
+        traffic.forEach((v, i) => {
+            v.update();
+            v.draw();
+
+            // Collision Check (When car gets close to the windshield)
+            if (v.z < 1.2 && v.z > 0.5) {
+                const relativeX = v.laneX - playerX * 1600;
+                if (Math.abs(relativeX) < 400) {
+                    location.reload(); // CRASH
+                }
             }
-            if (v.z < 0.1) worldState.traffic.splice(i, 1);
+
+            if (v.z < 0.1) traffic.splice(i, 1);
         });
 
-        // Real-time speedo update
-        speedo.innerText = Math.round(worldState.speed * 630);
-        if (worldState.speed < 0.6) worldState.speed += 0.00008;
+        // SPEEDO
+        speedo.innerText = Math.round(gameSpeed * 1200);
+        if (gameSpeed < 1.0) gameSpeed += 0.0001;
 
-        requestAnimationFrame(engineLoop);
+        requestAnimationFrame(gameLoop);
     }
-    requestAnimationFrame(engineLoop);
+    gameLoop();
 </script>
-
 </body>
 </html>
