@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Space Evocation | Cockpit Edition</title>
+    <title>Space Evocation | Pro-Spec Interior</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-        
+        :root {
+            --panel-bg: #121214;
+            --accent-glow: #00f2ff;
+            --hazard-red: #ff3366;
+            --dial-bg: #1a1a1d;
+        }
+
         body { 
             margin: 0; 
             background: #000; 
@@ -14,134 +19,179 @@
             justify-content: center; 
             align-items: center; 
             height: 100vh; 
-            overflow: hidden; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
             touch-action: none;
         }
 
-        /* 16:9 Game Container */
-        #game-container {
+        /* Responsive 16:9 Container */
+        #viewport {
             position: relative;
-            aspect-ratio: 16 / 9;
             width: 100vw;
-            max-height: 56.25vw; /* 9/16 of width */
-            background: #020205;
-            overflow: hidden;
-            border: 2px solid #333;
-        }
-
-        canvas { display: block; width: 100%; height: 100%; }
-
-        /* Dashboard Interior */
-        #dashboard {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 25%;
-            background: linear-gradient(to top, #0f0f0f 0%, #1a1a1a 80%, #2a2a2a 100%);
-            border-top: 4px solid #333;
+            height: 56.25vw; /* 16:9 ratio */
+            max-height: 100vh;
+            max-width: 177.78vh; /* 16:9 ratio */
+            background: #000;
             display: flex;
-            align-items: flex-end;
-            padding: 20px;
+            flex-direction: column;
+            box-shadow: 0 0 50px rgba(0,0,0,1);
+        }
+
+        /* Upper Game Screen */
+        #game-canvas-wrapper {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #0a0a1a 0%, #000 100%);
+            overflow: hidden;
+        }
+        
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* Professional Dashboard Interior */
+        #dashboard {
+            height: 35%;
+            background: linear-gradient(180deg, #222 0%, #111 15%, #080808 100%);
+            border-top: 3px solid #333;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            padding: 10px 40px;
+            gap: 20px;
             box-sizing: border-box;
-            pointer-events: none;
+            z-index: 10;
         }
 
-        /* Speedometer/Digital HUD on Dashboard */
-        .hud-display {
-            position: absolute;
-            left: 50%;
-            bottom: 20px;
-            transform: translateX(-50%);
-            background: rgba(0, 242, 255, 0.1);
-            border: 1px solid #00f2ff;
-            padding: 10px 30px;
-            border-radius: 5px;
-            color: #00f2ff;
-            font-family: 'Orbitron', sans-serif;
+        /* Left Gauges: Fuel & Temp */
+        .gauge-cluster {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .mini-gauge {
+            height: 12px;
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gauge-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        /* Center Console: Speedo & AC */
+        .center-console {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .speedometer {
             text-align: center;
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+            color: var(--accent-glow);
         }
 
-        /* Realistic Corner Steering Wheel */
-        #wheel-tray {
-            position: absolute;
-            bottom: 10px;
-            right: 20px;
-            width: 140px;
-            height: 140px;
-            pointer-events: auto;
+        .speed-digits { font-size: 48px; font-weight: bold; text-shadow: 0 0 15px var(--accent-glow); }
+        
+        .ac-vents {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
         }
 
-        #steering-wheel {
+        .vent {
+            width: 60px;
+            height: 30px;
+            background: repeating-linear-gradient(90deg, #111, #111 5px, #222 6px);
+            border: 2px solid #333;
+            border-radius: 4px;
+        }
+
+        /* Right Side: Steering Tray */
+        .steering-bay {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        #wheel-container {
+            width: 160px;
+            height: 160px;
+            position: relative;
+            cursor: grab;
+        }
+
+        .wheel-rim {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: #111;
-            box-sizing: border-box;
-            border: 10px solid #222;
-            box-shadow: inset 0 0 10px #000, 0 0 15px rgba(0,0,0,0.8);
+            border: 14px solid #1a1a1a;
+            box-shadow: inset 0 0 10px #000, 0 5px 15px rgba(0,0,0,0.5);
+            background: transparent;
             position: relative;
-            cursor: grab;
-            transition: transform 0.05s linear;
+            z-index: 5;
         }
 
-        /* Leather texture and grip detail */
-        #steering-wheel::before {
-            content: '';
-            position: absolute;
-            top: 50%; left: 10%; right: 10%; height: 12px;
-            background: #222; transform: translateY(-50%);
-            border-radius: 4px;
-        }
-
-        #steering-wheel::after {
-            content: '';
-            position: absolute;
-            left: 50%; top: 10%; bottom: 10%; width: 12px;
-            background: #222; transform: translateX(-50%);
-            border-radius: 4px;
-        }
-
-        /* Center Hub */
-        .wheel-center {
+        .wheel-spoke {
             position: absolute;
             top: 50%; left: 50%;
-            width: 40px; height: 40px;
-            background: #2a2a2a;
-            border: 2px solid #444;
-            border-radius: 50%;
+            width: 80%; height: 14px;
+            background: #1a1a1a;
             transform: translate(-50%, -50%);
-            z-index: 2;
+            border-radius: 4px;
         }
 
-        /* Top Marker (The 12 o'clock stripe) */
-        .top-marker {
+        .marker {
             position: absolute;
-            top: 0; left: 50%;
-            width: 12px; height: 10px;
-            background: #ff3366;
+            top: -14px; left: 50%;
+            width: 10px; height: 14px;
+            background: var(--hazard-red);
             transform: translateX(-50%);
-            border-radius: 2px;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="dashboard">
-            <div class="hud-display">
-                <div style="font-size: 10px; opacity: 0.8;">VELOCITY</div>
-                <div id="speed-val">0</div>
-                <div style="font-size: 10px; margin-top: 5px;">SCORE: <span id="score">0</span></div>
-            </div>
+    <div id="viewport">
+        <div id="game-canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
         </div>
 
-        <div id="wheel-tray">
-            <div id="steering-wheel">
-                <div class="top-marker"></div>
-                <div class="wheel-center"></div>
+        <div id="dashboard">
+            <div class="gauge-cluster">
+                <div>
+                    <label style="font-size: 10px; color: #666;">FUEL</label>
+                    <div class="mini-gauge"><div id="fuel-bar" class="gauge-fill" style="width: 80%; background: #00ff66;"></div></div>
+                </div>
+                <div>
+                    <label style="font-size: 10px; color: #666;">TEMP</label>
+                    <div class="mini-gauge"><div id="temp-bar" class="gauge-fill" style="width: 40%; background: var(--hazard-red);"></div></div>
+                </div>
+            </div>
+
+            <div class="center-console">
+                <div class="speedometer">
+                    <div class="speed-digits" id="speed-out">000</div>
+                    <div style="font-size: 12px; letter-spacing: 4px;">km/h</div>
+                </div>
+                <div class="ac-vents">
+                    <div class="vent"></div>
+                    <div class="vent"></div>
+                </div>
+            </div>
+
+            <div class="steering-bay">
+                <div id="wheel-container">
+                    <div class="marker"></div>
+                    <div class="wheel-rim"></div>
+                    <div class="wheel-spoke"></div>
+                    <div class="wheel-spoke" style="transform: translate(-50%, -50%) rotate(90deg);"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -149,142 +199,107 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score');
-        const speedElement = document.getElementById('speed-val');
-        const wheel = document.getElementById('steering-wheel');
+        const wheel = document.getElementById('wheel-container');
+        const speedOut = document.getElementById('speed-out');
+        const fuelBar = document.getElementById('fuel-bar');
 
-        // Logic to maintain 16:9 internal resolution
-        function setSize() {
-            canvas.width = 1280;
-            canvas.height = 720;
+        // Professional Scaling
+        function initCanvas() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
         }
-        setSize();
+        window.addEventListener('resize', initCanvas);
+        initCanvas();
 
-        // Constants
-        const MOVEMENT_SENSITIVITY = 0.2; 
-        const MAX_SHIP_SPEED = 30;
-        const AUTO_CENTER_SPEED = 0.85;
-
-        let score = 0;
-        let gameActive = true;
+        // Engine State
         let playerX = canvas.width / 2;
-        let currentRotation = 0; 
-        let isRotating = false;
+        let rotation = 0;
+        let isDragging = false;
         let startAngle = 0;
+        let score = 0;
+        let fuel = 100;
+        let obstacles = [];
 
-        const player = { width: 40, height: 40, color: '#00f2ff' };
-        const obstacles = [];
-
-        function getMouseAngle(event) {
+        // Input Logic
+        function getAngle(e) {
             const rect = wheel.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-            return Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const ex = e.touches ? e.touches[0].clientX : e.clientX;
+            const ey = e.touches ? e.touches[0].clientY : e.clientY;
+            return Math.atan2(ey - cy, ex - cx) * 180 / Math.PI;
         }
 
-        const startRotation = (e) => {
-            isRotating = true;
-            startAngle = getMouseAngle(e) - currentRotation;
-            e.preventDefault();
+        const onStart = (e) => { isDragging = true; startAngle = getAngle(e) - rotation; e.preventDefault(); };
+        const onMove = (e) => {
+            if (!isDragging) return;
+            rotation = getAngle(e) - startAngle;
+            rotation = Math.max(-360, Math.min(360, rotation));
+            wheel.style.transform = `rotate(${rotation}deg)`;
         };
+        const onEnd = () => { isDragging = false; };
 
-        const updateRotation = (e) => {
-            if (!isRotating) return;
-            const newAngle = getMouseAngle(e);
-            currentRotation = newAngle - startAngle;
-            currentRotation = Math.max(-450, Math.min(450, currentRotation));
-            wheel.style.transform = `rotate(${currentRotation}deg)`;
-        };
+        wheel.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        wheel.addEventListener('touchstart', onStart, {passive:false});
+        window.addEventListener('touchmove', onMove, {passive:false});
+        window.addEventListener('touchend', onEnd);
 
-        const stopRotation = () => { isRotating = false; };
-
-        wheel.addEventListener('mousedown', startRotation);
-        window.addEventListener('mousemove', updateRotation);
-        window.addEventListener('mouseup', stopRotation);
-        wheel.addEventListener('touchstart', startRotation, {passive: false});
-        window.addEventListener('touchmove', updateRotation, {passive: false});
-        window.addEventListener('touchend', stopRotation);
-
-        function spawnObstacle() {
-            const size = Math.random() * 50 + 30;
-            obstacles.push({
-                x: Math.random() * (canvas.width - size),
-                y: -size,
-                size: size,
-                speed: Math.random() * 4 + 6
-            });
-        }
-
+        // Gameplay Logic
         function update() {
-            if (!gameActive) return;
+            // Steering Physics
+            const sensitivity = 0.12;
+            playerX += rotation * sensitivity;
+            if (playerX < 20) playerX = 20;
+            if (playerX > canvas.width - 20) playerX = canvas.width - 20;
 
-            let velocity = currentRotation * MOVEMENT_SENSITIVITY;
-            velocity = Math.max(-MAX_SHIP_SPEED, Math.min(MAX_SHIP_SPEED, velocity));
-            playerX += velocity;
-            
-            speedElement.innerText = Math.abs(Math.round(velocity * 10));
-
-            if (!isRotating) {
-                currentRotation *= AUTO_CENTER_SPEED;
-                wheel.style.transform = `rotate(${currentRotation}deg)`;
+            // Auto-centering
+            if (!isDragging) {
+                rotation *= 0.9;
+                wheel.style.transform = `rotate(${rotation}deg)`;
             }
 
-            if (playerX < 0) playerX = 0;
-            if (playerX > canvas.width - player.width) playerX = canvas.width - player.width;
+            // Dashboard Updates
+            speedOut.innerText = Math.abs(Math.round(rotation * 0.8)).toString().padStart(3, '0');
+            fuel -= 0.01;
+            fuelBar.style.width = `${fuel}%`;
 
-            // Collision logic adjusted for dashboard height
-            const dashboardTop = canvas.height * 0.75;
+            // Obstacles
+            if (Math.random() < 0.05) {
+                obstacles.push({ x: Math.random() * canvas.width, y: -50, s: Math.random() * 5 + 5 });
+            }
 
-            obstacles.forEach((obs, index) => {
-                obs.y += obs.speed;
-                
-                if (obs.x < playerX + player.width &&
-                    obs.x + obs.size > playerX &&
-                    obs.y < (dashboardTop - 50) + player.height &&
-                    obs.y + obs.size > (dashboardTop - 50)) {
-                    gameActive = false;
-                    alert("CRITICAL DAMAGE! Score: " + score);
-                    location.reload();
-                }
-
-                if (obs.y > dashboardTop) {
-                    obstacles.splice(index, 1);
-                    score += 10;
-                    scoreElement.innerText = score;
+            obstacles.forEach((o, i) => {
+                o.y += o.s;
+                // Collision check
+                if (Math.abs(o.x - playerX) < 30 && o.y > canvas.height - 60) {
+                    location.reload(); 
                 }
             });
-
-            if (Math.random() < 0.07) spawnObstacle();
+            obstacles = obstacles.filter(o => o.y < canvas.height);
         }
 
         function draw() {
-            // Draw background
-            ctx.fillStyle = '#020205';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Stars
-            ctx.fillStyle = "#fff";
-            for(let i=0; i<5; i++) {
-                ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
-            }
-
-            // Ship
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = player.color;
-            ctx.fillStyle = player.color;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Player Ship (Simplified for high performance)
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#00f2ff";
+            ctx.fillStyle = "#00f2ff";
             ctx.beginPath();
-            ctx.moveTo(playerX + player.width / 2, 720 * 0.75 - 50);
-            ctx.lineTo(playerX, 720 * 0.75 - 10);
-            ctx.lineTo(playerX + player.width, 720 * 0.75 - 10);
+            ctx.moveTo(playerX, canvas.height - 60);
+            ctx.lineTo(playerX - 20, canvas.height - 20);
+            ctx.lineTo(playerX + 20, canvas.height - 20);
             ctx.fill();
 
-            // Obstacles
+            // Draw Obstacles
             ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ff3366';
-            obstacles.forEach(obs => {
-                ctx.fillRect(obs.x, obs.y, obs.size, obs.size);
+            ctx.fillStyle = "#ff3366";
+            obstacles.forEach(o => {
+                ctx.beginPath();
+                ctx.arc(o.x, o.y, 15, 0, Math.PI*2);
+                ctx.fill();
             });
 
             update();
