@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Traffic Racer | Fixed Steering</title>
+    <title>Traffic Racer | The Escape</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        :root { --neon: #00f2ff; --danger: #ff3366; --road: #151517; }
+        :root { --neon: #00f2ff; --danger: #ff3366; --road: #111113; }
         body { margin: 0; background: #000; height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; overflow: hidden; touch-action: none; }
 
         #viewport {
@@ -35,15 +35,15 @@
         .speed-val { font-family: 'Orbitron', sans-serif; font-size: 42px; color: #fff; text-shadow: 0 0 15px var(--neon); line-height: 1; }
 
         #steering-wheel {
-            width: 100px; height: 100px;
+            width: 105px; height: 105px;
             position: relative; cursor: grab;
             border-radius: 50%;
-            border: 11px solid #1a1a1c;
+            border: 12px solid #1a1a1c;
             background: radial-gradient(circle, #2a2a2e 0%, #111 80%);
             box-shadow: 0 10px 25px rgba(0,0,0,0.8), inset 0 0 10px #000;
         }
         .spoke { position: absolute; top: 50%; left: 10%; width: 80%; height: 10px; background: #1a1a1c; transform: translateY(-50%); border-radius: 5px; }
-        .top-marker { position: absolute; top: -11px; left: 50%; width: 10px; height: 11px; background: var(--danger); transform: translateX(-50%); }
+        .top-marker { position: absolute; top: -12px; left: 50%; width: 10px; height: 12px; background: var(--danger); transform: translateX(-50%); }
     </style>
 </head>
 <body>
@@ -55,10 +55,10 @@
                 <div class="hud-text">SCORE<div id="score-val" style="color: #fff; font-size: 18px;">0</div></div>
                 <div style="text-align: center;">
                     <div id="kmh" class="speed-val">00</div>
-                    <div style="font-size: 8px; color: #555; font-family: Orbitron;">KM/H</div>
+                    <div style="font-size: 8px; color: #555; font-family: Orbitron; letter-spacing: 2px;">KM/H</div>
                 </div>
             </div>
-            <div style="display: flex; justify-content: flex-end;">
+            <div style="display: flex; justify-content: flex-end; align-items: center;">
                 <div id="steering-wheel">
                     <div class="top-marker"></div>
                     <div class="spoke"></div>
@@ -82,17 +82,16 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // --- PHYSICS CONFIG ---
         const LANES = 4;
         const LANE_W = canvas.width / LANES;
         const STEER_LIMIT = 90; 
         
         let gameSpeed = 3; 
-        const MAX_SPEED = 25;
-        const ACCEL = 0.006;
+        const MAX_SPEED = 28;
+        const ACCEL = 0.007;
 
         let playerX = canvas.width / 2;
-        let rotation = 0;   // The output rotation
+        let rotation = 0;
         let lastAngle = 0;
         let isDragging = false;
         
@@ -100,7 +99,7 @@
         let roadOffset = 0;
         let score = 0;
 
-        // --- FIXED STEERING LOGIC ---
+        // --- STEERING CORE (Fixed Delta) ---
         function getRawAngle(e) {
             const rect = wheel.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
@@ -110,133 +109,132 @@
             return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
         }
 
-        const start = (e) => { 
-            isDragging = true; 
-            lastAngle = getRawAngle(e); 
-            e.preventDefault(); 
-        };
-
+        const start = (e) => { isDragging = true; lastAngle = getRawAngle(e); e.preventDefault(); };
         const move = (e) => {
             if (!isDragging) return;
             const currentAngle = getRawAngle(e);
             let delta = currentAngle - lastAngle;
-
-            // Handle the 180/-180 degree wrap-around
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
-
-            // Update rotation based on movement delta
-            rotation += delta;
-            
-            // Lock the rotation at 90 degrees
-            if (rotation > STEER_LIMIT) rotation = STEER_LIMIT;
-            if (rotation < -STEER_LIMIT) rotation = -STEER_LIMIT;
-
+            rotation = Math.max(-STEER_LIMIT, Math.min(STEER_LIMIT, rotation + delta));
             wheel.style.transform = `rotate(${rotation}deg)`;
             lastAngle = currentAngle;
         };
 
-        const end = () => { isDragging = false; };
-
         wheel.addEventListener('touchstart', start, {passive: false});
         window.addEventListener('touchmove', move, {passive: false});
-        window.addEventListener('touchend', end);
+        window.addEventListener('touchend', () => isDragging = false);
         wheel.addEventListener('mousedown', start);
         window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', end);
+        window.addEventListener('mouseup', () => isDragging = false);
 
-        // --- TRAFFIC SYSTEM ---
+        // --- TRAFFIC RACER AI ---
         class Vehicle {
             constructor(lane) {
                 this.lane = lane;
                 this.x = (lane * LANE_W) + (LANE_W / 2);
-                this.y = -150;
-                this.w = 32;
-                this.h = 65;
-                this.vSpeed = 4 + Math.random() * 6;
+                this.y = -200;
+                this.w = 34;
+                this.h = 75;
+                this.vSpeed = 3 + Math.random() * 5;
                 this.hue = Math.random() * 360;
+                
+                // Behavior: 0 = Lane discipline, 1 = Aggressive swerver
+                this.behavior = Math.random() > 0.7 ? 1 : 0;
+                this.targetX = this.x;
+                this.swerveTimer = 100 + Math.random() * 200;
             }
             draw() {
-                ctx.fillStyle = `hsl(${this.hue}, 50%, 40%)`;
+                ctx.fillStyle = this.behavior === 1 ? "#ff3300" : `hsl(${this.hue}, 40%, 45%)`;
                 ctx.fillRect(this.x - this.w/2, this.y, this.w, this.h);
-                ctx.fillStyle = "rgba(0,0,0,0.4)";
-                ctx.fillRect(this.x - 10, this.y + 12, 20, 18);
+                // Windows
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+                ctx.fillRect(this.x - 12, this.y + 12, 24, 20);
                 // Brake lights
-                ctx.fillStyle = "#f00";
-                ctx.fillRect(this.x - 14, this.y + this.h - 5, 6, 3);
-                ctx.fillRect(this.x + 8, this.y + this.h - 5, 6, 3);
+                ctx.fillStyle = "#600";
+                ctx.fillRect(this.x - 15, this.y + this.h - 5, 8, 3);
+                ctx.fillRect(this.x + 7, this.y + this.h - 5, 8, 3);
+            }
+            update(gSpeed) {
+                this.y += (gSpeed - this.vSpeed);
+                
+                if (this.behavior === 1) {
+                    this.swerveTimer--;
+                    if (this.swerveTimer <= 0) {
+                        // Switch to a random adjacent lane to cut off the player
+                        let dir = Math.random() > 0.5 ? 1 : -1;
+                        if (this.lane + dir >= 0 && this.lane + dir < LANES) {
+                            this.lane += dir;
+                            this.targetX = (this.lane * LANE_W) + (LANE_W / 2);
+                        }
+                        this.swerveTimer = 150 + Math.random() * 150;
+                    }
+                }
+                // Smooth steering for the AI
+                this.x += (this.targetX - this.x) * 0.06;
             }
         }
 
         function spawn() {
-            let count = Math.floor(Math.random() * 3) + 1;
-            let lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5).slice(0, count);
-            lanes.forEach(l => traffic.push(new Vehicle(l)));
+            let availableLanes = [0, 1, 2, 3].filter(l => !traffic.some(v => v.lane === l && v.y < 150));
+            if (availableLanes.length > 0) {
+                let count = Math.min(availableLanes.length - 1, Math.floor(Math.random() * 2) + 1);
+                let lanes = availableLanes.sort(() => Math.random() - 0.5).slice(0, count);
+                lanes.forEach(l => traffic.push(new Vehicle(l)));
+            }
         }
 
         let lastSpawn = 0;
-        function update(t) {
+        function loop(t) {
             if (gameSpeed < MAX_SPEED) gameSpeed += ACCEL;
             roadOffset = (roadOffset + gameSpeed) % 100;
             
-            // Movement physics
-            playerX += (rotation / STEER_LIMIT) * 11; 
-            playerX = Math.max(20, Math.min(canvas.width - 20, playerX));
+            // Player movement controlled by steering wheel
+            playerX += (rotation / STEER_LIMIT) * 12; 
+            playerX = Math.max(25, Math.min(canvas.width - 25, playerX));
 
-            // Smoothly center the car if not touching
-            if (!isDragging) {
-                rotation *= 0.88;
-                wheel.style.transform = `rotate(${rotation}deg)`;
-            }
+            // Auto-straighten if not touching
+            if (!isDragging) { rotation *= 0.88; wheel.style.transform = `rotate(${rotation}deg)`; }
 
             kmhDisp.innerText = Math.round(gameSpeed * 11).toString().padStart(2, '0');
-            score += Math.floor(gameSpeed / 6);
+            score += Math.floor(gameSpeed / 5);
             scoreDisp.innerText = score;
 
-            if (t - lastSpawn > (1600 - gameSpeed * 50)) {
-                spawn();
-                lastSpawn = t;
-            }
+            if (t - lastSpawn > (1400 - gameSpeed * 40)) { spawn(); lastSpawn = t; }
 
             traffic.forEach(v => {
-                v.y += (gameSpeed - v.vSpeed);
-                if (Math.abs(v.x - playerX) < 26 && v.y + v.h > canvas.height - 110 && v.y < canvas.height - 40) {
-                    location.reload(); 
+                v.update(gameSpeed);
+                // Hit Detection
+                if (Math.abs(v.x - playerX) < 28 && v.y + v.h > canvas.height - 115 && v.y < canvas.height - 40) {
+                    location.reload(); // Crash & Restart
                 }
             });
-            traffic = traffic.filter(v => v.y < canvas.height + 200);
-        }
+            traffic = traffic.filter(v => v.y < canvas.height + 300);
 
-        function render(t) {
+            // DRAWING
             ctx.fillStyle = "#151517";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Road Markings
+            // Highway Lanes
             ctx.strokeStyle = "#2a2a2d";
             ctx.setLineDash([40, 60]);
             ctx.lineDashOffset = -roadOffset;
             for(let i=1; i<LANES; i++) {
-                ctx.beginPath();
-                ctx.moveTo(i * LANE_W, 0);
-                ctx.lineTo(i * LANE_W, canvas.height);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(i * LANE_W, 0); ctx.lineTo(i * LANE_W, canvas.height); ctx.stroke();
             }
 
             traffic.forEach(v => v.draw());
 
-            // Player
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = "#00f2ff";
+            // Player Car
+            ctx.shadowBlur = 20; ctx.shadowColor = "#00f2ff";
             ctx.fillStyle = "#00f2ff";
-            ctx.fillRect(playerX - 16, canvas.height - 110, 32, 65);
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "#000";
-            ctx.fillRect(playerX - 12, canvas.height - 100, 24, 15);
+            ctx.fillRect(playerX - 17, canvas.height - 110, 34, 70);
+            ctx.shadowBlur = 0; ctx.fillStyle = "#000";
+            ctx.fillRect(playerX - 13, canvas.height - 100, 26, 18);
 
-            update(t);
-            requestAnimationFrame(render);
+            requestAnimationFrame(loop);
         }
-        requestAnimationFrame(render);
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
