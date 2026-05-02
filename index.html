@@ -3,40 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Traffic Racer Mobile</title>
+    <title>Traffic Racer | Fixed Steering</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --neon: #00f2ff;
-            --danger: #ff3366;
-            --asphalt: #1a1a1c;
-        }
+        :root { --neon: #00f2ff; --danger: #ff3366; --road: #151517; }
+        body { margin: 0; background: #000; height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; overflow: hidden; touch-action: none; }
 
-        body { 
-            margin: 0; background: #000; 
-            height: 100vh; width: 100vw; 
-            display: flex; justify-content: center; align-items: center; 
-            overflow: hidden; touch-action: none; 
-        }
-
-        /* 9:16 Portrait Container */
         #viewport {
             position: relative;
             width: 100vw; height: 177.78vw;
             max-width: 56.25vh; max-height: 100vh;
-            background: var(--asphalt);
+            background: var(--road);
             display: flex; flex-direction: column;
             border: 2px solid #333;
         }
 
-        #game-view { flex: 1; position: relative; overflow: hidden; background: #111; }
+        #game-view { flex: 1; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; }
 
-        /* Professional Dashboard */
         #dashboard {
             height: 32%;
             background: linear-gradient(180deg, #1c1c21 0%, #050505 100%);
-            border-top: 5px solid #2a2a2a;
+            border-top: 4px solid #2a2a2a;
             padding: 15px;
             box-sizing: border-box;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -44,13 +32,8 @@
 
         .dash-top { display: flex; justify-content: space-between; align-items: center; }
         .hud-text { font-family: 'Share Tech Mono', monospace; color: var(--neon); font-size: 12px; }
-        
-        .speed-unit { text-align: center; font-family: 'Orbitron', sans-serif; color: #fff; }
-        .speed-val { font-size: 42px; line-height: 1; text-shadow: 0 0 15px var(--neon); }
+        .speed-val { font-family: 'Orbitron', sans-serif; font-size: 42px; color: #fff; text-shadow: 0 0 15px var(--neon); line-height: 1; }
 
-        .dash-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
-
-        /* The 90° Locked Steering Wheel */
         #steering-wheel {
             width: 100px; height: 100px;
             position: relative; cursor: grab;
@@ -67,24 +50,15 @@
 
     <div id="viewport">
         <div id="game-view"><canvas id="gameCanvas"></canvas></div>
-
         <div id="dashboard">
             <div class="dash-top">
-                <div class="hud-text">
-                    SCORE
-                    <div id="score-val" style="color: #fff; font-size: 18px;">0</div>
-                </div>
-                <div class="speed-unit">
+                <div class="hud-text">SCORE<div id="score-val" style="color: #fff; font-size: 18px;">0</div></div>
+                <div style="text-align: center;">
                     <div id="kmh" class="speed-val">00</div>
-                    <div style="font-size: 9px; letter-spacing: 3px; color: #555;">KM/H</div>
+                    <div style="font-size: 8px; color: #555; font-family: Orbitron;">KM/H</div>
                 </div>
             </div>
-
-            <div class="dash-bottom">
-                <div style="display: flex; gap: 8px;">
-                    <div style="width: 30px; height: 15px; background: #111; border: 1px solid #222;"></div>
-                    <div style="width: 30px; height: 15px; background: #111; border: 1px solid #222;"></div>
-                </div>
+            <div style="display: flex; justify-content: flex-end;">
                 <div id="steering-wheel">
                     <div class="top-marker"></div>
                     <div class="spoke"></div>
@@ -108,27 +82,26 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // --- TRAFFIC RACER CONFIG ---
+        // --- PHYSICS CONFIG ---
         const LANES = 4;
         const LANE_W = canvas.width / LANES;
-        const STEER_LIMIT = 90; // Clamp at 90 degrees
+        const STEER_LIMIT = 90; 
         
         let gameSpeed = 3; 
-        const MAX_SPEED = 24;
-        const ACCEL = 0.007;
+        const MAX_SPEED = 25;
+        const ACCEL = 0.006;
 
         let playerX = canvas.width / 2;
-        let visualRot = 0;   // Visual clamped position
-        let thumbPos = 0;    // Real thumb rotation tracking
+        let rotation = 0;   // The output rotation
+        let lastAngle = 0;
         let isDragging = false;
-        let startAngle = 0;
         
         let traffic = [];
         let roadOffset = 0;
         let score = 0;
 
-        // --- INPUT ENGINE ---
-        function getAngle(e) {
+        // --- FIXED STEERING LOGIC ---
+        function getRawAngle(e) {
             const rect = wheel.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
             const cy = rect.top + rect.height / 2;
@@ -137,14 +110,32 @@
             return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
         }
 
-        const start = (e) => { isDragging = true; startAngle = getAngle(e) - thumbPos; e.preventDefault(); };
+        const start = (e) => { 
+            isDragging = true; 
+            lastAngle = getRawAngle(e); 
+            e.preventDefault(); 
+        };
+
         const move = (e) => {
             if (!isDragging) return;
-            thumbPos = getAngle(e) - startAngle;
-            // Visual Lock: Stop at 90, but track thumb beyond so it reverses instantly
-            visualRot = Math.max(-STEER_LIMIT, Math.min(STEER_LIMIT, thumbPos));
-            wheel.style.transform = `rotate(${visualRot}deg)`;
+            const currentAngle = getRawAngle(e);
+            let delta = currentAngle - lastAngle;
+
+            // Handle the 180/-180 degree wrap-around
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+
+            // Update rotation based on movement delta
+            rotation += delta;
+            
+            // Lock the rotation at 90 degrees
+            if (rotation > STEER_LIMIT) rotation = STEER_LIMIT;
+            if (rotation < -STEER_LIMIT) rotation = -STEER_LIMIT;
+
+            wheel.style.transform = `rotate(${rotation}deg)`;
+            lastAngle = currentAngle;
         };
+
         const end = () => { isDragging = false; };
 
         wheel.addEventListener('touchstart', start, {passive: false});
@@ -154,69 +145,62 @@
         window.addEventListener('mousemove', move);
         window.addEventListener('mouseup', end);
 
-        // --- VEHICLE SYSTEM ---
-        class NPC {
+        // --- TRAFFIC SYSTEM ---
+        class Vehicle {
             constructor(lane) {
                 this.lane = lane;
                 this.x = (lane * LANE_W) + (LANE_W / 2);
                 this.y = -150;
-                this.w = 34;
-                this.h = 68;
-                this.vSpeed = 4 + Math.random() * 6; // Slower than player
+                this.w = 32;
+                this.h = 65;
+                this.vSpeed = 4 + Math.random() * 6;
                 this.hue = Math.random() * 360;
             }
             draw() {
-                ctx.fillStyle = `hsl(${this.hue}, 50%, 45%)`;
-                ctx.fillRect(this.x - this.w/2, this.y, this.h/2, this.h); // Swap w/h slightly for car look
-                // Roof & Window
+                ctx.fillStyle = `hsl(${this.hue}, 50%, 40%)`;
+                ctx.fillRect(this.x - this.w/2, this.y, this.w, this.h);
                 ctx.fillStyle = "rgba(0,0,0,0.4)";
-                ctx.fillRect(this.x - 12, this.y + 12, 24, 20);
-                // Brake Lights
-                ctx.fillStyle = "#ff0000";
-                ctx.fillRect(this.x - 15, this.y + this.h - 5, 8, 3);
-                ctx.fillRect(this.x + 7, this.y + this.h - 5, 8, 3);
+                ctx.fillRect(this.x - 10, this.y + 12, 20, 18);
+                // Brake lights
+                ctx.fillStyle = "#f00";
+                ctx.fillRect(this.x - 14, this.y + this.h - 5, 6, 3);
+                ctx.fillRect(this.x + 8, this.y + this.h - 5, 6, 3);
             }
         }
 
         function spawn() {
-            // Traffic Racer Logic: Spawn 1-3 vehicles, ensuring a lane is open
             let count = Math.floor(Math.random() * 3) + 1;
             let lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5).slice(0, count);
-            lanes.forEach(l => traffic.push(new NPC(l)));
+            lanes.forEach(l => traffic.push(new Vehicle(l)));
         }
 
-        // --- CORE LOOP ---
         let lastSpawn = 0;
         function update(t) {
             if (gameSpeed < MAX_SPEED) gameSpeed += ACCEL;
             roadOffset = (roadOffset + gameSpeed) % 100;
             
-            // Movement calculated from visual rotation
-            playerX += (visualRot / STEER_LIMIT) * 11; 
-            playerX = Math.max(22, Math.min(canvas.width - 22, playerX));
+            // Movement physics
+            playerX += (rotation / STEER_LIMIT) * 11; 
+            playerX = Math.max(20, Math.min(canvas.width - 20, playerX));
 
+            // Smoothly center the car if not touching
             if (!isDragging) {
-                visualRot *= 0.86;
-                thumbPos = visualRot; // Sync
-                wheel.style.transform = `rotate(${visualRot}deg)`;
+                rotation *= 0.88;
+                wheel.style.transform = `rotate(${rotation}deg)`;
             }
 
-            // HUD Update
             kmhDisp.innerText = Math.round(gameSpeed * 11).toString().padStart(2, '0');
-            score += Math.floor(gameSpeed / 5);
+            score += Math.floor(gameSpeed / 6);
             scoreDisp.innerText = score;
 
-            // Spawning Logic
             if (t - lastSpawn > (1600 - gameSpeed * 50)) {
                 spawn();
                 lastSpawn = t;
             }
 
             traffic.forEach(v => {
-                v.y += (gameSpeed - v.vSpeed); // Relative Speed
-                
-                // Collision
-                if (Math.abs(v.x - playerX) < 28 && v.y + v.h > canvas.height - 110 && v.y < canvas.height - 40) {
+                v.y += (gameSpeed - v.vSpeed);
+                if (Math.abs(v.x - playerX) < 26 && v.y + v.h > canvas.height - 110 && v.y < canvas.height - 40) {
                     location.reload(); 
                 }
             });
@@ -240,20 +224,18 @@
 
             traffic.forEach(v => v.draw());
 
-            // Player Car
+            // Player
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#00f2ff";
             ctx.fillStyle = "#00f2ff";
-            ctx.fillRect(playerX - 17, canvas.height - 110, 34, 70);
-            
+            ctx.fillRect(playerX - 16, canvas.height - 110, 32, 65);
             ctx.shadowBlur = 0;
             ctx.fillStyle = "#000";
-            ctx.fillRect(playerX - 13, canvas.height - 102, 26, 18); // Windshield
+            ctx.fillRect(playerX - 12, canvas.height - 100, 24, 15);
 
             update(t);
             requestAnimationFrame(render);
         }
-
         requestAnimationFrame(render);
     </script>
 </body>
