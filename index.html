@@ -3,177 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Racer | Advanced Layering</title>
+    <title>3D Traffic Engine - Fixed</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
     <style>
-        :root { --neon: #00ffcc; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
-        #game-view { position: relative; width: 100vw; height: 100vh; }
+        #stage { position: relative; width: 100vw; height: 100vh; }
 
-        /* LAYER 1: THE COCKPIT PICTURE (The Base) */
+        /* THE COCKPIT PICTURE (Always visible) */
         #cockpit-bg {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: 1; /* Bottom Layer */
+            z-index: 5; /* Middle Layer */
             object-fit: fill;
-        }
-
-        /* LAYER 2: THE WORKING SPEEDO */
-        #speedo-mount {
-            position: absolute;
-            bottom: 12.8%; right: 17.5%;
-            width: 90px;
-            z-index: 5; /* Above Cockpit, Below Outside View */
-            text-align: center;
-            font-family: 'Orbitron', sans-serif;
             pointer-events: none;
         }
-        #kmh-txt { color: var(--neon); font-size: 26px; text-shadow: 0 0 10px var(--neon); line-height: 1; }
 
-        /* LAYER 3: THE OUTSIDE WORLD (3D VIEW) */
-        /* We place this ABOVE the picture but use transparency to see the dash */
+        /* THE OUTSIDE VIEW (Drawn through the PNG holes) */
         #worldCanvas {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: 10; /* Top Layer */
-            pointer-events: none;
+            z-index: 1; /* Bottom Layer - visible through Cock.png transparency */
         }
 
-        /* LAYER 4: STEERING CONTROL */
-        #steering-input {
+        /* THE SPEEDOMETER (Visible through the dash hole) */
+        #speedo-layer {
+            position: absolute;
+            bottom: 12.8%; right: 17.6%;
+            width: 90px;
+            z-index: 2; /* Between Road and Cockpit */
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+        }
+        #kmh { color: #00ffcc; font-size: 28px; text-shadow: 0 0 10px #00ffcc; line-height: 1; }
+
+        /* THE STEERING WHEEL (Top Layer) */
+        #wheel-layer {
             position: absolute;
             bottom: 4%; right: 7%;
             width: 150px; height: 150px;
-            z-index: 20; /* Interaction Layer */
+            z-index: 50;
         }
-        #steering-input img { width: 100%; height: 100%; }
+        #wheel-layer img { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-<div id="game-view">
-    <img src="Cock.png" id="cockpit-bg">
-
-    <div id="speedo-mount">
-        <div id="kmh-txt">0</div>
-        <div style="color: var(--neon); font-size: 8px; font-weight: bold; margin-top: 2px;">KM/H</div>
+<div id="stage">
+    <canvas id="worldCanvas"></canvas>
+    
+    <div id="speedo-layer">
+        <div id="kmh">000</div>
+        <div style="color: #00ffcc; font-size: 8px; font-weight: bold;">KM/H</div>
     </div>
 
-    <canvas id="worldCanvas"></canvas>
+    <img src="Cock.png" id="cockpit-bg">
 
-    <div id="steering-input">
-        <img src="wheel.png">
+    <div id="wheel-layer">
+        <img src="wheel.png" id="wheel-img">
     </div>
 </div>
 
 <script>
     const canvas = document.getElementById('worldCanvas');
     const ctx = canvas.getContext('2d');
-    const speedo = document.getElementById('kmh-txt');
-    const wheel = document.getElementById('steering-input');
+    const speedoTxt = document.getElementById('kmh');
+    const wheel = document.getElementById('wheel-layer');
 
-    // Load Assets - Ensure these filenames are correct!
-    const roadImg = new Image(); roadImg.src = 'road.jpg';
-    const trafficImg = new Image(); trafficImg.src = 'traffic_car.png';
+    // 1. ASSET LOADING (The engine won't start until these are ready)
+    let assetsLoaded = 0;
+    const totalAssets = 3;
+    function checkLoad() { assetsLoaded++; if(assetsLoaded === totalAssets) startEngine(); }
 
-    let state = {
-        playerX: 0,
-        wheelRot: 0,
-        speed: 0.06,
-        roadOffset: 0,
-        traffic: []
-    };
+    const roadImg = new Image(); roadImg.src = 'road.jpg'; roadImg.onload = checkLoad;
+    const npcImg = new Image(); npcImg.src = 'traffic_car.png'; npcImg.onload = checkLoad;
+    const cockImg = document.getElementById('cockpit-bg'); cockImg.onload = checkLoad;
 
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    // 2. GAME STATE
+    let playerX = 0, wheelRot = 0, speed = 0.08, roadOff = 0, traffic = [];
 
-    // Perspective projection aligned to your windshield frame
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    // 3. PERSPECTIVE MATH
     function project(x, y, z) {
         const scale = 1 / z;
-        // Adjusted center to align with the RHD windshield in Cock.png
-        const px = (canvas.width * 0.63) + (x - state.playerX * 1500) * scale;
+        // Aligned to your specific windshield layout
+        const px = (canvas.width * 0.63) + (x - playerX * 1600) * scale;
         const py = (canvas.height * 0.38) + (y * scale);
         return { x: px, y: py, scale: scale };
     }
 
-    class Traffic {
+    class Vehicle {
         constructor() {
             this.lane = Math.floor(Math.random() * 4);
-            this.laneX = -850 + (this.lane * 550);
-            this.z = 45;
+            this.laneX = -1000 + (this.lane * 650);
+            this.z = 50;
             this.vSpeed = 0.02 + Math.random() * 0.04;
         }
-        update() { this.z -= (state.speed - this.vSpeed); }
+        update() { this.z -= (speed - this.vSpeed); }
         draw() {
-            if (this.z < 0.1 || this.z > 45) return;
+            if (this.z < 0.1 || this.z > 50) return;
             const p = project(this.laneX, 350, this.z);
-            const w = 650 * p.scale;
-            const h = 450 * p.scale;
-            if (trafficImg.complete) ctx.drawImage(trafficImg, p.x - w/2, p.y - h, w, h);
+            const w = 700 * p.scale;
+            const h = 500 * p.scale;
+            ctx.drawImage(npcImg, p.x - w/2, p.y - h, w, h);
         }
     }
 
-    // Touch Controls
-    let driving = false, startA = 0;
-    const getAngle = (e) => {
+    // 4. CONTROL LOGIC
+    let isMoving = false, lastTouchA = 0;
+    const getA = (e) => {
         const r = wheel.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
         const px = e.touches ? e.touches[0].clientX : e.clientX;
         const py = e.touches ? e.touches[0].clientY : e.clientY;
         return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
     };
-    wheel.ontouchstart = (e) => { driving = true; startA = getAngle(e); e.preventDefault(); };
+    wheel.ontouchstart = (e) => { isMoving = true; lastTouchA = getA(e); e.preventDefault(); };
     window.ontouchmove = (e) => {
-        if (!driving) return;
-        let a = getAngle(e), d = a - startA;
+        if (!isMoving) return;
+        let a = getA(e), d = a - lastTouchA;
         if (d > 180) d -= 360; if (d < -180) d += 360;
-        state.wheelRot = Math.max(-90, Math.min(90, state.wheelRot + d));
-        wheel.style.transform = `rotate(${state.wheelRot}deg)`;
-        startA = a;
+        wheelRot = Math.max(-90, Math.min(90, wheelRot + d));
+        wheel.style.transform = `rotate(${wheelRot}deg)`;
+        lastTouchA = a;
     };
-    window.ontouchend = () => driving = false;
+    window.ontouchend = () => isMoving = false;
 
-    function loop() {
-        // IMPORTANT: We use clearRect instead of fillRect 
-        // to keep the dashboard visible beneath the canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        state.roadOffset = (state.roadOffset + state.speed * 90) % 100;
-        state.playerX += (state.wheelRot / 90) * 0.1;
-        state.playerX = Math.max(-2.6, Math.min(2.6, state.playerX));
-        
-        if (!driving) { state.wheelRot *= 0.85; wheel.style.transform = `rotate(${state.wheelRot}deg)`; }
+    // 5. THE ENGINE LOOP
+    function startEngine() {
+        function loop() {
+            // Draw background
+            ctx.fillStyle = "#020205"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            roadOff = (roadOff + speed * 100) % 100;
+            playerX += (wheelRot / 90) * 0.12;
+            playerX = Math.max(-2.8, Math.min(2.8, playerX));
+            if (!isMoving) { wheelRot *= 0.8; wheel.style.transform = `rotate(${wheelRot}deg)`; }
 
-        // Render Road
-        for (let z = 45; z > 0.1; z -= 1.8) {
-            const p = project(0, 350, z), pNext = project(0, 350, z - 1.8);
-            const w = 5500 * p.scale;
-            if (roadImg.complete) ctx.drawImage(roadImg, p.x - w/2, p.y, w, pNext.y - p.y);
-        }
-
-        // Handle Traffic
-        if (Math.random() < 0.02 && state.traffic.length < 5) state.traffic.push(new Traffic());
-        state.traffic.forEach((t, i) => {
-            t.update(); t.draw();
-            if (t.z < 1.1 && t.z > 0.6 && Math.abs(t.laneX - state.playerX * 1500) < 350) {
-                location.reload(); 
+            // DRAW ROAD
+            for (let z = 50; z > 0.1; z -= 2) {
+                const p = project(0, 350, z), pNext = project(0, 350, z - 2);
+                const w = 6000 * p.scale;
+                ctx.drawImage(roadImg, p.x - w/2, p.y, w, pNext.y - p.y);
             }
-            if (t.z < 0.1) state.traffic.splice(i, 1);
-        });
 
-        // Speedo Update
-        speedo.innerText = Math.round(state.speed * 1000);
-        if (state.speed < 0.8) state.speed += 0.0001;
+            // TRAFFIC SPAWN
+            if (Math.random() < 0.03 && traffic.length < 5) traffic.push(new Vehicle());
 
-        requestAnimationFrame(loop);
+            traffic.forEach((v, i) => {
+                v.update(); v.draw();
+                // Collision check (Z between 1.2 and 0.5 is your windshield)
+                if (v.z < 1.2 && v.z > 0.5 && Math.abs(v.laneX - playerX * 1600) < 400) {
+                    location.reload(); 
+                }
+                if (v.z < 0.1) traffic.splice(i, 1);
+            });
+
+            // UPDATE SPEEDO
+            speedoTxt.innerText = Math.round(speed * 1200);
+            if (speed < 0.9) speed += 0.0001;
+
+            requestAnimationFrame(loop);
+        }
+        loop();
     }
-    loop();
 </script>
 </body>
 </html>
