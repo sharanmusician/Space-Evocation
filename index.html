@@ -3,173 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Traffic Engine - Fixed</title>
+    <title>3D Prototype - Cockpit Overlay</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #111; overflow: hidden; touch-action: none; }
         #stage { position: relative; width: 100vw; height: 100vh; }
 
-        /* THE COCKPIT PICTURE (Always visible) */
-        #cockpit-bg {
+        /* LAYER 1: 3D WORLD (BOXES) */
+        #world {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: 5; /* Middle Layer */
+            z-index: 1; /* Sits behind the Cock.png */
+        }
+
+        /* LAYER 2: SPEEDO (ALIGNED TO DASH HOLE) */
+        #dash-speedo {
+            position: absolute;
+            bottom: 12.8%; right: 17.6%;
+            width: 90px;
+            z-index: 2; /* Visible through Cock.png hole */
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+            pointer-events: none;
+        }
+        #kmh { color: #00ffcc; font-size: 26px; text-shadow: 0 0 10px #00ffcc; line-height: 1; }
+
+        /* LAYER 3: YOUR COCKPIT (THE PNG) */
+        #cockpit-frame {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10; /* The main frame */
             object-fit: fill;
             pointer-events: none;
         }
 
-        /* THE OUTSIDE VIEW (Drawn through the PNG holes) */
-        #worldCanvas {
+        /* LAYER 4: STEERING WHEEL (BOX PLACEHOLDER) */
+        #wheel-ui {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 1; /* Bottom Layer - visible through Cock.png transparency */
+            bottom: 5%; right: 8%;
+            width: 130px; height: 130px;
+            z-index: 20;
+            background: rgba(0, 255, 204, 0.2);
+            border: 4px dashed #00ffcc;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: #00ffcc; font-family: sans-serif; font-weight: bold;
         }
-
-        /* THE SPEEDOMETER (Visible through the dash hole) */
-        #speedo-layer {
-            position: absolute;
-            bottom: 12.8%; right: 17.6%;
-            width: 90px;
-            z-index: 2; /* Between Road and Cockpit */
-            text-align: center;
-            font-family: 'Orbitron', sans-serif;
-        }
-        #kmh { color: #00ffcc; font-size: 28px; text-shadow: 0 0 10px #00ffcc; line-height: 1; }
-
-        /* THE STEERING WHEEL (Top Layer) */
-        #wheel-layer {
-            position: absolute;
-            bottom: 4%; right: 7%;
-            width: 150px; height: 150px;
-            z-index: 50;
-        }
-        #wheel-layer img { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
 <div id="stage">
-    <canvas id="worldCanvas"></canvas>
-    
-    <div id="speedo-layer">
+    <canvas id="world"></canvas>
+
+    <div id="dash-speedo">
         <div id="kmh">000</div>
         <div style="color: #00ffcc; font-size: 8px; font-weight: bold;">KM/H</div>
     </div>
 
-    <img src="Cock.png" id="cockpit-bg">
+    <img src="Cock.png" id="cockpit-frame">
 
-    <div id="wheel-layer">
-        <img src="wheel.png" id="wheel-img">
-    </div>
+    <div id="wheel-ui" id="control">STEER</div>
 </div>
 
 <script>
-    const canvas = document.getElementById('worldCanvas');
+    const canvas = document.getElementById('world');
     const ctx = canvas.getContext('2d');
     const speedoTxt = document.getElementById('kmh');
-    const wheel = document.getElementById('wheel-layer');
+    const steering = document.getElementById('wheel-ui');
 
-    // 1. ASSET LOADING (The engine won't start until these are ready)
-    let assetsLoaded = 0;
-    const totalAssets = 3;
-    function checkLoad() { assetsLoaded++; if(assetsLoaded === totalAssets) startEngine(); }
-
-    const roadImg = new Image(); roadImg.src = 'road.jpg'; roadImg.onload = checkLoad;
-    const npcImg = new Image(); npcImg.src = 'traffic_car.png'; npcImg.onload = checkLoad;
-    const cockImg = document.getElementById('cockpit-bg'); cockImg.onload = checkLoad;
-
-    // 2. GAME STATE
-    let playerX = 0, wheelRot = 0, speed = 0.08, roadOff = 0, traffic = [];
+    let playerX = 0, wheelRot = 0, speed = 0.05, roadOff = 0, traffic = [];
 
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    // 3. PERSPECTIVE MATH
     function project(x, y, z) {
         const scale = 1 / z;
-        // Aligned to your specific windshield layout
-        const px = (canvas.width * 0.63) + (x - playerX * 1600) * scale;
+        const px = (canvas.width * 0.63) + (x - playerX * 1400) * scale;
         const py = (canvas.height * 0.38) + (y * scale);
         return { x: px, y: py, scale: scale };
     }
 
-    class Vehicle {
+    class Obstacle {
         constructor() {
             this.lane = Math.floor(Math.random() * 4);
-            this.laneX = -1000 + (this.lane * 650);
-            this.z = 50;
-            this.vSpeed = 0.02 + Math.random() * 0.04;
+            this.laneX = -800 + (this.lane * 530);
+            this.z = 40;
         }
-        update() { this.z -= (speed - this.vSpeed); }
+        update() { this.z -= (speed * 0.8); }
         draw() {
-            if (this.z < 0.1 || this.z > 50) return;
+            if (this.z < 0.2) return;
             const p = project(this.laneX, 350, this.z);
-            const w = 700 * p.scale;
-            const h = 500 * p.scale;
-            ctx.drawImage(npcImg, p.x - w/2, p.y - h, w, h);
+            const size = 500 * p.scale;
+            ctx.fillStyle = "red";
+            ctx.fillRect(p.x - size/2, p.y - size, size, size);
         }
     }
 
-    // 4. CONTROL LOGIC
-    let isMoving = false, lastTouchA = 0;
+    // Steering logic
+    let active = false, lastA = 0;
     const getA = (e) => {
-        const r = wheel.getBoundingClientRect();
+        const r = steering.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
         const px = e.touches ? e.touches[0].clientX : e.clientX;
         const py = e.touches ? e.touches[0].clientY : e.clientY;
         return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
     };
-    wheel.ontouchstart = (e) => { isMoving = true; lastTouchA = getA(e); e.preventDefault(); };
-    window.ontouchmove = (e) => {
-        if (!isMoving) return;
-        let a = getA(e), d = a - lastTouchA;
+    steering.onmousedown = steering.ontouchstart = (e) => { active = true; lastA = getA(e); e.preventDefault(); };
+    window.onmousemove = window.ontouchmove = (e) => {
+        if (!active) return;
+        let a = getA(e), d = a - lastA;
         if (d > 180) d -= 360; if (d < -180) d += 360;
         wheelRot = Math.max(-90, Math.min(90, wheelRot + d));
-        wheel.style.transform = `rotate(${wheelRot}deg)`;
-        lastTouchA = a;
+        steering.style.transform = `rotate(${wheelRot}deg)`;
+        lastA = a;
     };
-    window.ontouchend = () => isMoving = false;
+    window.onmouseup = window.ontouchend = () => active = false;
 
-    // 5. THE ENGINE LOOP
-    function startEngine() {
-        function loop() {
-            // Draw background
-            ctx.fillStyle = "#020205"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            roadOff = (roadOff + speed * 100) % 100;
-            playerX += (wheelRot / 90) * 0.12;
-            playerX = Math.max(-2.8, Math.min(2.8, playerX));
-            if (!isMoving) { wheelRot *= 0.8; wheel.style.transform = `rotate(${wheelRot}deg)`; }
+    function loop() {
+        // Draw the horizon/ground
+        ctx.fillStyle = "#111"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        playerX += (wheelRot / 90) * 0.08;
+        if (!active) { wheelRot *= 0.85; steering.style.transform = `rotate(${wheelRot}deg)`; }
 
-            // DRAW ROAD
-            for (let z = 50; z > 0.1; z -= 2) {
-                const p = project(0, 350, z), pNext = project(0, 350, z - 2);
-                const w = 6000 * p.scale;
-                ctx.drawImage(roadImg, p.x - w/2, p.y, w, pNext.y - p.y);
-            }
-
-            // TRAFFIC SPAWN
-            if (Math.random() < 0.03 && traffic.length < 5) traffic.push(new Vehicle());
-
-            traffic.forEach((v, i) => {
-                v.update(); v.draw();
-                // Collision check (Z between 1.2 and 0.5 is your windshield)
-                if (v.z < 1.2 && v.z > 0.5 && Math.abs(v.laneX - playerX * 1600) < 400) {
-                    location.reload(); 
-                }
-                if (v.z < 0.1) traffic.splice(i, 1);
-            });
-
-            // UPDATE SPEEDO
-            speedoTxt.innerText = Math.round(speed * 1200);
-            if (speed < 0.9) speed += 0.0001;
-
-            requestAnimationFrame(loop);
+        // DRAW 3D ROAD BOXES (Gray segments)
+        for (let z = 40; z > 0.1; z -= 2) {
+            const p = project(0, 350, z), pNext = project(0, 350, z - 2);
+            const w = 4000 * p.scale;
+            ctx.fillStyle = (Math.floor(z + (Date.now()/100)) % 2 == 0) ? "#333" : "#222";
+            ctx.fillRect(p.x - w/2, p.y, w, pNext.y - p.y);
         }
-        loop();
+
+        // TRAFFIC BOXES
+        if (Math.random() < 0.02) traffic.push(new Obstacle());
+        traffic.forEach((v, i) => {
+            v.update(); v.draw();
+            if (v.z < 1.0 && v.z > 0.5 && Math.abs(v.laneX - playerX * 1400) < 300) {
+                location.reload(); 
+            }
+            if (v.z < 0.1) traffic.splice(i, 1);
+        });
+
+        // UPDATE SPEEDO
+        speedoTxt.innerText = Math.round(speed * 1200);
+        if (speed < 0.7) speed += 0.0001;
+
+        requestAnimationFrame(loop);
     }
+    loop();
 </script>
 </body>
 </html>
