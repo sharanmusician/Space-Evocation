@@ -3,87 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Space Evocation | High-Speed Steering</title>
+    <title>Space Evocation | Cockpit Edition</title>
     <style>
-        body { margin: 0; background: #020205; color: #00f2ff; font-family: 'Orbitron', sans-serif; overflow: hidden; touch-action: none; }
-        canvas { display: block; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
         
-        .hud { position: absolute; top: 20px; left: 20px; font-size: 24px; font-weight: bold; pointer-events: none; }
+        body { 
+            margin: 0; 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden; 
+            touch-action: none;
+        }
 
-        /* The Custom CSS Steering Wheel */
-        #controls {
+        /* 16:9 Game Container */
+        #game-container {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            width: 100vw;
+            max-height: 56.25vw; /* 9/16 of width */
+            background: #020205;
+            overflow: hidden;
+            border: 2px solid #333;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* Dashboard Interior */
+        #dashboard {
             position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 200px;
-            height: 200px;
+            bottom: 0;
+            width: 100%;
+            height: 25%;
+            background: linear-gradient(to top, #0f0f0f 0%, #1a1a1a 80%, #2a2a2a 100%);
+            border-top: 4px solid #333;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-end;
+            padding: 20px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        /* Speedometer/Digital HUD on Dashboard */
+        .hud-display {
+            position: absolute;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid #00f2ff;
+            padding: 10px 30px;
+            border-radius: 5px;
+            color: #00f2ff;
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+        }
+
+        /* Realistic Corner Steering Wheel */
+        #wheel-tray {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            width: 140px;
+            height: 140px;
+            pointer-events: auto;
         }
 
         #steering-wheel {
             width: 100%;
             height: 100%;
-            border: 12px solid #444;
-            border-top-color: #00f2ff; /* Indicates "Top" */
             border-radius: 50%;
+            background: #111;
+            box-sizing: border-box;
+            border: 10px solid #222;
+            box-shadow: inset 0 0 10px #000, 0 0 15px rgba(0,0,0,0.8);
             position: relative;
             cursor: grab;
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
-            background: radial-gradient(circle, rgba(20,20,30,0.8) 0%, rgba(0,0,0,0.9) 70%);
             transition: transform 0.05s linear;
         }
 
-        /* Inner spokes of the wheel */
+        /* Leather texture and grip detail */
         #steering-wheel::before {
             content: '';
             position: absolute;
-            top: 50%;
-            left: 0;
-            width: 100%;
-            height: 8px;
-            background: #444;
-            transform: translateY(-50%);
+            top: 50%; left: 10%; right: 10%; height: 12px;
+            background: #222; transform: translateY(-50%);
+            border-radius: 4px;
         }
 
         #steering-wheel::after {
             content: '';
             position: absolute;
-            left: 50%;
-            top: 0;
-            width: 8px;
-            height: 100%;
-            background: #444;
-            transform: translateX(-50%);
+            left: 50%; top: 10%; bottom: 10%; width: 12px;
+            background: #222; transform: translateX(-50%);
+            border-radius: 4px;
         }
 
-        #steering-wheel:active { cursor: grabbing; }
+        /* Center Hub */
+        .wheel-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 40px; height: 40px;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        /* Top Marker (The 12 o'clock stripe) */
+        .top-marker {
+            position: absolute;
+            top: 0; left: 50%;
+            width: 12px; height: 10px;
+            background: #ff3366;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body>
-    <div class="hud">SCORE: <span id="score">0</span></div>
-    <canvas id="gameCanvas"></canvas>
 
-    <div id="controls">
-        <div id="steering-wheel"></div>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="dashboard">
+            <div class="hud-display">
+                <div style="font-size: 10px; opacity: 0.8;">VELOCITY</div>
+                <div id="speed-val">0</div>
+                <div style="font-size: 10px; margin-top: 5px;">SCORE: <span id="score">0</span></div>
+            </div>
+        </div>
+
+        <div id="wheel-tray">
+            <div id="steering-wheel">
+                <div class="top-marker"></div>
+                <div class="wheel-center"></div>
+            </div>
+        </div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
+        const speedElement = document.getElementById('speed-val');
         const wheel = document.getElementById('steering-wheel');
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // Logic to maintain 16:9 internal resolution
+        function setSize() {
+            canvas.width = 1280;
+            canvas.height = 720;
+        }
+        setSize();
 
-        // --- ADJUSTABLE SETTINGS ---
-        const MOVEMENT_SENSITIVITY = 0.15; // Higher = Faster ship response
-        const MAX_SHIP_SPEED = 25;        // Maximum horizontal speed
-        const AUTO_CENTER_SPEED = 0.88;    // Lower = Snaps back faster
-        // ---------------------------
+        // Constants
+        const MOVEMENT_SENSITIVITY = 0.2; 
+        const MAX_SHIP_SPEED = 30;
+        const AUTO_CENTER_SPEED = 0.85;
 
         let score = 0;
         let gameActive = true;
@@ -92,7 +172,7 @@
         let isRotating = false;
         let startAngle = 0;
 
-        const player = { width: 36, height: 36, color: '#00f2ff' };
+        const player = { width: 40, height: 40, color: '#00f2ff' };
         const obstacles = [];
 
         function getMouseAngle(event) {
@@ -114,8 +194,7 @@
             if (!isRotating) return;
             const newAngle = getMouseAngle(e);
             currentRotation = newAngle - startAngle;
-            // Cap rotation to prevent infinite spinning
-            currentRotation = Math.max(-360, Math.min(360, currentRotation));
+            currentRotation = Math.max(-450, Math.min(450, currentRotation));
             wheel.style.transform = `rotate(${currentRotation}deg)`;
         };
 
@@ -129,69 +208,76 @@
         window.addEventListener('touchend', stopRotation);
 
         function spawnObstacle() {
-            const size = Math.random() * 40 + 25;
+            const size = Math.random() * 50 + 30;
             obstacles.push({
                 x: Math.random() * (canvas.width - size),
                 y: -size,
                 size: size,
-                speed: Math.random() * 3 + 5 // Faster falling speed
+                speed: Math.random() * 4 + 6
             });
         }
 
         function update() {
             if (!gameActive) return;
 
-            // Calculate movement: further rotation = faster movement
             let velocity = currentRotation * MOVEMENT_SENSITIVITY;
             velocity = Math.max(-MAX_SHIP_SPEED, Math.min(MAX_SHIP_SPEED, velocity));
             playerX += velocity;
+            
+            speedElement.innerText = Math.abs(Math.round(velocity * 10));
 
-            // Decay rotation when not grabbing (auto-center)
             if (!isRotating) {
                 currentRotation *= AUTO_CENTER_SPEED;
-                if (Math.abs(currentRotation) < 0.1) currentRotation = 0;
                 wheel.style.transform = `rotate(${currentRotation}deg)`;
             }
 
-            // Boundaries
             if (playerX < 0) playerX = 0;
             if (playerX > canvas.width - player.width) playerX = canvas.width - player.width;
+
+            // Collision logic adjusted for dashboard height
+            const dashboardTop = canvas.height * 0.75;
 
             obstacles.forEach((obs, index) => {
                 obs.y += obs.speed;
                 
-                // Collision
                 if (obs.x < playerX + player.width &&
                     obs.x + obs.size > playerX &&
-                    obs.y < (canvas.height - 130) + player.height &&
-                    obs.y + obs.size > (canvas.height - 130)) {
+                    obs.y < (dashboardTop - 50) + player.height &&
+                    obs.y + obs.size > (dashboardTop - 50)) {
                     gameActive = false;
-                    alert("SHIP DESTROYED. Score: " + score);
+                    alert("CRITICAL DAMAGE! Score: " + score);
                     location.reload();
                 }
 
-                if (obs.y > canvas.height) {
+                if (obs.y > dashboardTop) {
                     obstacles.splice(index, 1);
                     score += 10;
                     scoreElement.innerText = score;
                 }
             });
 
-            if (Math.random() < 0.06) spawnObstacle();
+            if (Math.random() < 0.07) spawnObstacle();
         }
 
         function draw() {
+            // Draw background
             ctx.fillStyle = '#020205';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Ship (Futuristic look)
+            // Stars
+            ctx.fillStyle = "#fff";
+            for(let i=0; i<5; i++) {
+                ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
+            }
+
+            // Ship
             ctx.shadowBlur = 15;
             ctx.shadowColor = player.color;
             ctx.fillStyle = player.color;
             ctx.beginPath();
-            ctx.moveTo(playerX + player.width / 2, canvas.height - 130);
-            ctx.lineTo(playerX, canvas.height - 130 + player.height);
-            ctx.lineTo(playerX + player.width, canvas.height - 130 + player.height);
+            ctx.moveTo(playerX + player.width / 2, 720 * 0.75 - 50);
+            ctx.lineTo(playerX, 720 * 0.75 - 10);
+            ctx.lineTo(playerX + player.width, 720 * 0.75 - 10);
             ctx.fill();
 
             // Obstacles
@@ -206,11 +292,6 @@
         }
 
         draw();
-
-        window.onresize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        };
     </script>
 </body>
 </html>
