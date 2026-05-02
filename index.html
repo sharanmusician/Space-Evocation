@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Space Evocation | Steering Edition</title>
+    <title>Space Evocation | High-Speed Steering</title>
     <style>
-        body { margin: 0; background: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: none; }
+        body { margin: 0; background: #020205; color: #00f2ff; font-family: 'Orbitron', sans-serif; overflow: hidden; touch-action: none; }
         canvas { display: block; }
         
-        .hud { position: absolute; top: 20px; left: 20px; font-size: 22px; text-shadow: 0 0 10px #00ffcc; pointer-events: none; }
+        .hud { position: absolute; top: 20px; left: 20px; font-size: 24px; font-weight: bold; pointer-events: none; }
 
-        /* The Steering UI */
+        /* The Custom CSS Steering Wheel */
         #controls {
             position: absolute;
-            bottom: 30px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
-            width: 220px;
-            height: 220px;
+            width: 200px;
+            height: 200px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -26,11 +26,37 @@
         #steering-wheel {
             width: 100%;
             height: 100%;
-            background: url('https://cdn-icons-png.flaticon.com/512/1986/1986937.png'); /* Steering Wheel Icon */
-            background-size: cover;
-            filter: drop-shadow(0 0 10px #00ffcc);
+            border: 12px solid #444;
+            border-top-color: #00f2ff; /* Indicates "Top" */
+            border-radius: 50%;
+            position: relative;
             cursor: grab;
-            transition: transform 0.1s linear;
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+            background: radial-gradient(circle, rgba(20,20,30,0.8) 0%, rgba(0,0,0,0.9) 70%);
+            transition: transform 0.05s linear;
+        }
+
+        /* Inner spokes of the wheel */
+        #steering-wheel::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background: #444;
+            transform: translateY(-50%);
+        }
+
+        #steering-wheel::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            background: #444;
+            transform: translateX(-50%);
         }
 
         #steering-wheel:active { cursor: grabbing; }
@@ -53,27 +79,28 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Game State
+        // --- ADJUSTABLE SETTINGS ---
+        const MOVEMENT_SENSITIVITY = 0.15; // Higher = Faster ship response
+        const MAX_SHIP_SPEED = 25;        // Maximum horizontal speed
+        const AUTO_CENTER_SPEED = 0.88;    // Lower = Snaps back faster
+        // ---------------------------
+
         let score = 0;
         let gameActive = true;
         let playerX = canvas.width / 2;
-        
-        // Steering State
-        let currentRotation = 0; // In degrees
+        let currentRotation = 0; 
         let isRotating = false;
         let startAngle = 0;
 
-        const player = { width: 40, height: 40, color: '#00ffcc' };
+        const player = { width: 36, height: 36, color: '#00f2ff' };
         const obstacles = [];
 
-        // --- VIRTUAL STEERING CALCULATIONS ---
         function getMouseAngle(event) {
             const rect = wheel.getBoundingClientRect();
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
             const clientX = event.touches ? event.touches[0].clientX : event.clientX;
             const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-            
             return Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
         }
 
@@ -87,51 +114,46 @@
             if (!isRotating) return;
             const newAngle = getMouseAngle(e);
             currentRotation = newAngle - startAngle;
-
-            // Limit rotation to 1.5 turns (540 degrees) each way
-            currentRotation = Math.max(-540, Math.min(540, currentRotation));
+            // Cap rotation to prevent infinite spinning
+            currentRotation = Math.max(-360, Math.min(360, currentRotation));
             wheel.style.transform = `rotate(${currentRotation}deg)`;
         };
 
-        const stopRotation = () => {
-            isRotating = false;
-        };
+        const stopRotation = () => { isRotating = false; };
 
-        // Event Listeners
         wheel.addEventListener('mousedown', startRotation);
         window.addEventListener('mousemove', updateRotation);
         window.addEventListener('mouseup', stopRotation);
-        
-        wheel.addEventListener('touchstart', startRotation);
-        window.addEventListener('touchmove', updateRotation);
+        wheel.addEventListener('touchstart', startRotation, {passive: false});
+        window.addEventListener('touchmove', updateRotation, {passive: false});
         window.addEventListener('touchend', stopRotation);
 
-        // --- GAME LOGIC ---
         function spawnObstacle() {
-            const size = Math.random() * 50 + 20;
+            const size = Math.random() * 40 + 25;
             obstacles.push({
                 x: Math.random() * (canvas.width - size),
                 y: -size,
                 size: size,
-                speed: Math.random() * 2 + 4
+                speed: Math.random() * 3 + 5 // Faster falling speed
             });
         }
 
         function update() {
             if (!gameActive) return;
 
-            // Move ship based on rotation intensity
-            // If rotation is 0, ship stays still. If rotation is 180, ship moves fast.
-            const moveSpeed = currentRotation / 20; 
-            playerX += moveSpeed;
+            // Calculate movement: further rotation = faster movement
+            let velocity = currentRotation * MOVEMENT_SENSITIVITY;
+            velocity = Math.max(-MAX_SHIP_SPEED, Math.min(MAX_SHIP_SPEED, velocity));
+            playerX += velocity;
 
-            // Auto-centering force (slowly returns wheel to 0 when not grabbed)
+            // Decay rotation when not grabbing (auto-center)
             if (!isRotating) {
-                currentRotation *= 0.92;
+                currentRotation *= AUTO_CENTER_SPEED;
+                if (Math.abs(currentRotation) < 0.1) currentRotation = 0;
                 wheel.style.transform = `rotate(${currentRotation}deg)`;
             }
 
-            // Screen boundaries
+            // Boundaries
             if (playerX < 0) playerX = 0;
             if (playerX > canvas.width - player.width) playerX = canvas.width - player.width;
 
@@ -141,10 +163,10 @@
                 // Collision
                 if (obs.x < playerX + player.width &&
                     obs.x + obs.size > playerX &&
-                    obs.y < (canvas.height - 120) + player.height &&
-                    obs.y + obs.size > (canvas.height - 120)) {
+                    obs.y < (canvas.height - 130) + player.height &&
+                    obs.y + obs.size > (canvas.height - 130)) {
                     gameActive = false;
-                    alert("MISSION FAILED. Score: " + score);
+                    alert("SHIP DESTROYED. Score: " + score);
                     location.reload();
                 }
 
@@ -155,33 +177,28 @@
                 }
             });
 
-            if (Math.random() < 0.05) spawnObstacle();
+            if (Math.random() < 0.06) spawnObstacle();
         }
 
         function draw() {
-            // Space Background
-            ctx.fillStyle = '#000';
+            ctx.fillStyle = '#020205';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Player Ship (Neon Triangle)
+            // Ship (Futuristic look)
             ctx.shadowBlur = 15;
             ctx.shadowColor = player.color;
-            ctx.strokeStyle = player.color;
-            ctx.lineWidth = 3;
+            ctx.fillStyle = player.color;
             ctx.beginPath();
-            ctx.moveTo(playerX + player.width / 2, canvas.height - 120);
-            ctx.lineTo(playerX, canvas.height - 120 + player.height);
-            ctx.lineTo(playerX + player.width, canvas.height - 120 + player.height);
-            ctx.closePath();
-            ctx.stroke();
+            ctx.moveTo(playerX + player.width / 2, canvas.height - 130);
+            ctx.lineTo(playerX, canvas.height - 130 + player.height);
+            ctx.lineTo(playerX + player.width, canvas.height - 130 + player.height);
+            ctx.fill();
 
-            // Draw Obstacles
+            // Obstacles
             ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ff4444';
+            ctx.fillStyle = '#ff3366';
             obstacles.forEach(obs => {
-                ctx.beginPath();
-                ctx.arc(obs.x + obs.size/2, obs.y + obs.size/2, obs.size/2, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillRect(obs.x, obs.y, obs.size, obs.size);
             });
 
             update();
