@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Evasion</title>
+    <style>
+        body { margin: 0; background: #050505; color: white; font-family: sans-serif; overflow: hidden; }
+        canvas { display: block; margin: 0 auto; background: #000; border: 2px solid #333; }
+        .ui { position: absolute; top: 10px; left: 10px; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div class="ui">Score: <span id="score">0</span></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let score = 0;
+        let gameActive = true;
+
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            size: 20,
+            color: '#00ffcc'
+        };
+
+        const obstacles = [];
+
+        function spawnObstacle() {
+            const size = Math.random() * 40 + 20;
+            obstacles.push({
+                x: Math.random() * (canvas.width - size),
+                y: -size,
+                size: size,
+                speed: Math.random() * 3 + 2
+            });
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            // Move obstacles
+            obstacles.forEach((obs, index) => {
+                obs.y += obs.speed;
+                
+                // Collision check
+                if (obs.x < player.x + player.size &&
+                    obs.x + obs.size > player.x &&
+                    obs.y < player.y + player.size &&
+                    obs.y + obs.size > player.y) {
+                    gameActive = false;
+                    alert(`Game Over! Score: ${score}`);
+                    location.reload();
+                }
+
+                // Cleanup and scoring
+                if (obs.y > canvas.height) {
+                    obstacles.splice(index, 1);
+                    score++;
+                    scoreElement.innerText = score;
+                }
+            });
+
+            if (Math.random() < 0.03) spawnObstacle();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+
+            // Draw Obstacles
+            ctx.fillStyle = '#ff4444';
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.size, obs.size);
+            });
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            player.x = e.clientX - player.size / 2;
+        });
+
+        draw();
+    </script>
+</body>
+</html>
