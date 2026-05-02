@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Highway Star | Pro-Stop Edition</title>
+    <title>High-Speed Pro | Steering Lock</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
             --neon: #00f2ff;
             --danger: #ff3366;
-            --dash: #141416;
+            --road: #1a1a1c;
         }
 
         body { 
@@ -23,7 +23,7 @@
             position: relative;
             width: 100vw; height: 177.78vw;
             max-width: 56.25vh; max-height: 100vh;
-            background: #1a1a1c;
+            background: var(--road);
             display: flex; flex-direction: column;
             border: 1px solid #222;
         }
@@ -32,36 +32,36 @@
         canvas { width: 100%; height: 100%; display: block; }
 
         #dashboard {
-            height: 30%;
-            background: linear-gradient(180deg, #1c1c1f 0%, #050505 100%);
-            border-top: 3px solid #333;
+            height: 32%;
+            background: linear-gradient(180deg, #1c1c21 0%, #050505 100%);
+            border-top: 4px solid #333;
             padding: 15px;
             box-sizing: border-box;
             display: flex; flex-direction: column; justify-content: space-between;
         }
 
-        .dash-upper { display: flex; justify-content: space-between; align-items: center; }
-        .hud-unit { font-family: 'Share Tech Mono', monospace; color: var(--neon); font-size: 11px; }
+        .dash-top { display: flex; justify-content: space-between; align-items: center; }
+        .hud-digital { font-family: 'Share Tech Mono', monospace; color: var(--neon); font-size: 11px; }
         
-        .speedo-container { text-align: center; font-family: 'Orbitron', sans-serif; }
-        .speed-val { font-size: 38px; color: #fff; text-shadow: 0 0 12px var(--neon); line-height: 1; }
+        .speedo-hub { text-align: center; font-family: 'Orbitron', sans-serif; }
+        .speed-digit { font-size: 42px; color: #fff; text-shadow: 0 0 15px var(--neon); line-height: 1; }
 
-        .dash-lower { display: flex; justify-content: space-between; align-items: flex-end; }
+        .dash-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
 
-        /* Steering Wheel with Real Stops */
+        /* Steering Wheel */
         #steering-wheel {
             width: 100px; height: 100px;
             position: relative; cursor: grab;
             border-radius: 50%;
-            border: 10px solid #18181a;
-            background: radial-gradient(circle, #222 0%, #111 70%);
-            box-shadow: 0 6px 15px rgba(0,0,0,0.7), inset 0 0 8px #000;
-            transition: transform 0.1s cubic-bezier(0.1, 0.7, 0.1, 1); /* Natural weight */
+            border: 10px solid #1a1a1c;
+            background: radial-gradient(circle, #2a2a2e 0%, #111 80%);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.8), inset 0 0 10px #000;
+            will-change: transform;
         }
-        .spoke { position: absolute; top: 50%; left: 10%; width: 80%; height: 8px; background: #18181a; transform: translateY(-50%); }
-        .top-notch { position: absolute; top: -10px; left: 50%; width: 8px; height: 10px; background: var(--danger); transform: translateX(-50%); }
+        .spoke { position: absolute; top: 50%; left: 10%; width: 80%; height: 8px; background: #1a1a1c; transform: translateY(-50%); border-radius: 4px; }
+        .top-marker { position: absolute; top: -10px; left: 50%; width: 8px; height: 10px; background: var(--danger); transform: translateX(-50%); border-radius: 1px; }
         
-        .ac-vent { width: 35px; height: 16px; background: #0c0c0d; border: 1px solid #252525; border-radius: 2px;
+        .ac-vent { width: 38px; height: 16px; background: #0a0a0b; border: 1px solid #2a2a2a; border-radius: 2px;
                    background-image: linear-gradient(0deg, #1a1a1a 50%, transparent 50%); background-size: 100% 4px; }
     </style>
 </head>
@@ -71,23 +71,23 @@
         <div id="game-view"><canvas id="gameCanvas"></canvas></div>
 
         <div id="dashboard">
-            <div class="dash-upper">
-                <div class="hud-unit">
-                    PWR: NOMINAL
-                    <div style="width: 60px; height: 4px; background: #000; margin-top: 4px;">
-                        <div id="fuel-bar" style="width: 100%; height: 100%; background: var(--neon);"></div>
+            <div class="dash-top">
+                <div class="hud-digital">
+                    FUEL
+                    <div style="width: 60px; height: 4px; background: #000; margin-top: 4px; border: 1px solid #333;">
+                        <div id="fuel-gauge" style="width: 100%; height: 100%; background: #00ff66;"></div>
                     </div>
                 </div>
-                <div class="speedo-container">
-                    <div id="speed-out" class="speed-val">00</div>
-                    <div style="font-size: 9px; letter-spacing: 2px; color: #555;">KM/H</div>
+                <div class="speedo-hub">
+                    <div id="kmh" class="speed-digit">00</div>
+                    <div style="font-size: 8px; letter-spacing: 3px; color: #444;">KM/H</div>
                 </div>
             </div>
 
-            <div class="dash-lower">
-                <div style="display: flex; gap: 8px;"><div class="ac-vent"></div><div class="ac-vent"></div></div>
+            <div class="dash-bottom">
+                <div style="display: flex; gap: 10px;"><div class="ac-vent"></div><div class="ac-vent"></div></div>
                 <div id="steering-wheel">
-                    <div class="top-notch"></div>
+                    <div class="top-marker"></div>
                     <div class="spoke"></div>
                     <div class="spoke" style="transform: rotate(90deg) translateY(-50%);"></div>
                 </div>
@@ -99,8 +99,8 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const wheel = document.getElementById('steering-wheel');
-        const speedOut = document.getElementById('speed-out');
-        const fuelBar = document.getElementById('fuel-bar');
+        const kmhDisp = document.getElementById('kmh');
+        const fuelBar = document.getElementById('fuel-gauge');
 
         function resize() {
             canvas.width = canvas.offsetWidth;
@@ -109,22 +109,24 @@
         window.onresize = resize;
         resize();
 
-        // --- SYSTEM CONFIG ---
+        // --- SIMULATION CONFIG ---
         const LANES = 4;
-        const LANE_WIDTH = canvas.width / LANES;
-        const STEERING_CLAMP = 90; // Cannot rotate past 90 degrees
-        const INITIAL_SPEED = 2;   // Start slow
-        const MAX_SPEED = 18;      // Max velocity
-        const ACCELERATION = 0.005; // Growth rate
+        const LANE_W = canvas.width / LANES;
+        const STEER_LIMIT = 90; // The lock angle
+        const START_SPD = 2;
+        const TOP_SPD = 20;
+        const ACCEL = 0.008;
 
-        let gameSpeed = INITIAL_SPEED;
+        let gameSpeed = START_SPD;
         let playerX = canvas.width / 2;
-        let wheelRotation = 0;
+        let visualRotation = 0; // What we see
+        let internalAngle = 0;  // The actual thumb position
         let isDragging = false;
         let startAngle = 0;
+        
         let traffic = [];
-        let roadOffset = 0;
-        let distance = 0;
+        let roadOff = 0;
+        let dist = 0;
 
         // --- INPUT ENGINE ---
         function getTouchAngle(e) {
@@ -136,109 +138,125 @@
             return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
         }
 
-        const start = (e) => { isDragging = true; startAngle = getTouchAngle(e) - wheelRotation; e.preventDefault(); };
-        const move = (e) => {
-            if (!isDragging) return;
-            let targetAngle = getTouchAngle(e) - startAngle;
-            
-            // Physical Stops Logic
-            wheelRotation = Math.max(-STEERING_CLAMP, Math.min(STEERING_CLAMP, targetAngle));
-            wheel.style.transform = `rotate(${wheelRotation}deg)`;
+        const onStart = (e) => { 
+            isDragging = true; 
+            startAngle = getTouchAngle(e) - internalAngle; 
+            e.preventDefault(); 
         };
-        const end = () => { isDragging = false; };
 
-        wheel.addEventListener('mousedown', start);
-        window.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', end);
-        wheel.addEventListener('touchstart', start, {passive: false});
-        window.addEventListener('touchmove', move, {passive: false});
-        window.addEventListener('touchend', end);
+        const onMove = (e) => {
+            if (!isDragging) return;
+            
+            // Track thumb position continuously
+            internalAngle = getTouchAngle(e) - startAngle;
+            
+            // VISUAL LOCK LOGIC:
+            // The wheel follows the thumb 1:1, but is CLAMPED visually.
+            // If the thumb rotates to 120, visual stays at 90.
+            // If the thumb moves back to 80, visual follows to 80 immediately.
+            visualRotation = Math.max(-STEER_LIMIT, Math.min(STEER_LIMIT, internalAngle));
+            
+            wheel.style.transform = `rotate(${visualRotation}deg)`;
+        };
 
-        // --- TRAFFIC SYSTEM ---
-        class Enemy {
+        const onEnd = () => { isDragging = false; };
+
+        wheel.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        wheel.addEventListener('touchstart', onStart, {passive: false});
+        window.addEventListener('touchmove', onMove, {passive: false});
+        window.addEventListener('touchend', onEnd);
+
+        // --- OBJECT FACTORY ---
+        class Vehicle {
             constructor(lane) {
                 this.lane = lane;
-                this.x = (lane * LANE_WIDTH) + (LANE_WIDTH / 2);
-                this.y = -100;
+                this.x = (lane * LANE_W) + (LANE_W / 2);
+                this.y = -120;
                 this.w = 26;
-                this.h = 50;
-                this.color = `hsl(${Math.random() * 360}, 60%, 50%)`;
-                this.vSpeed = 3 + (Math.random() * 2); 
+                this.h = 52;
+                this.color = `hsl(${Math.random() * 360}, 60%, 45%)`;
+                this.vSpeed = 4 + (Math.random() * 3);
             }
             draw() {
                 ctx.fillStyle = this.color;
                 ctx.fillRect(this.x - this.w/2, this.y, this.w, this.h);
-                ctx.fillStyle = "rgba(0,0,0,0.3)";
-                ctx.fillRect(this.x - 8, this.y + 8, 16, 12);
+                // Windows
+                ctx.fillStyle = "rgba(0,0,0,0.4)";
+                ctx.fillRect(this.x - 9, this.y + 10, 18, 14);
             }
         }
 
         function spawn() {
-            let blocked = Math.floor(Math.random() * 3) + 1; // 1 to 3 lanes
-            let laneChoices = [0, 1, 2, 3].sort(() => Math.random() - 0.5).slice(0, blocked);
-            laneChoices.forEach(l => traffic.push(new Enemy(l)));
+            let count = Math.floor(Math.random() * 3) + 1;
+            let lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5).slice(0, count);
+            lanes.forEach(l => traffic.push(new Vehicle(l)));
         }
 
         // --- CORE LOOP ---
         let lastSpawn = 0;
         function update(t) {
-            // 1. Acceleration Logic
-            if (gameSpeed < MAX_SPEED) gameSpeed += ACCELERATION;
+            // Speed Ramping
+            if (gameSpeed < TOP_SPD) gameSpeed += ACCEL;
+            roadOff = (roadOff + gameSpeed) % 80;
             
-            roadOffset = (roadOffset + gameSpeed) % 80;
-            
-            // 2. Physics & Steering
-            // Movement is now a function of current rotation vs the clamped max
-            playerX += (wheelRotation / STEERING_CLAMP) * 8; 
-            playerX = Math.max(20, Math.min(canvas.width - 20, playerX));
+            // Movement Physics (Based on Visual Rotation)
+            playerX += (visualRotation / STEER_LIMIT) * 8.5; 
+            playerX = Math.max(22, Math.min(canvas.width - 22, playerX));
 
+            // Auto-centering with internal reset
             if (!isDragging) {
-                wheelRotation *= 0.85; // Natural auto-center
-                wheel.style.transform = `rotate(${wheelRotation}deg)`;
+                visualRotation *= 0.86;
+                internalAngle = visualRotation; // Sync internal angle to center
+                wheel.style.transform = `rotate(${visualRotation}deg)`;
             }
 
-            // 3. Telemetry
-            speedOut.innerText = Math.round(gameSpeed * 10).toString().padStart(2, '0');
-            distance += (gameSpeed / 10);
-            fuelBar.style.width = (100 - (distance / 50)) + "%";
+            // Dashboard
+            kmhDisp.innerText = Math.round(gameSpeed * 9).toString().padStart(2, '0');
+            dist += (gameSpeed / 12);
+            fuelBar.style.width = Math.max(0, (100 - dist/40)) + "%";
 
-            // 4. Traffic Manager
-            if (t - lastSpawn > (2000 - gameSpeed * 80)) {
+            // Traffic
+            if (t - lastSpawn > (1800 - gameSpeed * 70)) {
                 spawn();
                 lastSpawn = t;
             }
 
             traffic.forEach(v => {
                 v.y += (gameSpeed - v.vSpeed);
-                if (Math.abs(v.x - playerX) < 24 && v.y + v.h > canvas.height - 65 && v.y < canvas.height - 15) {
+                if (Math.abs(v.x - playerX) < 24 && v.y + v.h > canvas.height - 70 && v.y < canvas.height - 18) {
                     location.reload();
                 }
             });
-            traffic = traffic.filter(v => v.y < canvas.height + 100);
+            traffic = traffic.filter(v => v.y < canvas.height + 150);
         }
 
         function draw(t) {
             ctx.fillStyle = "#1a1a1c";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Lanes
-            ctx.strokeStyle = "#333";
-            ctx.setLineDash([30, 40]);
-            ctx.lineDashOffset = -roadOffset;
+            // 4-Lane Markers
+            ctx.strokeStyle = "#2a2a2c";
+            ctx.setLineDash([30, 45]);
+            ctx.lineDashOffset = -roadOff;
             for(let i=1; i<LANES; i++) {
                 ctx.beginPath();
-                ctx.moveTo(i * LANE_WIDTH, 0);
-                ctx.lineTo(i * LANE_WIDTH, canvas.height);
+                ctx.moveTo(i * LANE_W, 0);
+                ctx.lineTo(i * LANE_W, canvas.height);
                 ctx.stroke();
             }
 
             traffic.forEach(v => v.draw());
 
-            // Player
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "#00f2ff";
-            ctx.fillStyle = "#00f2ff";
-            ctx.fillRect(playerX - 13, canvas.height - 65, 26, 50);
+            // Player Ship/Car
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = var(--neon);
+            ctx.fillStyle = var(--neon);
+            ctx.fillRect(playerX - 13, canvas.height - 70, 26, 52);
+            // Windshield
+            ctx.fillStyle = "#000";
+            ctx.fillRect(playerX - 10, canvas.height - 65, 20, 12);
 
             update(t);
             requestAnimationFrame(draw);
