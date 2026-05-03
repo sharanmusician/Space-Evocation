@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Head Volley 16:9 Landscape</title>
+    <title>Head Volley Fullscreen</title>
     <style>
         :root { --p-color: #ff4757; --ai-color: #2f3542; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
@@ -15,21 +15,30 @@
             font-family: 'Arial Black', sans-serif;
         }
 
-        /* 16:9 Aspect Ratio Container */
         #game-container {
             position: relative;
             width: 100vw;
-            height: 56.25vw; /* 16:9 ratio */
+            height: 56.25vw;
             max-height: 100vh;
-            max-width: 177.78vh; /* 16:9 ratio */
+            max-width: 177.78vh;
             background: linear-gradient(#4facfe, #00f2fe);
-            border: 2px solid #333;
             overflow: hidden;
         }
 
         canvas { width: 100%; height: 100%; display: block; }
 
-        /* HUD & Overlays */
+        /* Fullscreen Start Overlay */
+        #start-overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; color: white; text-align: center;
+        }
+        .start-btn {
+            padding: 20px 50px; background: #f1c40f; color: #000;
+            border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold;
+            cursor: pointer; box-shadow: 0 5px #d35400;
+        }
+
         #hud {
             position: absolute; top: 10px; width: 100%; 
             display: flex; justify-content: center; gap: 30px;
@@ -38,7 +47,6 @@
         .score-item { background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 8px; font-size: 1.2rem; }
         #timer { color: #f1c40f; font-size: 1.5rem; }
 
-        /* Controls positioned over the 16:9 area */
         #touch-ui {
             position: absolute; bottom: 15px; width: 100%;
             display: flex; justify-content: space-between; padding: 0 30px;
@@ -61,6 +69,12 @@
 <body>
 
     <div id="game-container">
+        <div id="start-overlay">
+            <h1>HEAD VOLLEYBALL</h1>
+            <p>16:9 Landscape Mode</p>
+            <button class="start-btn" onclick="startFullscreen()">START FULLSCREEN</button>
+        </div>
+
         <div id="hud">
             <div class="score-item">AI: <span id="c-s">0</span></div>
             <div id="timer">02:00</div>
@@ -86,24 +100,44 @@
 <script>
 const cvs = document.getElementById('gameCanvas');
 const ctx = cvs.getContext('2d');
+const container = document.getElementById('game-container');
 
 let w, h, gY, net;
 let scores = { p: 0, c: 0 };
 let timeLeft = 120;
 let keys = { l: false, r: false, j: false };
-let isRunning = true;
+let isRunning = false;
 
-function resize() {
+function startFullscreen() {
+    // Request full screen on the container
+    if (container.requestFullscreen) {
+        container.requestFullscreen();
+    } else if (container.webkitRequestFullscreen) { /* Safari */
+        container.webkitRequestFullscreen();
+    } else if (container.msRequestFullscreen) { /* IE11 */
+        container.msRequestFullscreen();
+    }
+
+    document.getElementById('start-overlay').style.display = 'none';
+    isRunning = true;
+    init();
+    requestAnimationFrame(loop);
+}
+
+function init() {
     w = cvs.width = cvs.offsetWidth;
     h = cvs.height = cvs.offsetHeight;
     gY = h - 30;
     net = { x: w/2, y: h - 130, w: 8, h: 100 };
+    user.reset();
+    cpu.reset();
+    ball.reset();
 }
 
 class Player {
     constructor(side, color) {
         this.side = side; this.color = color;
-        this.r = 32; this.reset();
+        this.r = 32;
     }
     reset() {
         this.x = this.side === 'left' ? 100 : w - 100;
@@ -114,7 +148,6 @@ class Player {
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
-        // Eye
         ctx.fillStyle = "white"; ctx.beginPath();
         ctx.arc(this.x + (this.side === 'right' ? -12 : 12), this.y - 12, 8, 0, Math.PI*2); ctx.fill();
     }
@@ -123,7 +156,6 @@ class Player {
         if (this.y < gY - this.r) this.dy += 0.7;
         else { this.y = gY - this.r; this.dy = 0; this.air = false; }
         
-        // Net & Wall Collisions
         if (this.side === 'right') {
             if (this.x < net.x + this.r + 5) this.x = net.x + this.r + 5;
             if (this.x > w - this.r) this.x = w - this.r;
@@ -146,11 +178,8 @@ const ball = {
 const user = new Player('right', '#ff4757');
 const cpu = new Player('left', '#2c3e50');
 
-window.addEventListener('resize', resize);
-resize();
-ball.reset();
+window.addEventListener('resize', init);
 
-// Controls Logic
 const bind = (id, k) => {
     const el = document.getElementById(id);
     el.ontouchstart = (e) => { e.preventDefault(); keys[k] = true; };
@@ -158,7 +187,6 @@ const bind = (id, k) => {
 };
 bind('l-btn', 'l'); bind('r-btn', 'r'); bind('j-btn', 'j');
 
-// Timer
 setInterval(() => {
     if (!isRunning) return;
     if (timeLeft > 0) {
@@ -178,17 +206,13 @@ setInterval(() => {
 function loop() {
     if (!isRunning) return;
     ctx.clearRect(0, 0, w, h);
-
-    // Draw Floor & Net
     ctx.fillStyle = "#27ae60"; ctx.fillRect(0, gY, w, 30);
     ctx.fillStyle = "white"; ctx.fillRect(net.x - 4, net.y, net.w, net.h);
 
-    // Player (You - Right)
     user.dx = 0;
     if (keys.l) user.dx = -6; if (keys.r) user.dx = 6;
     if (keys.j && !user.air) { user.dy = -15; user.air = true; }
 
-    // AI (Left)
     const aiTarget = ball.x - 15;
     cpu.dx = (cpu.x < aiTarget) ? 5 : (cpu.x > aiTarget) ? -5 : 0;
     if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 50 && !cpu.air) { cpu.dy = -15; cpu.air = true; }
@@ -196,17 +220,14 @@ function loop() {
     user.update(); cpu.update();
     ball.dy += 0.4; ball.x += ball.dx; ball.y += ball.dy;
 
-    // Ball Net Bounce
-    if (ball.y > net.y && Math.abs(ball.x - net.x) < ball.r + 5) { ball.dx *= -1.2; ball.x += ball.dx; }
+    if (ball.y > net.y && Math.abs(ball.x - net.x) < ball.r + 5) { ball.dx *= -1.1; ball.x += ball.dx; }
 
-    // Scoring Rules
     if (ball.y > gY - ball.r) {
         if (ball.x < net.x) scores.p++; else scores.c++;
         ball.reset();
     }
     if (ball.x < 0 || ball.x > w) ball.dx *= -1;
 
-    // Hit Logic
     [user, cpu].forEach(p => {
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
@@ -221,7 +242,6 @@ function loop() {
 
     requestAnimationFrame(loop);
 }
-loop();
 </script>
 </body>
 </html>
