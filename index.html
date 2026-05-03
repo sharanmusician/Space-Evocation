@@ -3,166 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Head Ball 2 MVP</title>
+    <title>Pro Head Volley</title>
     <style>
+        :root { --bg: #121212; --court: #f39c12; --sky: #2980b9; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
-        body { margin: 0; background: #1a1a1a; font-family: sans-serif; overflow: hidden; height: 100vh; }
         
-        #stage { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-        #scoreboard { height: 50px; background: #000; color: gold; display: flex; justify-content: center; align-items: center; gap: 30px; font-weight: bold; font-size: 20px; }
-        
-        canvas { flex-grow: 1; background: #4a90e2; display: block; }
+        body { 
+            margin: 0; background: var(--bg); 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; font-family: 'Segoe UI', sans-serif; color: white;
+        }
 
-        /* Mobile Controls */
-        #ui-layer { height: 160px; background: #2c3e50; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; border-top: 5px solid #34495e; }
-        .group { display: flex; gap: 15px; }
-        .btn { width: 85px; height: 85px; background: #ecf0f1; border-radius: 20px; display: flex; justify-content: center; align-items: center; font-size: 30px; box-shadow: 0 6px #bdc3c7; }
-        .btn:active { transform: translateY(4px); box-shadow: 0 2px #bdc3c7; }
-        .jump { background: #e67e22; color: white; width: 100px; height: 100px; box-shadow: 0 6px #d35400; font-size: 18px; }
+        /* Fixed Gaming Container */
+        #game-view {
+            position: relative; width: 90vw; max-width: 800px; 
+            aspect-ratio: 16 / 9; background: var(--sky);
+            border: 4px solid #444; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* UI Overlays */
+        #hud {
+            position: absolute; top: 0; width: 100%; padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.4); pointer-events: none;
+        }
+        .score-pill { background: #000; padding: 5px 15px; border-radius: 20px; border: 2px solid #666; font-weight: bold; }
+        #timer { font-size: 1.5rem; color: #f1c40f; }
+
+        /* Mobile Controls - Positioned over the canvas */
+        #touch-controls {
+            position: absolute; bottom: 10px; width: 100%; 
+            display: flex; justify-content: space-between; padding: 0 20px;
+        }
+        .btn {
+            width: 65px; height: 65px; background: rgba(255,255,255,0.2); 
+            border: 2px solid white; border-radius: 50%; color: white;
+            display: flex; justify-content: center; align-items: center; font-size: 24px;
+        }
+        .btn:active { background: rgba(255,255,255,0.5); }
+        .jump-btn { background: rgba(230, 126, 34, 0.6); width: 80px; height: 80px; border-radius: 15px; }
+
+        #end-screen {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10;
+        }
     </style>
 </head>
 <body>
 
-    <div id="stage">
-        <div id="scoreboard">
-            <span id="cpu-score">AI: 0</span>
-            <span>-</span>
-            <span id="user-score">YOU: 0</span>
+    <div id="game-view">
+        <div id="hud">
+            <div class="score-pill">AI: <span id="c-s">0</span></div>
+            <div id="timer">02:00</div>
+            <div class="score-pill">YOU: <span id="u-s">0</span></div>
         </div>
 
-        <canvas id="game"></canvas>
+        <div id="end-screen">
+            <h1 id="res">GAME OVER</h1>
+            <button onclick="location.reload()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold;">PLAY AGAIN</button>
+        </div>
 
-        <div id="ui-layer">
-            <div class="group">
-                <div class="btn" id="l">←</div>
-                <div class="btn" id="r">→</div>
+        <canvas id="stage"></canvas>
+
+        <div id="touch-controls">
+            <div style="display: flex; gap: 10px;">
+                <div class="btn" id="left">←</div>
+                <div class="btn" id="right">→</div>
             </div>
-            <div class="btn jump" id="j">JUMP</div>
+            <div class="btn jump-btn" id="jump">JUMP</div>
         </div>
     </div>
 
 <script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+const cvs = document.getElementById('stage');
+const ctx = cvs.getContext('2d');
 
-let w, h, gY;
+// Game State
+let w, h, gY, net;
 let scores = { p: 0, c: 0 };
-let keys = { l: false, r: false, j: false };
+let time = 120;
+let input = { l: 0, r: 0, j: 0 };
+let active = true;
 
-// Character Setup
-class Head {
-    constructor(side, color) {
-        this.side = side;
-        this.color = color;
-        this.r = 38;
-        this.reset();
+function syncSize() {
+    w = cvs.width = cvs.offsetWidth;
+    h = cvs.height = cvs.offsetHeight;
+    gY = h - 35;
+    net = { x: w/2, y: h - 140, w: 10, h: 105 };
+}
+
+class Player {
+    constructor(x, color, isP) {
+        this.startX = x; this.color = color; this.isP = isP;
+        this.r = 30; this.reset();
     }
     reset() {
-        this.x = this.side === 'left' ? 120 : w - 120;
-        this.y = gY - this.r;
-        this.dx = 0; this.dy = 0;
-        this.jump = false;
+        this.x = this.startX; this.y = gY - this.r;
+        this.dx = 0; this.dy = 0; this.air = false;
     }
     draw() {
-        // Boot
-        ctx.fillStyle = "#333";
-        ctx.fillRect(this.x - 20, this.y + 25, 40, 15);
-        // Head
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+        // Body
         ctx.fillStyle = this.color;
-        ctx.fill();
-        ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.stroke();
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
         // Eye
-        ctx.fillStyle = "white";
-        ctx.beginPath();
-        ctx.arc(this.x + (this.side === 'right' ? -15 : 15), this.y - 12, 8, 0, Math.PI*2);
-        ctx.fill();
+        ctx.fillStyle = "white"; ctx.beginPath();
+        ctx.arc(this.x + (this.isP ? -10 : 10), this.y - 10, 7, 0, Math.PI*2); ctx.fill();
     }
     update() {
-        this.y += this.dy; this.x += this.dx;
+        this.x += this.dx; this.y += this.dy;
         if (this.y < gY - this.r) this.dy += 0.8;
-        else { this.y = gY - this.r; this.dy = 0; this.jump = false; }
-        this.x = Math.max(this.r, Math.min(w - this.r, this.x));
+        else { this.y = gY - this.r; this.dy = 0; this.air = false; }
+        
+        // Net Collision for Players
+        if (this.isP) {
+            if (this.x < net.x + this.r + 5) this.x = net.x + this.r + 5;
+            if (this.x > w - this.r) this.x = w - this.r;
+        } else {
+            if (this.x > net.x - this.r - 5) this.x = net.x - this.r - 5;
+            if (this.x < this.r) this.x = this.r;
+        }
     }
 }
 
 const ball = {
-    r: 14,
-    reset() { this.x = w/2; this.y = h/4; this.dx = 0; this.dy = 0; },
+    r: 12,
+    reset() { this.x = w/2; this.y = 50; this.dx = 0; this.dy = 0; },
     draw() {
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-        ctx.fillStyle = "white"; ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffff00"; ctx.fill(); ctx.stroke();
     }
 };
 
-const cpu = new Head('left', '#2c3e50'); // AI Character
-const user = new Head('right', '#e74c3c'); // Your Character
+const user = new Player(0, '#e74c3c', true);
+const cpu = new Player(0, '#34495e', false);
 
-function init() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = canvas.offsetHeight;
-    gY = h - 20;
-    cpu.reset(); user.reset(); ball.reset();
-}
+window.addEventListener('resize', () => { syncSize(); user.startX = w-80; cpu.startX = 80; });
+syncSize();
+user.startX = w-80; cpu.startX = 80;
+user.reset(); cpu.reset(); ball.reset();
 
-window.addEventListener('resize', init);
-init();
-
-// Touch Controls
-const touch = (id, k) => {
+// Logic
+const ctrl = (id, k, v) => {
     const el = document.getElementById(id);
-    el.ontouchstart = (e) => { e.preventDefault(); keys[k] = true; };
-    el.ontouchend = (e) => { e.preventDefault(); keys[k] = false; };
+    const set = (e) => { e.preventDefault(); input[k] = v; };
+    el.addEventListener('touchstart', set);
+    el.addEventListener('touchend', (e) => { e.preventDefault(); input[k] = !v; });
 };
-touch('l', 'l'); touch('r', 'r'); touch('j', 'j');
+ctrl('left', 'l', 1); ctrl('right', 'r', 1); ctrl('jump', 'j', 1);
 
-function main() {
+setInterval(() => {
+    if (!active) return;
+    if (time > 0) {
+        time--;
+        let m = Math.floor(time/60), s = time%60;
+        document.getElementById('timer').innerText = `${m}:${s<10?'0'+s:s}`;
+    } else {
+        active = false;
+        document.getElementById('end-screen').style.display = 'flex';
+        const res = document.getElementById('res');
+        if (scores.p > scores.c) res.innerText = "YOU WIN!";
+        else if (scores.p < scores.c) res.innerText = "AI WINS!";
+        else res.innerText = "GAME MATCH (TIE)";
+    }
+}, 1000);
+
+function game() {
+    if (!active) return;
     ctx.clearRect(0, 0, w, h);
-    
-    // Field & Goals
-    ctx.fillStyle = "#27ae60"; ctx.fillRect(0, gY, w, 20);
-    ctx.strokeStyle = "white"; ctx.lineWidth = 6;
-    ctx.strokeRect(-10, gY - 110, 30, 110); // AI Goal
-    ctx.strokeRect(w - 20, gY - 110, 30, 110); // User Goal
 
-    // AI logic (Simple ball tracking)
-    cpu.dx = (ball.x < cpu.x + 30) ? -5 : (ball.x > cpu.x + 50) ? 5 : 0;
-    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 80 && !cpu.jump) { cpu.dy = -15; cpu.jump = true; }
+    // Draw Court & Net
+    ctx.fillStyle = "#2ecc71"; ctx.fillRect(0, gY, w, 40);
+    ctx.fillStyle = "white"; ctx.fillRect(net.x - 5, net.y, net.w, net.h);
 
-    // User logic
+    // Player Movement
     user.dx = 0;
-    if (keys.l) user.dx = -7;
-    if (keys.r) user.dx = 7;
-    if (keys.j && !user.jump) { user.dy = -16; user.jump = true; }
+    if (input.l) user.dx = -6; if (input.r) user.dx = 6;
+    if (input.j && !user.air) { user.dy = -15; user.air = true; }
 
-    // Ball Physics
-    ball.dy += 0.5; ball.x += ball.dx; ball.y += ball.dy;
-    if (ball.y > gY - ball.r) { ball.y = gY - ball.r; ball.dy *= -0.75; ball.dx *= 0.98; }
-    if (ball.x < 0 || ball.x > w) ball.dx *= -0.8;
+    // AI Logic
+    const target = ball.x - 15;
+    cpu.dx = (cpu.x < target) ? 5 : (cpu.x > target) ? -5 : 0;
+    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 50 && !cpu.air) { cpu.dy = -15; cpu.air = true; }
 
-    // Hit Detection
-    [cpu, user].forEach(p => {
+    user.update(); cpu.update();
+    ball.dy += 0.4; ball.x += ball.dx; ball.y += ball.dy;
+
+    // Ball/Net Collision
+    if (ball.y > net.y && Math.abs(ball.x - net.x) < ball.r + 5) { ball.dx *= -1; }
+
+    // Scoring
+    if (ball.y > gY - ball.r) {
+        if (ball.x < net.x) scores.p++; else scores.c++;
+        ball.reset();
+    }
+    if (ball.x < 0 || ball.x > w) ball.dx *= -1;
+
+    // Ball/Player Collision
+    [user, cpu].forEach(p => {
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
-            ball.dx = (ball.x - p.x) * 0.4 + p.dx;
-            ball.dy = (ball.y - p.y) * 0.4 - 4;
+            ball.dx = (ball.x - p.x) * 0.3 + p.dx;
+            ball.dy = (ball.y - p.y) * 0.3 - 5;
         }
     });
 
-    // Scoring
-    if (ball.x < 20 && ball.y > gY - 110) { scores.p++; ball.reset(); }
-    if (ball.x > w - 20 && ball.y > gY - 110) { scores.c++; ball.reset(); }
+    user.draw(); cpu.draw(); ball.draw();
+    document.getElementById('u-s').innerText = scores.p;
+    document.getElementById('c-s').innerText = scores.c;
 
-    cpu.update(); user.update();
-    cpu.draw(); user.draw(); ball.draw();
-
-    document.getElementById('cpu-score').innerText = `AI: ${scores.c}`;
-    document.getElementById('user-score').innerText = `YOU: ${scores.p}`;
-
-    requestAnimationFrame(main);
+    requestAnimationFrame(game);
 }
-main();
+game();
 </script>
 </body>
 </html>
