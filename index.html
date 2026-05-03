@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Legend Volley: Physics Pro</title>
+    <title>Legend Volley: Grandmaster Edition</title>
     <style>
         :root { --p1: #ff4757; --ai: #2f3542; --gold: #f1c40f; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
@@ -20,26 +20,26 @@
             position: absolute; top: 5%; width: 100%; display: flex; justify-content: center; gap: 40px; 
             z-index: 10; pointer-events: none; 
         }
-        .score { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--gold); min-width: 100px; text-align: center; font-size: 1.5rem; }
-        #timer { color: var(--gold); font-size: 2rem; }
+        .score { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--gold); min-width: 100px; text-align: center; font-size: 1.2rem; }
+        #timer { color: var(--gold); font-size: 1.8rem; }
 
         #overlay { 
             position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; 
             flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; 
         }
-        .btn-start { padding: 20px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 2rem; cursor: pointer; }
+        .btn-start { padding: 15px 50px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.8rem; cursor: pointer; font-weight: bold; }
         
-        #touch-controls { position: absolute; bottom: 5%; width: 100%; display: flex; justify-content: space-between; padding: 0 5%; z-index: 20; }
-        .ctrl-btn { width: 75px; height: 75px; background: rgba(255,255,255,0.2); border: 4px solid #fff; border-radius: 50%; color: white; font-size: 30px; display: flex; justify-content: center; align-items: center; }
-        .jump-btn { width: 95px; height: 95px; background: rgba(255, 165, 0, 0.5); border-radius: 20px; }
+        #touch-ui { position: absolute; bottom: 5%; width: 100%; display: flex; justify-content: space-between; padding: 0 5%; z-index: 20; }
+        .ctrl-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; color: white; font-size: 25px; display: flex; justify-content: center; align-items: center; }
+        .jump-btn { width: 90px; height: 90px; background: rgba(255, 165, 0, 0.5); border-radius: 20px; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="overlay">
-        <h1 style="font-size: 3rem; margin-bottom: 20px;">LEGEND VOLLEY</h1>
-        <button class="btn-start" onclick="begin()">START GAME</button>
+        <h1 style="font-size: 2.5rem; margin-bottom: 20px;">LEGEND VOLLEY</h1>
+        <button class="btn-start" onclick="begin()">START</button>
     </div>
 
     <div id="hud">
@@ -51,13 +51,11 @@
     <canvas id="stage"></canvas>
 
     <div id="touch-ui">
-        <div id="touch-controls">
-            <div style="display: flex; gap: 20px;">
-                <div class="ctrl-btn" id="l-btn">←</div>
-                <div class="ctrl-btn" id="r-btn">→</div>
-            </div>
-            <div class="ctrl-btn jump-btn" id="j-btn">JUMP</div>
+        <div style="display: flex; gap: 15px;">
+            <div class="ctrl-btn" id="l-btn">←</div>
+            <div class="ctrl-btn" id="r-btn">→</div>
         </div>
+        <div class="ctrl-btn jump-btn" id="j-btn">JUMP</div>
     </div>
 </div>
 
@@ -98,7 +96,6 @@ class Player {
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.stroke();
-        // Eye logic
         ctx.fillStyle = "white"; ctx.beginPath();
         ctx.arc(this.x + (this.side === 'right' ? -15 : 15), this.y - 12, 10, 0, Math.PI*2); ctx.fill();
     }
@@ -107,7 +104,11 @@ class Player {
         if (this.y < G_Y - this.r) this.dy += 0.8;
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         
-        // Solid Net Collision for Players
+        // SCREEN CLAMPING: Cannot go off screen
+        if (this.x < this.r) this.x = this.r;
+        if (this.x > W - this.r) this.x = W - this.r;
+
+        // NET CLAMPING: Cannot pass net
         const margin = this.r + NET.w/2;
         if (this.side === 'right' && this.x < NET.x + margin) this.x = NET.x + margin;
         if (this.side === 'left' && this.x > NET.x - margin) this.x = NET.x - margin;
@@ -130,25 +131,23 @@ const ball = {
 
         // Ground Bounce
         if (this.y > G_Y - this.r) {
-            this.y = G_Y - this.r; this.dy *= -0.7; this.dx *= 0.98;
+            this.y = G_Y - this.r; this.dy *= -0.75; this.dx *= 0.98;
         }
 
-        // Net Collision (Anti-Overlap & Random Deflection)
+        // Net Physics (Anti-Overlap)
         if (this.y + this.r > NET.y) {
             if (Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-                // Determine if ball hit top or side
                 if (this.y < NET.y + 10) {
-                    this.dy *= -1; // Top bounce
-                    this.dx += (Math.random() - 0.5) * 10; // Random side kick
+                    this.dy *= -1; 
+                    this.dx += (Math.random() - 0.5) * 8; 
                 } else {
-                    this.dx *= -1.2; // Side bounce
+                    this.dx *= -1.1; 
                 }
-                // Push out of net to prevent overlap
                 this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
             }
         }
 
-        // Scoring (Screen Exit)
+        // SCORING: Only on screen exit
         if (this.x < -this.r || this.x > W + this.r) {
             if (this.x > W) { state.scores.c++; state.lastWinner = 'c'; }
             else { state.scores.p++; state.lastWinner = 'p'; }
@@ -160,6 +159,7 @@ const ball = {
 const p1 = new Player('right', '#ff4757');
 const cpu = new Player('left', '#2f3542');
 
+// Controls
 const bind = (id, k) => {
     const el = document.getElementById(id);
     el.ontouchstart = (e) => { e.preventDefault(); input[k] = true; };
@@ -188,21 +188,43 @@ function engine() {
     if (input.l) p1.dx = -7; if (input.r) p1.dx = 7;
     if (input.j && !p1.air) { p1.dy = -16; p1.air = true; }
 
-    // Pro AI
-    const ballImpact = ball.x + (ball.dx * 12);
-    const aiTarget = Math.min(NET.x - 50, Math.max(30, ballImpact));
-    cpu.dx = (cpu.x < aiTarget - 5) ? 6 : (cpu.x > aiTarget + 5) ? -6 : 0;
-    if (ball.x < NET.x && ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 40 && !cpu.air && Math.random() > 0.5) {
-        cpu.dy = -15; cpu.air = true;
+    // --- PRO MULTI-ANGLE AI ---
+    const ballLandingX = ball.x + (ball.dx * 15); // Prediction
+    let aiTarget = ballLandingX;
+
+    // AI Intent Decision: Lob, Spike, or Neutral
+    const distToNet = NET.x - cpu.x;
+    if (distToNet < 100 && ball.y < H/2) {
+        // AI is close to net and ball is high: Attempt Spike
+        aiTarget = ball.x + 10; 
+    } else {
+        // Stay under ball
+        aiTarget = ballLandingX - 5;
+    }
+
+    aiTarget = Math.min(NET.x - 45, Math.max(35, aiTarget));
+    cpu.dx = (cpu.x < aiTarget - 5) ? 6.5 : (cpu.x > aiTarget + 5) ? -6.5 : 0;
+
+    // Smart Jump Logic (Variable Angles)
+    if (ball.x < NET.x && ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 55 && !cpu.air) {
+        // AI only jumps if it predicts a good angle or needs a save
+        if (Math.random() > 0.4) {
+            cpu.dy = -14 - Math.random() * 4; // Variable jump height
+            cpu.air = true;
+        }
     }
 
     [p1, cpu].forEach(p => {
         p.update();
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
-            const angle = (ball.x - p.x) / p.r;
-            ball.dx = angle * 11 + p.dx * 0.4;
-            ball.dy = -11 + Math.abs(angle * 3);
+            // THE PHYSICS CORE: Multi-angle calculation
+            // Offset defines the hit angle. dx defines the power.
+            const angleOffset = (ball.x - p.x) / p.r; 
+            const powerBase = p.dx * 0.5;
+            
+            ball.dx = angleOffset * 11 + powerBase;
+            ball.dy = -10 - Math.abs(angleOffset * 4); // Center hits pop up, side hits zoom forward
         }
     });
 
