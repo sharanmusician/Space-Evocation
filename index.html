@@ -3,32 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GTA Physics Prototype</title>
+    <title>Vice City Engine Prototype</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
-        
-        /* THE STAGE: This holds everything */
-        #stage { 
-            position: relative; 
-            width: 100vw; 
-            height: 100vh; 
-            background: #050508;
-            overflow: hidden;
-        }
+        #stage { position: relative; width: 100vw; height: 100vh; background: #1a0b2e; }
 
-        /* THE WORLD: This rotates "All Left" or "All Right" */
-        #world-wrapper {
+        /* THE WORLD: This moves and curves */
+        #world-container {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             z-index: 1;
-            /* Center of rotation is roughly where the car hood is */
-            transform-origin: 50% 70%;
-            transition: transform 0.1s ease-out;
+            transform-origin: 50% 80%;
         }
 
-        /* DASHBOARD SPEEDO */
+        /* SPEEDO: Aligned to your dashboard hole */
         #speedo-ui {
             position: absolute;
             bottom: 12.8%; right: 17.6%;
@@ -38,10 +28,10 @@
             font-family: 'Orbitron', sans-serif;
             pointer-events: none;
         }
-        #kmh { color: #00ffcc; font-size: 28px; text-shadow: 0 0 15px #00ffcc; line-height: 1; }
+        #kmh { color: #ff00ff; font-size: 26px; text-shadow: 0 0 10px #ff00ff; line-height: 1; }
 
-        /* YOUR COCKPIT PNG */
-        #cockpit-img {
+        /* INTERIOR: Your Cock.png */
+        #cockpit {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
@@ -50,48 +40,57 @@
             pointer-events: none;
         }
 
-        /* STEERING INPUT RADIUS */
-        #steering-zone {
+        /* STEERING INPUT */
+        #steering-wheel {
             position: absolute;
-            bottom: 5%; right: 7%;
-            width: 160px; height: 160px;
+            bottom: 4%; right: 7%;
+            width: 150px; height: 150px;
             z-index: 20;
-            border: 2px dashed rgba(0, 255, 204, 0.3);
             border-radius: 50%;
+            border: 2px solid rgba(255, 0, 255, 0.3);
         }
     </style>
 </head>
 <body>
 
 <div id="stage">
-    <div id="world-wrapper">
+    <div id="world-container">
         <canvas id="gameCanvas"></canvas>
     </div>
 
     <div id="speedo-ui">
         <div id="kmh">000</div>
-        <div style="color: #00ffcc; font-size: 8px; font-weight: bold; opacity: 0.7;">KM/H</div>
+        <div style="color: #00f0ff; font-size: 8px; font-weight: bold;">MPH</div>
     </div>
 
-    <img src="Cock.png" id="cockpit-img">
+    <img src="Cock.png" id="cockpit">
 
-    <div id="steering-zone" id="wheel"></div>
+    <div id="steering-wheel"></div>
 </div>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const worldWrapper = document.getElementById('world-wrapper');
-    const kmhTxt = document.getElementById('kmh');
-    const steeringZone = document.getElementById('steering-zone');
+    const worldContainer = document.getElementById('world-container');
+    const kmhDisp = document.getElementById('kmh');
+    const wheel = document.getElementById('steering-wheel');
 
-    // Engine States
+    // --- MAP DEFINITION (Edit this to change directions) ---
+    // curve: negative = Left, positive = Right, 0 = Straight
+    const map = [
+        { length: 200, curve: 0 },
+        { length: 300, curve: 2 },  // Hard Right
+        { length: 200, curve: 0 },
+        { length: 400, curve: -3 }, // Very Hard Left
+        { length: 500, curve: 1 },  // Gentle Right
+        { length: 200, curve: 0 }
+    ];
+
+    let pos = 0;           // Current distance on map
     let playerX = 0;       // Left/Right position
-    let velocityX = 0;     // Side-to-side speed (Momentum)
-    let wheelAngle = 0;    // Rotation of your touch
-    let worldTilt = 0;     // The "Lean" degree
-    let gameSpeed = 0.08;
-    let obstacles = [];
+    let speed = 0;         // Current velocity
+    let steerAngle = 0;    // Wheel rotation
+    let trackVelocity = 0; // Momentum
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -100,110 +99,100 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // 3D Engine Projection (GTA style)
-    function project(x, y, z) {
+    function getSegment(p) {
+        let currentPos = 0;
+        for (let i = 0; i < map.length; i++) {
+            currentPos += map[i].length;
+            if (p < currentPos) return map[i];
+        }
+        return map[0];
+    }
+
+    function project(x, y, z, segmentCurve) {
         const scale = 1 / z;
-        // vanishing point logic
-        const px = (canvas.width * 0.63) + (x - playerX * 1800) * scale;
+        // Perspective shift based on road curvature
+        const px = (canvas.width * 0.63) + (x - (playerX * 1500) + segmentCurve) * scale;
         const py = (canvas.height * 0.38) + (y * scale);
         return { x: px, y: py, scale: scale };
     }
 
-    class Car {
-        constructor() {
-            this.lane = Math.floor(Math.random() * 4);
-            this.laneX = -900 + (this.lane * 600);
-            this.z = 60;
-        }
-        update() { this.z -= (gameSpeed * 0.8); }
-        draw() {
-            if (this.z < 0.2) return;
-            const p = project(this.laneX, 350, this.z);
-            const s = 650 * p.scale;
-            ctx.fillStyle = "#900"; // Red Box Traffic
-            ctx.fillRect(p.x - s/2, p.y - s, s, s);
-        }
-    }
-
-    // Steering Logic
-    let isTouching = false, lastTouchA = 0;
+    // Input Handling
+    let active = false, lastA = 0;
     const getA = (e) => {
-        const r = steeringZone.getBoundingClientRect();
+        const r = wheel.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
         const px = e.touches ? e.touches[0].clientX : e.clientX;
         const py = e.touches ? e.touches[0].clientY : e.clientY;
         return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
     };
-
-    steeringZone.ontouchstart = (e) => { isTouching = true; lastTouchA = getA(e); e.preventDefault(); };
+    wheel.ontouchstart = (e) => { active = true; lastA = getA(e); e.preventDefault(); };
     window.ontouchmove = (e) => {
-        if (!isTouching) return;
-        let a = getA(e), delta = a - lastTouchA;
-        if (delta > 180) delta -= 360; if (delta < -180) delta += 360;
-        wheelAngle = Math.max(-150, Math.min(150, wheelAngle + delta));
-        steeringZone.style.transform = `rotate(${wheelAngle}deg)`;
-        lastTouchA = a;
+        if (!active) return;
+        let a = getA(e), d = a - lastA;
+        if (d > 180) d -= 360; if (d < -180) d += 360;
+        steerAngle = Math.max(-160, Math.min(160, steerAngle + d));
+        wheel.style.transform = `rotate(${steerAngle}deg)`;
+        lastA = a;
     };
-    window.ontouchend = () => isTouching = false;
+    window.ontouchend = () => active = false;
 
-    function mainLoop() {
-        ctx.fillStyle = "#050508";
+    function loop() {
+        ctx.fillStyle = "#0a0515";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // --- GTA PHYSICS ENGINE ---
-        // Turn intensity creates Momentum
-        let force = (wheelAngle / 150) * 0.04;
-        velocityX += force;
+        // 1. Physics
+        if (speed < 0.8) speed += 0.002;
+        pos += speed * 5;
         
-        // Friction: The car tries to straighten out
-        velocityX *= 0.93; 
-        playerX += velocityX;
-        
-        // Boundaries
-        if(playerX > 2.8) { playerX = 2.8; velocityX = 0; }
-        if(playerX < -2.8) { playerX = -2.8; velocityX = 0; }
+        let targetSteer = (steerAngle / 160) * 0.05;
+        trackVelocity += targetSteer;
+        trackVelocity *= 0.92; // Friction
+        playerX += trackVelocity;
+        playerX = Math.max(-3, Math.min(3, playerX));
 
-        // --- THE "ALL LEFT" LEAN ---
-        // When you turn left, the world tilts right to show weight shift
-        worldTilt = velocityX * 18; 
-        worldWrapper.style.transform = `rotate(${-worldTilt}deg) scale(1.2)`;
+        // 2. Camera Tilt / Lean
+        let lean = trackVelocity * 20;
+        worldContainer.style.transform = `rotate(${-lean}deg) scale(1.15)`;
 
-        if (!isTouching) { 
-            wheelAngle *= 0.85; 
-            steeringZone.style.transform = `rotate(${wheelAngle}deg)`; 
-        }
+        if (!active) { steerAngle *= 0.85; wheel.style.transform = `rotate(${steerAngle}deg)`; }
 
-        // --- DRAW ROAD ---
-        for (let z = 60; z > 0.1; z -= 2) {
-            const p = project(0, 350, z), pNext = project(0, 350, z - 2);
-            const w = 6500 * p.scale;
-            ctx.fillStyle = (Math.floor(z + (Date.now()/80)) % 2 == 0) ? "#222" : "#1a1a1a";
+        // 3. Render 3D Road with Curves
+        let currentSegment = getSegment(pos / 10);
+        let roadCurve = 0;
+
+        for (let z = 60; z > 0.5; z -= 2) {
+            // Apply curvature to the projection
+            roadCurve += currentSegment.curve * (z / 20);
+            
+            const p = project(0, 350, z, roadCurve);
+            const pNext = project(0, 350, z - 2, roadCurve + currentSegment.curve * ((z-2)/20));
+            const w = 6000 * p.scale;
+            
+            // Texture
+            ctx.fillStyle = (Math.floor((pos + z*10)/30) % 2 == 0) ? "#301040" : "#200a30";
+            
             ctx.beginPath();
             ctx.moveTo(p.x - w/2, p.y);
             ctx.lineTo(p.x + w/2, p.y);
-            ctx.lineTo(pNext.x + (6500 * pNext.scale)/2, pNext.y);
-            ctx.lineTo(pNext.x - (6500 * pNext.scale)/2, pNext.y);
+            ctx.lineTo(pNext.x + (6000 * pNext.scale)/2, pNext.y);
+            ctx.lineTo(pNext.x - (6000 * pNext.scale)/2, pNext.y);
             ctx.fill();
+
+            // White side lines
+            ctx.fillStyle = "#ff00ff";
+            ctx.fillRect(p.x - w/2, p.y, 15 * p.scale, pNext.y - p.y);
+            ctx.fillRect(p.x + w/2 - (15*p.scale), p.y, 15 * p.scale, pNext.y - p.y);
         }
 
-        // --- TRAFFIC ---
-        if (Math.random() < 0.02) obstacles.push(new Car());
-        obstacles.forEach((v, i) => {
-            v.update(); v.draw();
-            // Crash
-            if (v.z < 1.2 && v.z > 0.5 && Math.abs(v.laneX - playerX * 1800) < 400) {
-                location.reload(); 
-            }
-            if (v.z < 0.1) obstacles.splice(i, 1);
-        });
+        // 4. Update Speedo
+        kmhDisp.innerText = Math.round(speed * 140);
 
-        // --- SPEEDO ---
-        kmhTxt.innerText = Math.round(gameSpeed * 1600);
-        if (gameSpeed < 0.9) gameSpeed += 0.0001;
+        // Reset map loop
+        if (pos / 10 > 1700) pos = 0;
 
-        requestAnimationFrame(mainLoop);
+        requestAnimationFrame(loop);
     }
-    mainLoop();
+    loop();
 </script>
 </body>
 </html>
