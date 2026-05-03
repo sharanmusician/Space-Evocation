@@ -3,137 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vice City - Internal Drive</title>
+    <title>Head Ball Clone - JS Recreation</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; }
-        #game-container { position: relative; width: 100vw; height: 100vh; }
-        
-        /* The Windscreen Overlay */
-        #interior-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* Allows you to click the game behind the image */
-            z-index: 100;
-            object-fit: cover;
-        }
-
-        #ui {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: #ff00ff;
-            text-shadow: 2px 2px #00ffff;
-            z-index: 101;
-            font-weight: bold;
-        }
+        body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        canvas { background: #87CEEB; border: 5px solid #fff; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #ui { position: absolute; top: 20px; color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px #000; pointer-events: none; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <div id="ui">W/S: ACCEL | A/D: STEER</div>
-    <img id="interior-overlay" src="Cock.png" alt="Car Interior">
-</div>
+    <div id="ui">AI: <span id="cpuScore">0</span> | PLAYER: <span id="playerScore">0</span></div>
+    <canvas id="gameCanvas"></canvas>
 
-<script type="module">
-    import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const cpuScoreEl = document.getElementById('cpuScore');
+const playerScoreEl = document.getElementById('playerScore');
 
-    // --- Scene Setup ---
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x050505);
-    scene.fog = new THREE.Fog(0x220022, 5, 60);
+canvas.width = 800;
+canvas.height = 400;
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('game-container').appendChild(renderer.domElement);
+// Game Constants
+const GRAVITY = 0.6;
+const GROUND = canvas.height - 20;
 
-    // --- Vice City Lighting ---
-    const ambient = new THREE.AmbientLight(0xff00ff, 0.5); // Pink ambient
-    scene.add(ambient);
-    
-    const streetLight = new THREE.PointLight(0x00ffff, 2, 20); // Cyan street glow
-    scene.add(streetLight);
+let scores = { player: 0, cpu: 0 };
 
-    // --- Building Generator (10 Buildings) ---
-    const createBuilding = (x, z, h) => {
-        const group = new THREE.Group();
-        const geo = new THREE.BoxGeometry(5, h, 5);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-        const body = new THREE.Mesh(geo, mat);
-        body.position.y = h / 2;
-        group.add(body);
-
-        // Neon Trim
-        const trimGeo = new THREE.BoxGeometry(5.2, 0.5, 5.2);
-        const trimMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-        const trim = new THREE.Mesh(trimGeo, trimMat);
-        trim.position.y = h - 1;
-        group.add(trim);
-
-        group.position.set(x, 0, z);
-        scene.add(group);
-    };
-
-    // Layout buildings around the junction
-    const positions = [
-        [-8, -15], [8, -15], [-8, -25], [8, -25], [-8, -35],
-        [8, -5], [-8, -5], [8, 5], [-8, 5], [8, 15]
-    ];
-    positions.forEach(pos => createBuilding(pos[0], pos[1], Math.random() * 10 + 5));
-
-    // --- The Road ---
-    const roadGeo = new THREE.PlaneGeometry(200, 200);
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x080808 });
-    const road = new THREE.Mesh(roadGeo, roadMat);
-    road.rotation.x = -Math.PI / 2;
-    scene.add(road);
-
-    // --- Car & Physics ---
-    const car = new THREE.Group();
-    scene.add(car);
-    car.add(camera);
-    camera.position.set(0, 1.1, 0); // Eye-level view through Cock.png windscreen
-
-    let speed = 0;
-    let rotation = 0;
-    const keys = {};
-
-    window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-    window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
-
-    // --- Main Loop ---
-    function animate() {
-        requestAnimationFrame(animate);
-
-        // Movement Logic
-        if (keys['w']) speed += 0.005;
-        if (keys['s']) speed -= 0.005;
-        speed *= 0.96; // Friction
-
-        if (keys['a']) rotation += 0.02;
-        if (keys['d']) rotation -= 0.02;
-
-        car.rotation.y = rotation;
-        car.translateZ(-speed);
-
-        // Move light with car
-        streetLight.position.set(car.position.x, 2, car.position.z);
-
-        renderer.render(scene, camera);
+class Entity {
+    constructor(x, y, color, isPlayer) {
+        this.x = x;
+        this.y = y;
+        this.radius = 30;
+        this.color = color;
+        this.dx = 0;
+        this.dy = 0;
+        this.speed = 5;
+        this.jumpForce = -12;
+        this.isPlayer = isPlayer;
+        this.isJumping = false;
     }
 
-    animate();
+    draw() {
+        // Draw "Head"
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.closePath();
+        // Draw "Eye" to show direction
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(this.x + (this.isPlayer ? -10 : 10), this.y - 10, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
-    // Handle Resize
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    update() {
+        this.y += this.dy;
+        this.x += this.dx;
+
+        if (this.y + this.radius < GROUND) {
+            this.dy += GRAVITY;
+        } else {
+            this.dy = 0;
+            this.y = GROUND - this.radius;
+            this.isJumping = false;
+        }
+
+        // Boundary constraints
+        if (this.x - this.radius < 0) this.x = this.radius;
+        if (this.x + this.radius > canvas.width) this.x = canvas.width - this.radius;
+    }
+}
+
+class Ball {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height / 2;
+        this.radius = 12;
+        this.dx = 0;
+        this.dy = 0;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.strokeStyle = "#000";
+        ctx.stroke();
+        ctx.closePath();
+    }
+
+    update() {
+        this.dy += 0.3; // Ball gravity
+        this.x += this.dx;
+        this.y += this.dy;
+
+        // Ground bounce
+        if (this.y + this.radius > GROUND) {
+            this.y = GROUND - this.radius;
+            this.dy *= -0.7; 
+        }
+
+        // Ceiling bounce
+        if (this.y - this.radius < 0) {
+            this.y = this.radius;
+            this.dy *= -1;
+        }
+
+        // Wall bounce / Goal Check
+        if (this.x < 0) {
+            if (this.y > GROUND - 100) { scores.player++; resetMatch(); }
+            else { this.x = this.radius; this.dx *= -0.7; }
+        }
+        if (this.x > canvas.width) {
+            if (this.y > GROUND - 100) { scores.cpu++; resetMatch(); }
+            else { this.x = canvas.width - this.radius; this.dx *= -0.7; }
+        }
+
+        this.dx *= 0.99; // Air friction
+    }
+}
+
+const player = new Entity(700, 300, '#ff4757', true);
+const cpu = new Entity(100, 300, '#2f3542', false);
+const ball = new Ball();
+
+const keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+function handleCollisions(obj) {
+    let dist = Math.hypot(obj.x - ball.x, obj.y - ball.y);
+    if (dist < obj.radius + ball.radius) {
+        // Kick physics: change ball velocity based on relative position
+        ball.dx = (ball.x - obj.x) * 0.4;
+        ball.dy = (ball.y - obj.y) * 0.4 - 5;
+    }
+}
+
+function resetMatch() {
+    player.x = 700;
+    cpu.x = 100;
+    ball.reset();
+    playerScoreEl.innerText = scores.player;
+    cpuScoreEl.innerText = scores.cpu;
+}
+
+function update() {
+    // Player Controls (Right Side)
+    player.dx = 0;
+    if (keys['ArrowLeft']) player.dx = -player.speed;
+    if (keys['ArrowRight']) player.dx = player.speed;
+    if (keys['ArrowUp'] && !player.isJumping) {
+        player.dy = player.jumpForce;
+        player.isJumping = true;
+    }
+
+    // Simple AI (Left Side)
+    const targetX = ball.x - 40; 
+    if (cpu.x < targetX) cpu.dx = cpu.speed * 0.7;
+    else if (cpu.x > targetX) cpu.dx = -cpu.speed * 0.7;
+    
+    // AI Jump logic
+    if (ball.y < cpu.y && Math.abs(cpu.x - ball.x) < 50 && !cpu.isJumping) {
+        cpu.dy = cpu.jumpForce;
+        cpu.isJumping = true;
+    }
+
+    player.update();
+    cpu.update();
+    ball.update();
+
+    handleCollisions(player);
+    handleCollisions(cpu);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw Grass
+    ctx.fillStyle = "#2ed573";
+    ctx.fillRect(0, GROUND, canvas.width, 20);
+
+    // Draw Goals
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(0, GROUND - 100, 10, 100); // CPU Goal
+    ctx.fillRect(canvas.width - 10, GROUND - 100, 10, 100); // Player Goal
+
+    player.draw();
+    cpu.draw();
+    ball.draw();
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
 </script>
 </body>
 </html>
