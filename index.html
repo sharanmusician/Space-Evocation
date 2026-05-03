@@ -3,21 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Volley: Heavy Ball Edition</title>
+    <title>Pro Volley: Joystick Pro</title>
     <style>
         :root { --p1: #ff4757; --ai: #2f3542; --gold: #f1c40f; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Arial Black', sans-serif; }
         #game-container { position: relative; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; background: linear-gradient(to bottom, #1e3799, #4a69bd); border: 2px solid #333; }
         canvas { width: 100%; height: 100%; display: block; }
+        
         #hud { position: absolute; top: 5%; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 10; pointer-events: none; }
         .score { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--gold); min-width: 100px; text-align: center; font-size: 1.2rem; }
-        #timer { color: var(--gold); font-size: 1.8rem; }
+        
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
         .btn-start { padding: 15px 50px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.8rem; cursor: pointer; font-weight: bold; }
-        #touch-ui { position: absolute; bottom: 5%; width: 100%; display: flex; justify-content: space-between; padding: 0 5%; z-index: 20; }
-        .ctrl-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; color: white; font-size: 25px; display: flex; justify-content: center; align-items: center; }
-        .jump-btn { width: 90px; height: 90px; background: rgba(255, 165, 0, 0.5); border-radius: 20px; }
+        
+        /* Joystick & Controls */
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; }
+        #joystick-zone { position: absolute; bottom: 10%; left: 10%; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); pointer-events: auto; }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }
+        .jump-btn { position: absolute; bottom: 12%; right: 10%; width: 100px; height: 100px; background: rgba(241, 196, 15, 0.4); border: 3px solid var(--gold); border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; }
     </style>
 </head>
 <body>
@@ -29,16 +33,15 @@
     </div>
     <div id="hud">
         <div class="score">AI: <span id="c-s">0</span></div>
-        <div id="timer">02:00</div>
         <div class="score">YOU: <span id="u-s">0</span></div>
     </div>
     <canvas id="stage"></canvas>
-    <div id="touch-ui">
-        <div style="display: flex; gap: 15px;">
-            <div class="ctrl-btn" id="l-btn">←</div>
-            <div class="ctrl-btn" id="r-btn">→</div>
+    
+    <div id="ui-layer">
+        <div id="joystick-zone">
+            <div id="joystick-stick"></div>
         </div>
-        <div class="ctrl-btn jump-btn" id="j-btn">JUMP</div>
+        <div class="jump-btn" id="j-btn">JUMP</div>
     </div>
 </div>
 
@@ -47,15 +50,20 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('game-container');
 
+// Joystick Variables
+const joyZone = document.getElementById('joystick-zone');
+const joyStick = document.getElementById('joystick-stick');
+let joyInput = { x: 0, active: false };
+
 let W, H, G_Y, NET;
-let state = { scores: { p: 0, c: 0 }, time: 120, running: false, lastWinner: null };
-let input = { l: false, r: false, j: false };
+let state = { scores: { p: 0, c: 0 }, running: false, lastWinner: null };
 
 function begin() {
     if (container.requestFullscreen) container.requestFullscreen();
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
     syncDimensions();
+    initJoystick();
     requestAnimationFrame(engine);
 }
 
@@ -65,6 +73,40 @@ function syncDimensions() {
     G_Y = H - 40;
     NET = { x: W/2, y: H - 160, w: 12, h: 120 };
     p1.reset(); cpu.reset(); ball.spawn();
+}
+
+// Joystick Logic
+function initJoystick() {
+    const handleMove = (e) => {
+        if (!joyInput.active) return;
+        const touch = e.touches ? e.touches[0] : e;
+        const rect = joyZone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const limit = rect.width / 2;
+        
+        let dx = touch.clientX - centerX;
+        let dist = Math.min(Math.abs(dx), limit);
+        
+        // Normalize to -1 to 1
+        joyInput.x = (dx / limit);
+        if (joyInput.x > 1) joyInput.x = 1;
+        if (joyInput.x < -1) joyInput.x = -1;
+
+        joyStick.style.left = (50 + (joyInput.x * 40)) + "%";
+    };
+
+    joyZone.addEventListener('touchstart', (e) => { joyInput.active = true; handleMove(e); });
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', () => { 
+        joyInput.active = false; 
+        joyInput.x = 0; 
+        joyStick.style.left = "50%";
+    });
+    
+    document.getElementById('j-btn').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!p1.air) { p1.dy = -18; p1.air = true; }
+    });
 }
 
 class Player {
@@ -96,20 +138,15 @@ class Player {
 }
 
 const ball = {
-    r: 16,
-    // HEAVY BALL PHYSICS
-    drag: 0.985, 
-    gravity: 0.4, 
+    r: 16, drag: 0.988, gravity: 0.42,
     spawn() {
         this.y = H * 0.2; this.dy = 0; this.dx = 0;
         this.x = (state.lastWinner === 'p') ? W * 0.85 : (state.lastWinner === 'c' ? W * 0.15 : W / 2);
-        
-        // AI RANDOM SERVICE LOGIC
         if (state.lastWinner === 'c') {
             const mode = Math.random();
-            if (mode < 0.3) { this.dx = 6; this.dy = -12; } // Lob
-            else if (mode < 0.6) { this.dx = 9; this.dy = -4; } // Drive
-            else { this.dx = 4; this.dy = -7; } // Drop
+            if (mode < 0.4) { this.dx = 5; this.dy = -11; } 
+            else if (mode < 0.7) { this.dx = 8; this.dy = -5; } 
+            else { this.dx = 3; this.dy = -8; } 
         }
     },
     render() {
@@ -118,17 +155,14 @@ const ball = {
     },
     update() {
         this.dy += this.gravity;
-        this.dx *= this.drag; // Air resistance slows the ball down over time
-        this.dy *= this.drag;
-        
-        this.x += this.dx; 
-        this.y += this.dy;
+        this.dx *= this.drag; this.dy *= this.drag;
+        this.x += this.dx; this.y += this.dy;
 
         if (this.y < this.r + 5) { this.y = this.r + 5; this.dy = Math.abs(this.dy) * 0.5; }
         if (this.y > G_Y - this.r) { this.y = G_Y - this.r; this.dy *= -0.7; this.dx *= 0.95; }
 
         if (this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -1.1; this.x = (this.x < NET.x) ? NET.x - 20 : NET.x + 20;
+            this.dx *= -1.2; this.x = (this.x < NET.x) ? NET.x - 22 : NET.x + 22;
         }
 
         if (this.x < -this.r || this.x > W + this.r) {
@@ -142,30 +176,20 @@ const ball = {
 const p1 = new Player('right', '#ff4757');
 const cpu = new Player('left', '#2f3542');
 
-const bind = (id, k) => {
-    const el = document.getElementById(id);
-    el.ontouchstart = (e) => { e.preventDefault(); input[k] = true; };
-    el.ontouchend = (e) => { e.preventDefault(); input[k] = false; };
-};
-bind('l-btn', 'l'); bind('r-btn', 'r'); bind('j-btn', 'j');
-
 function engine() {
     if (!state.running) return;
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = "#27ae60"; ctx.fillRect(0, G_Y, W, 40);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    // FAST PLAYER SPEED RESTORED
-    p1.dx = 0;
-    if (input.l) p1.dx = -9; 
-    if (input.r) p1.dx = 9;
-    if (input.j && !p1.air) { p1.dy = -18; p1.air = true; }
+    // Apply Joystick Input to Player
+    p1.dx = joyInput.x * 10; 
 
-    // AI SHUFFLE BRAIN
-    let aiTargetX = (ball.x < NET.x) ? ball.x - 20 : W * 0.15;
+    // AI logic (Randomized Shuffle)
+    let aiTargetX = (ball.x < NET.x) ? ball.x - 18 : W * 0.15;
     cpu.dx = (cpu.x < aiTargetX - 5) ? 8 : (cpu.x > aiTargetX + 5) ? -8 : 0;
     if (ball.x < NET.x && Math.abs(ball.x - cpu.x) < 50 && ball.y < G_Y - 60 && !cpu.air) {
-        if (Math.random() > 0.4) { cpu.dy = -16; cpu.air = true; }
+        if (Math.random() > 0.45) { cpu.dy = -17; cpu.air = true; }
     }
 
     [p1, cpu].forEach(p => {
@@ -175,12 +199,11 @@ function engine() {
             const angleOffset = (ball.x - p.x) / p.r; 
             const isBackCourt = (p.side === 'right' && p.x > W * 0.8) || (p.side === 'left' && p.x < W * 0.2);
             
-            // Ball gets a velocity kick, but is immediately acted upon by "Drag"
             let powerX = angleOffset * 13 + p.dx * 0.5;
-            if (isBackCourt) powerX *= 0.75; // Stay in play logic
+            if (isBackCourt) powerX *= 0.72; 
 
             ball.dx = powerX;
-            ball.dy = -13 - Math.abs(angleOffset * 4);
+            ball.dy = -14 - Math.abs(angleOffset * 4);
             
             if (p.side === 'left' && ball.dx < 2) ball.dx = 5;
             if (p.side === 'right' && ball.dx > -2) ball.dx = -5;
@@ -193,15 +216,6 @@ function engine() {
     document.getElementById('c-s').innerText = state.scores.c;
     requestAnimationFrame(engine);
 }
-
-setInterval(() => {
-    if (!state.running) return;
-    if (state.time > 0) {
-        state.time--;
-        let m = Math.floor(state.time/60), s = state.time%60;
-        document.getElementById('timer').innerText = `${m}:${s<10?'0'+s:s}`;
-    }
-}, 1000);
 
 window.addEventListener('resize', syncDimensions);
 </script>
