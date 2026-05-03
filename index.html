@@ -2,187 +2,138 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vice City Junction Engine</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vice City - Internal Drive</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
-        #stage { position: relative; width: 100vw; height: 100vh; background: #0b0118; }
-
-        /* THE 3D WORLD (Behind the dash) */
-        #world-layer {
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        
+        /* The Windscreen Overlay */
+        #interior-overlay {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 1;
-            transform-origin: 50% 75%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows you to click the game behind the image */
+            z-index: 100;
+            object-fit: cover;
         }
 
-        /* DASH UI */
-        #dash-ui {
+        #ui {
             position: absolute;
-            bottom: 12.8%; right: 17.6%;
-            width: 95px;
-            z-index: 5;
-            text-align: center;
-            font-family: 'Orbitron', sans-serif;
-            pointer-events: none;
-        }
-        #kmh { color: #ff00ff; font-size: 26px; text-shadow: 0 0 10px #ff00ff; line-height: 1; }
-
-        /* THE COCKPIT */
-        #cockpit {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 10;
-            object-fit: fill;
-            pointer-events: none;
-        }
-
-        /* STEERING BOX */
-        #steering {
-            position: absolute;
-            bottom: 4%; right: 7%;
-            width: 150px; height: 150px;
-            z-index: 50;
-            border-radius: 50%;
-            border: 2px solid rgba(0, 240, 255, 0.3);
+            bottom: 20px;
+            left: 20px;
+            color: #ff00ff;
+            text-shadow: 2px 2px #00ffff;
+            z-index: 101;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-<div id="stage">
-    <div id="world-layer">
-        <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <div id="dash-ui">
-        <div id="kmh">000</div>
-        <div style="color: #00f0ff; font-size: 7px; letter-spacing: 1px;">MPH</div>
-    </div>
-
-    <img src="Cock.png" id="cockpit">
-
-    <div id="steering"></div>
+<div id="game-container">
+    <div id="ui">W/S: ACCEL | A/D: STEER</div>
+    <img id="interior-overlay" src="Cock.png" alt="Car Interior">
 </div>
 
-<script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const worldLayer = document.getElementById('world-layer');
-    const speedo = document.getElementById('kmh');
-    const wheel = document.getElementById('steering');
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
-    // --- JUNCTION MAP SYSTEM ---
-    // Type: 0 = Straight, 1 = Curve Left, 2 = Curve Right, 3 = T-Junction
-    const bigMap = [
-        { type: 0, len: 400 },
-        { type: 1, len: 300 }, // Curve
-        { type: 3, len: 200 }, // THE JUNCTION
-        { type: 0, len: 600 },
-        { type: 2, len: 300 }
+    // --- Scene Setup ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050505);
+    scene.fog = new THREE.Fog(0x220022, 5, 60);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('game-container').appendChild(renderer.domElement);
+
+    // --- Vice City Lighting ---
+    const ambient = new THREE.AmbientLight(0xff00ff, 0.5); // Pink ambient
+    scene.add(ambient);
+    
+    const streetLight = new THREE.PointLight(0x00ffff, 2, 20); // Cyan street glow
+    scene.add(streetLight);
+
+    // --- Building Generator (10 Buildings) ---
+    const createBuilding = (x, z, h) => {
+        const group = new THREE.Group();
+        const geo = new THREE.BoxGeometry(5, h, 5);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const body = new THREE.Mesh(geo, mat);
+        body.position.y = h / 2;
+        group.add(body);
+
+        // Neon Trim
+        const trimGeo = new THREE.BoxGeometry(5.2, 0.5, 5.2);
+        const trimMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+        const trim = new THREE.Mesh(trimGeo, trimMat);
+        trim.position.y = h - 1;
+        group.add(trim);
+
+        group.position.set(x, 0, z);
+        scene.add(group);
+    };
+
+    // Layout buildings around the junction
+    const positions = [
+        [-8, -15], [8, -15], [-8, -25], [8, -25], [-8, -35],
+        [8, -5], [-8, -5], [8, 5], [-8, 5], [8, 15]
     ];
+    positions.forEach(pos => createBuilding(pos[0], pos[1], Math.random() * 10 + 5));
 
-    let playerX = 0, momentumX = 0, steer = 0;
-    let mapPos = 0, currentSegIdx = 0;
-    let speed = 0.05, tilt = 0;
+    // --- The Road ---
+    const roadGeo = new THREE.PlaneGeometry(200, 200);
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x080808 });
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.rotation.x = -Math.PI / 2;
+    scene.add(road);
 
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', resize); resize();
+    // --- Car & Physics ---
+    const car = new THREE.Group();
+    scene.add(car);
+    car.add(camera);
+    camera.position.set(0, 1.1, 0); // Eye-level view through Cock.png windscreen
 
-    function project(x, y, z, offset = 0) {
-        const scale = 1 / z;
-        const px = (canvas.width * 0.63) + (x - playerX * 1800 + offset) * scale;
-        const py = (canvas.height * 0.38) + (y * scale);
-        return { x: px, y: py, scale: scale };
+    let speed = 0;
+    let rotation = 0;
+    const keys = {};
+
+    window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+    // --- Main Loop ---
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Movement Logic
+        if (keys['w']) speed += 0.005;
+        if (keys['s']) speed -= 0.005;
+        speed *= 0.96; // Friction
+
+        if (keys['a']) rotation += 0.02;
+        if (keys['d']) rotation -= 0.02;
+
+        car.rotation.y = rotation;
+        car.translateZ(-speed);
+
+        // Move light with car
+        streetLight.position.set(car.position.x, 2, car.position.z);
+
+        renderer.render(scene, camera);
     }
 
-    // Input
-    let active = false, lastA = 0;
-    const getA = (e) => {
-        const r = wheel.getBoundingClientRect();
-        const cx = r.left + r.width/2, cy = r.top + r.height/2;
-        const px = e.touches ? e.touches[0].clientX : e.clientX;
-        const py = e.touches ? e.touches[0].clientY : e.clientY;
-        return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
-    };
-    wheel.ontouchstart = (e) => { active = true; lastA = getA(e); e.preventDefault(); };
-    window.ontouchmove = (e) => {
-        if (!active) return;
-        let a = getA(e), d = a - lastA;
-        if (d > 180) d -= 360; if (d < -180) d += 360;
-        steer = Math.max(-160, Math.min(160, steer + d));
-        wheel.style.transform = `rotate(${steer}deg)`;
-        lastA = a;
-    };
-    window.ontouchend = () => active = false;
+    animate();
 
-    function drawRoad(zStart, zEnd, xOffset, color1, color2) {
-        const p1 = project(xOffset, 350, zStart);
-        const p2 = project(xOffset, 350, zEnd);
-        const w1 = 6000 * p1.scale;
-        const w2 = 6000 * p2.scale;
-
-        ctx.fillStyle = (Math.floor(zStart + (mapPos/10)) % 2 == 0) ? color1 : color2;
-        ctx.beginPath();
-        ctx.moveTo(p1.x - w1/2, p1.y);
-        ctx.lineTo(p1.x + w1/2, p1.y);
-        ctx.lineTo(p2.x + w2/2, p2.y);
-        ctx.lineTo(p2.x - w2/2, p2.y);
-        ctx.fill();
-    }
-
-    function renderLoop() {
-        ctx.fillStyle = "#0a0115"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // 1. Physics & Map Movement
-        mapPos += speed * 10;
-        let targetMomentum = (steer / 160) * 0.04;
-        momentumX += targetMomentum;
-        momentumX *= 0.93;
-        playerX += momentumX;
-        playerX = Math.max(-3, Math.min(3, playerX));
-
-        // 2. Camera Suspension Tilt
-        tilt = momentumX * 22;
-        worldLayer.style.transform = `rotate(${-tilt}deg) scale(1.15)`;
-        if(!active) { steer *= 0.85; wheel.style.transform = `rotate(${steer}deg)`; }
-
-        // 3. Render Segments
-        let seg = bigMap[currentSegIdx];
-        let curveVal = 0;
-
-        for (let z = 60; z > 0.5; z -= 2) {
-            // Visual logic for junctions
-            if (seg.type === 3 && z > 20 && z < 40) {
-                // Draw Horizontal Road (The Junction Crossroads)
-                const pJ = project(0, 350, z);
-                ctx.fillStyle = "#222";
-                ctx.fillRect(0, pJ.y, canvas.width, 40 * pJ.scale);
-            }
-
-            // Normal Road Drawing
-            if (seg.type === 1) curveVal -= z * 2; // Curve Left
-            if (seg.type === 2) curveVal += z * 2; // Curve Right
-
-            drawRoad(z, z-2, curveVal, "#2a0a3a", "#1a0525");
-        }
-
-        // 4. Update UI
-        speedo.innerText = Math.round(speed * 1600);
-        if (speed < 0.9) speed += 0.0001;
-
-        // Progress map index
-        if (mapPos > seg.len * 10) {
-            mapPos = 0;
-            currentSegIdx = (currentSegIdx + 1) % bigMap.length;
-        }
-
-        requestAnimationFrame(renderLoop);
-    }
-    renderLoop();
+    // Handle Resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 </script>
 </body>
 </html>
