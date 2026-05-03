@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Volley: Joystick Pro</title>
+    <title>Pro Volley: Skill Strike</title>
     <style>
         :root { --p1: #ff4757; --ai: #2f3542; --gold: #f1c40f; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
@@ -11,25 +11,31 @@
         #game-container { position: relative; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; background: linear-gradient(to bottom, #1e3799, #4a69bd); border: 2px solid #333; }
         canvas { width: 100%; height: 100%; display: block; }
         
+        /* HUD & Scores */
         #hud { position: absolute; top: 5%; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 10; pointer-events: none; }
         .score { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--gold); min-width: 100px; text-align: center; font-size: 1.2rem; }
         
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
         .btn-start { padding: 15px 50px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.8rem; cursor: pointer; font-weight: bold; }
         
-        /* Joystick & Controls */
-        #ui-layer { position: absolute; inset: 0; pointer-events: none; }
-        #joystick-zone { position: absolute; bottom: 10%; left: 10%; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); pointer-events: auto; }
-        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }
-        .jump-btn { position: absolute; bottom: 12%; right: 10%; width: 100px; height: 100px; background: rgba(241, 196, 15, 0.4); border: 3px solid var(--gold); border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; pointer-events: auto; }
+        /* 360 Joystick */
+        #joystick-zone { position: absolute; bottom: 8%; left: 8%; width: 160px; height: 160px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); pointer-events: auto; }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 65px; height: 65px; background: rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }
+        
+        /* Technique Buttons */
+        #action-zone { position: absolute; bottom: 8%; right: 5%; display: flex; gap: 15px; pointer-events: auto; }
+        .act-btn { width: 85px; height: 85px; border-radius: 50%; border: 3px solid #fff; color: white; display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: bold; background: rgba(0,0,0,0.4); }
+        #btn-spike { border-color: #ff4757; color: #ff4757; }
+        #btn-lob { border-color: #2ecc71; color: #2ecc71; }
+        #btn-cut { border-color: #f1c40f; color: #f1c40f; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="overlay">
-        <h1 style="font-size: 2.5rem; margin-bottom: 20px;">PRO VOLLEY</h1>
-        <button class="btn-start" onclick="begin()">START</button>
+        <h1 style="font-size: 2.5rem; margin-bottom: 20px;">SKILL STRIKE VOLLEY</h1>
+        <button class="btn-start" onclick="begin()">PLAY</button>
     </div>
     <div id="hud">
         <div class="score">AI: <span id="c-s">0</span></div>
@@ -37,11 +43,12 @@
     </div>
     <canvas id="stage"></canvas>
     
-    <div id="ui-layer">
-        <div id="joystick-zone">
-            <div id="joystick-stick"></div>
-        </div>
-        <div class="jump-btn" id="j-btn">JUMP</div>
+    <div id="joystick-zone"><div id="joystick-stick"></div></div>
+    
+    <div id="action-zone">
+        <div class="act-btn" id="btn-spike">SPIKE</div>
+        <div class="act-btn" id="btn-lob">LOB</div>
+        <div class="act-btn" id="btn-cut">CUT</div>
     </div>
 </div>
 
@@ -50,20 +57,18 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('game-container');
 
-// Joystick Variables
-const joyZone = document.getElementById('joystick-zone');
-const joyStick = document.getElementById('joystick-stick');
-let joyInput = { x: 0, active: false };
+// Controls State
+let joy = { x: 0, y: 0, active: false };
+let activeSkill = null; // 'spike', 'lob', 'cut'
 
 let W, H, G_Y, NET;
-let state = { scores: { p: 0, c: 0 }, running: false, lastWinner: null };
+let state = { scores: { p: 0, c: 0 }, running: false };
 
 function begin() {
-    if (container.requestFullscreen) container.requestFullscreen();
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
     syncDimensions();
-    initJoystick();
+    initControls();
     requestAnimationFrame(engine);
 }
 
@@ -75,37 +80,59 @@ function syncDimensions() {
     p1.reset(); cpu.reset(); ball.spawn();
 }
 
-// Joystick Logic
-function initJoystick() {
+function initControls() {
+    const zone = document.getElementById('joystick-zone');
+    const stick = document.getElementById('joystick-stick');
+
     const handleMove = (e) => {
-        if (!joyInput.active) return;
+        if (!joy.active) return;
         const touch = e.touches ? e.touches[0] : e;
-        const rect = joyZone.getBoundingClientRect();
+        const rect = zone.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
-        const limit = rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const maxDist = rect.width / 2;
         
         let dx = touch.clientX - centerX;
-        let dist = Math.min(Math.abs(dx), limit);
+        let dy = touch.clientY - centerY;
+        let dist = Math.hypot(dx, dy);
         
-        // Normalize to -1 to 1
-        joyInput.x = (dx / limit);
-        if (joyInput.x > 1) joyInput.x = 1;
-        if (joyInput.x < -1) joyInput.x = -1;
+        if (dist > maxDist) {
+            dx = (dx / dist) * maxDist;
+            dy = (dy / dist) * maxDist;
+        }
 
-        joyStick.style.left = (50 + (joyInput.x * 40)) + "%";
+        joy.x = dx / maxDist;
+        joy.y = dy / maxDist;
+
+        stick.style.left = (50 + (joy.x * 40)) + "%";
+        stick.style.top = (50 + (joy.y * 40)) + "%";
+
+        // 360° JUMP: Pull up to jump
+        if (joy.y < -0.6 && !p1.air) {
+            p1.dy = -18;
+            p1.air = true;
+        }
     };
 
-    joyZone.addEventListener('touchstart', (e) => { joyInput.active = true; handleMove(e); });
+    zone.addEventListener('touchstart', (e) => { joy.active = true; handleMove(e); });
     window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', () => { 
-        joyInput.active = false; 
-        joyInput.x = 0; 
-        joyStick.style.left = "50%";
+    window.addEventListener('touchend', () => {
+        joy.active = false; joy.x = 0; joy.y = 0;
+        stick.style.left = stick.style.top = "50%";
     });
-    
-    document.getElementById('j-btn').addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (!p1.air) { p1.dy = -18; p1.air = true; }
+
+    // Skill Buttons
+    ['spike', 'lob', 'cut'].forEach(skill => {
+        const btn = document.getElementById('btn-' + skill);
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            activeSkill = skill;
+            btn.style.background = "rgba(255,255,255,0.4)";
+        });
+        btn.addEventListener('touchend', () => {
+            activeSkill = null;
+            btn.style.background = "rgba(0,0,0,0.4)";
+        });
     });
 }
 
@@ -116,13 +143,6 @@ class Player {
         this.y = G_Y - this.r;
         this.dx = 0; this.dy = 0; this.air = false;
     }
-    render() {
-        ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.stroke();
-        ctx.fillStyle = "white"; ctx.beginPath();
-        ctx.arc(this.x + (this.side === 'right' ? -15 : 15), this.y - 12, 10, 0, Math.PI*2); ctx.fill();
-    }
     update() {
         this.x += this.dx; this.y += this.dy;
         if (this.y < G_Y - this.r) this.dy += 0.8;
@@ -130,7 +150,7 @@ class Player {
         
         if (this.x < this.r) this.x = this.r;
         if (this.x > W - this.r) this.x = W - this.r;
-
+        
         const margin = this.r + NET.w/2;
         if (this.side === 'right' && this.x < NET.x + margin) this.x = NET.x + margin;
         if (this.side === 'left' && this.x > NET.x - margin) this.x = NET.x - margin;
@@ -138,36 +158,26 @@ class Player {
 }
 
 const ball = {
-    r: 16, drag: 0.988, gravity: 0.42,
+    r: 16, drag: 0.99, grav: 0.4,
     spawn() {
         this.y = H * 0.2; this.dy = 0; this.dx = 0;
-        this.x = (state.lastWinner === 'p') ? W * 0.85 : (state.lastWinner === 'c' ? W * 0.15 : W / 2);
-        if (state.lastWinner === 'c') {
-            const mode = Math.random();
-            if (mode < 0.4) { this.dx = 5; this.dy = -11; } 
-            else if (mode < 0.7) { this.dx = 8; this.dy = -5; } 
-            else { this.dx = 3; this.dy = -8; } 
-        }
-    },
-    render() {
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-        ctx.fillStyle = "#fff200"; ctx.fill(); ctx.stroke();
+        this.x = (state.lastWinner === 'p') ? W * 0.85 : W * 0.15;
     },
     update() {
-        this.dy += this.gravity;
+        this.dy += this.grav;
         this.dx *= this.drag; this.dy *= this.drag;
         this.x += this.dx; this.y += this.dy;
 
         if (this.y < this.r + 5) { this.y = this.r + 5; this.dy = Math.abs(this.dy) * 0.5; }
-        if (this.y > G_Y - this.r) { this.y = G_Y - this.r; this.dy *= -0.7; this.dx *= 0.95; }
+        if (this.y > G_Y - this.r) { this.y = G_Y - this.r; this.dy *= -0.7; this.dx *= 0.98; }
 
         if (this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -1.2; this.x = (this.x < NET.x) ? NET.x - 22 : NET.x + 22;
         }
 
         if (this.x < -this.r || this.x > W + this.r) {
-            if (this.x > W) { state.scores.c++; state.lastWinner = 'c'; }
-            else { state.scores.p++; state.lastWinner = 'p'; }
+            state.scores[this.x > W ? 'c' : 'p']++;
+            state.lastWinner = this.x > W ? 'c' : 'p';
             this.spawn(); p1.reset(); cpu.reset();
         }
     }
@@ -182,41 +192,58 @@ function engine() {
     ctx.fillStyle = "#27ae60"; ctx.fillRect(0, G_Y, W, 40);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    // Apply Joystick Input to Player
-    p1.dx = joyInput.x * 10; 
+    p1.dx = joy.x * 9;
 
-    // AI logic (Randomized Shuffle)
-    let aiTargetX = (ball.x < NET.x) ? ball.x - 18 : W * 0.15;
-    cpu.dx = (cpu.x < aiTargetX - 5) ? 8 : (cpu.x > aiTargetX + 5) ? -8 : 0;
-    if (ball.x < NET.x && Math.abs(ball.x - cpu.x) < 50 && ball.y < G_Y - 60 && !cpu.air) {
-        if (Math.random() > 0.45) { cpu.dy = -17; cpu.air = true; }
+    // AI Logic (Uses skills randomly)
+    let aiTarget = (ball.x < NET.x) ? ball.x - 15 : W * 0.15;
+    cpu.dx = (cpu.x < aiTarget - 5) ? 7.5 : (cpu.x > aiTarget + 5) ? -7.5 : 0;
+    if (ball.x < NET.x && !cpu.air && ball.y < G_Y - 50) {
+        if (Math.random() > 0.4) { cpu.dy = -16; cpu.air = true; }
     }
 
     [p1, cpu].forEach(p => {
         p.update();
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
-            const angleOffset = (ball.x - p.x) / p.r; 
-            const isBackCourt = (p.side === 'right' && p.x > W * 0.8) || (p.side === 'left' && p.x < W * 0.2);
-            
-            let powerX = angleOffset * 13 + p.dx * 0.5;
-            if (isBackCourt) powerX *= 0.72; 
+            const angle = (ball.x - p.x) / p.r;
+            let forceX = 0, forceY = 0;
 
-            ball.dx = powerX;
-            ball.dy = -14 - Math.abs(angleOffset * 4);
+            // IS THE PLAYER PRESSING AN ACTION BUTTON?
+            let skill = (p === p1) ? activeSkill : (Math.random() > 0.5 ? 'spike' : 'lob');
+
+            if (skill === 'spike') {
+                forceX = (p.side === 'right' ? -14 : 14);
+                forceY = -4;
+            } else if (skill === 'lob') {
+                forceX = (p.side === 'right' ? -7 : 7);
+                forceY = -16;
+            } else if (skill === 'cut') {
+                forceX = angle * 15;
+                forceY = -10;
+            } else {
+                // PASSIVE HIT: Just a weak bump
+                forceX = angle * 4;
+                forceY = -6;
+            }
+
+            ball.dx = forceX;
+            ball.dy = forceY;
             
-            if (p.side === 'left' && ball.dx < 2) ball.dx = 5;
-            if (p.side === 'right' && ball.dx > -2) ball.dx = -5;
+            // Boundary safety
+            if (p.side === 'left' && ball.dx < 1) ball.dx = 3;
+            if (p.side === 'right' && ball.dx > -1) ball.dx = -3;
         }
     });
 
     ball.update();
-    p1.render(); cpu.render(); ball.render();
+    p1.render(); cpu.render();
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+    ctx.fillStyle = "#fff200"; ctx.fill(); ctx.stroke();
+    
     document.getElementById('u-s').innerText = state.scores.p;
     document.getElementById('c-s').innerText = state.scores.c;
     requestAnimationFrame(engine);
 }
-
 window.addEventListener('resize', syncDimensions);
 </script>
 </body>
