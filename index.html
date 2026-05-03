@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Legend Volley: Infinite Floor</title>
+    <title>Legend Volley: Physics Pro</title>
     <style>
         :root { --p1: #ff4757; --ai: #2f3542; --gold: #f1c40f; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
@@ -21,7 +21,7 @@
             z-index: 10; pointer-events: none; 
         }
         .score { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--gold); min-width: 100px; text-align: center; font-size: 1.5rem; }
-        #timer { color: var(--gold); font-size: 2rem; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); }
+        #timer { color: var(--gold); font-size: 2rem; }
 
         #overlay { 
             position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; 
@@ -30,8 +30,8 @@
         .btn-start { padding: 20px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 2rem; cursor: pointer; }
         
         #touch-controls { position: absolute; bottom: 5%; width: 100%; display: flex; justify-content: space-between; padding: 0 5%; z-index: 20; }
-        .ctrl-btn { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 4px solid #fff; border-radius: 50%; color: white; font-size: 30px; display: flex; justify-content: center; align-items: center; }
-        .jump-btn { width: 100px; height: 100px; background: rgba(255, 165, 0, 0.5); border-radius: 20px; }
+        .ctrl-btn { width: 75px; height: 75px; background: rgba(255,255,255,0.2); border: 4px solid #fff; border-radius: 50%; color: white; font-size: 30px; display: flex; justify-content: center; align-items: center; }
+        .jump-btn { width: 95px; height: 95px; background: rgba(255, 165, 0, 0.5); border-radius: 20px; }
     </style>
 </head>
 <body>
@@ -39,7 +39,7 @@
 <div id="game-container">
     <div id="overlay">
         <h1 style="font-size: 3rem; margin-bottom: 20px;">LEGEND VOLLEY</h1>
-        <button class="btn-start" onclick="begin()">START</button>
+        <button class="btn-start" onclick="begin()">START GAME</button>
     </div>
 
     <div id="hud">
@@ -50,12 +50,14 @@
 
     <canvas id="stage"></canvas>
 
-    <div id="touch-controls">
-        <div style="display: flex; gap: 20px;">
-            <div class="ctrl-btn" id="l-btn">←</div>
-            <div class="ctrl-btn" id="r-btn">→</div>
+    <div id="touch-ui">
+        <div id="touch-controls">
+            <div style="display: flex; gap: 20px;">
+                <div class="ctrl-btn" id="l-btn">←</div>
+                <div class="ctrl-btn" id="r-btn">→</div>
+            </div>
+            <div class="ctrl-btn jump-btn" id="j-btn">JUMP</div>
         </div>
-        <div class="ctrl-btn jump-btn" id="j-btn">JUMP</div>
     </div>
 </div>
 
@@ -73,78 +75,84 @@ function begin() {
     else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
-    init();
+    syncDimensions();
     requestAnimationFrame(engine);
 }
 
-function init() {
-    W = canvas.width = canvas.offsetWidth;
-    H = canvas.height = canvas.offsetHeight;
+function syncDimensions() {
+    W = canvas.width = container.clientWidth;
+    H = canvas.height = container.clientHeight;
     G_Y = H - 40;
-    NET = { x: W/2, y: H - 150, w: 10, h: 110 };
-    ball.spawn();
+    NET = { x: W/2, y: H - 160, w: 12, h: 120 };
+    p1.reset(); cpu.reset(); ball.spawn();
 }
 
 class Player {
-    constructor(side, color) { this.side = side; this.color = color; this.r = 35; this.reset(); }
+    constructor(side, color) { this.side = side; this.color = color; this.r = 35; }
     reset() {
-        this.x = this.side === 'left' ? W*0.15 : W*0.85;
+        this.x = this.side === 'left' ? W * 0.2 : W * 0.8;
         this.y = G_Y - this.r;
         this.dx = 0; this.dy = 0; this.air = false;
     }
     render() {
-        ctx.save();
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.stroke();
+        // Eye logic
         ctx.fillStyle = "white"; ctx.beginPath();
         ctx.arc(this.x + (this.side === 'right' ? -15 : 15), this.y - 12, 10, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if (this.y < G_Y - this.r) this.dy += 0.85;
+        if (this.y < G_Y - this.r) this.dy += 0.8;
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         
-        const netGap = this.r + 5;
-        if (this.side === 'right' && this.x < NET.x + netGap) this.x = NET.x + netGap;
-        if (this.side === 'left' && this.x > NET.x - netGap) this.x = NET.x - netGap;
+        // Solid Net Collision for Players
+        const margin = this.r + NET.w/2;
+        if (this.side === 'right' && this.x < NET.x + margin) this.x = NET.x + margin;
+        if (this.side === 'left' && this.x > NET.x - margin) this.x = NET.x - margin;
     }
 }
 
 const ball = {
     r: 16,
     spawn() {
-        this.y = H * 0.15;
-        this.dy = 0; this.dx = 0;
+        this.y = H * 0.15; this.dy = 0; this.dx = 0;
         if (!state.lastWinner) this.x = W/2;
         else this.x = state.lastWinner === 'p' ? W*0.8 : W*0.2;
     },
     render() {
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-        ctx.fillStyle = "#fff200"; ctx.fill();
-        ctx.strokeStyle = "#333"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = "#fff200"; ctx.fill(); ctx.stroke();
     },
     update() {
-        this.dy += 0.4; this.x += this.dx; this.y += this.dy;
+        this.dy += 0.45; this.x += this.dx; this.y += this.dy;
 
-        // Ground Bounce Logic (Safe)
+        // Ground Bounce
         if (this.y > G_Y - this.r) {
-            this.y = G_Y - this.r;
-            this.dy *= -0.75; // Bounce back up
-            this.dx *= 0.95; // Ground friction
+            this.y = G_Y - this.r; this.dy *= -0.7; this.dx *= 0.98;
         }
 
-        // Scoring Logic (Only if ball exits the Left or Right screen)
+        // Net Collision (Anti-Overlap & Random Deflection)
+        if (this.y + this.r > NET.y) {
+            if (Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+                // Determine if ball hit top or side
+                if (this.y < NET.y + 10) {
+                    this.dy *= -1; // Top bounce
+                    this.dx += (Math.random() - 0.5) * 10; // Random side kick
+                } else {
+                    this.dx *= -1.2; // Side bounce
+                }
+                // Push out of net to prevent overlap
+                this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
+            }
+        }
+
+        // Scoring (Screen Exit)
         if (this.x < -this.r || this.x > W + this.r) {
             if (this.x > W) { state.scores.c++; state.lastWinner = 'c'; }
             else { state.scores.p++; state.lastWinner = 'p'; }
             this.spawn(); p1.reset(); cpu.reset();
-        }
-
-        // Net Collision
-        if (this.y > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -1; this.x += this.dx;
         }
     }
 };
@@ -165,40 +173,36 @@ setInterval(() => {
         state.time--;
         let m = Math.floor(state.time/60), s = state.time%60;
         document.getElementById('timer').innerText = `${m}:${s<10?'0'+s:s}`;
-    } else {
-        state.running = false;
-        document.getElementById('overlay').style.display = 'flex';
-        const msg = state.scores.p > state.scores.c ? "YOU WIN!" : (state.scores.p === state.scores.c ? "GAME MATCH" : "AI WIN");
-        document.querySelector('h1').innerText = msg;
-    }
+    } else state.running = false;
 }, 1000);
 
 function engine() {
     if (!state.running) return;
     ctx.clearRect(0, 0, W, H);
+    
+    // Environment
     ctx.fillStyle = "#27ae60"; ctx.fillRect(0, G_Y, W, 40);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
     p1.dx = 0;
-    if (input.l) p1.dx = -8; if (input.r) p1.dx = 8;
-    if (input.j && !p1.air) { p1.dy = -17; p1.air = true; }
+    if (input.l) p1.dx = -7; if (input.r) p1.dx = 7;
+    if (input.j && !p1.air) { p1.dy = -16; p1.air = true; }
 
-    // Predictive AI
-    const futureBallX = ball.x + ball.dx * 10;
-    const aiBoundX = NET.x - 60;
-    const aiTarget = Math.min(aiBoundX, Math.max(30, futureBallX));
+    // Pro AI
+    const ballImpact = ball.x + (ball.dx * 12);
+    const aiTarget = Math.min(NET.x - 50, Math.max(30, ballImpact));
     cpu.dx = (cpu.x < aiTarget - 5) ? 6 : (cpu.x > aiTarget + 5) ? -6 : 0;
-    if (ball.x < NET.x && ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 50 && !cpu.air && Math.random() > 0.4) {
-        cpu.dy = -16; cpu.air = true;
+    if (ball.x < NET.x && ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 40 && !cpu.air && Math.random() > 0.5) {
+        cpu.dy = -15; cpu.air = true;
     }
 
     [p1, cpu].forEach(p => {
         p.update();
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
-            const impactAngle = (ball.x - p.x) / p.r;
-            ball.dx = impactAngle * 12 + p.dx * 0.4;
-            ball.dy = -12 + Math.abs(impactAngle * 4);
+            const angle = (ball.x - p.x) / p.r;
+            ball.dx = angle * 11 + p.dx * 0.4;
+            ball.dy = -11 + Math.abs(angle * 3);
         }
     });
 
@@ -208,6 +212,8 @@ function engine() {
     document.getElementById('c-s').innerText = state.scores.c;
     requestAnimationFrame(engine);
 }
+
+window.addEventListener('resize', syncDimensions);
 </script>
 </body>
 </html>
