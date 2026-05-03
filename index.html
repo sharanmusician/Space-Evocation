@@ -3,30 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Volley: Smooth Flow</title>
+    <title>Pro Volley: Heavy Ball Edition</title>
     <style>
         :root { --p1: #ff4757; --ai: #2f3542; --gold: #f1c40f; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
-        body { margin: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
-        #game-container { position: relative; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; background: linear-gradient(to bottom, #1e3799, #3c6382); overflow: hidden; }
-        canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); }
-        #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; gap: 50px; z-index: 10; pointer-events: none; }
-        .score { background: rgba(0,0,0,0.6); color: white; padding: 8px 25px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.3); font-weight: bold; font-size: 1.2rem; min-width: 110px; text-align: center; backdrop-filter: blur(5px); }
-        #timer { color: var(--gold); font-size: 1.8rem; font-weight: 800; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
-        .btn-start { padding: 15px 50px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.8rem; cursor: pointer; font-weight: bold; transition: transform 0.2s; }
-        .btn-start:active { transform: scale(0.95); }
-        #touch-ui { position: absolute; bottom: 25px; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; z-index: 20; }
-        .ctrl-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; color: white; font-size: 28px; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
-        .jump-btn { width: 95px; height: 95px; background: rgba(241, 196, 15, 0.3); border-color: var(--gold); border-radius: 20px; }
+        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Arial Black', sans-serif; }
+        #game-container { position: relative; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; background: linear-gradient(to bottom, #1e3799, #4a69bd); border: 2px solid #333; }
+        canvas { width: 100%; height: 100%; display: block; }
+        #hud { position: absolute; top: 5%; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 10; pointer-events: none; }
+        .score { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--gold); min-width: 100px; text-align: center; font-size: 1.2rem; }
+        #timer { color: var(--gold); font-size: 1.8rem; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
+        .btn-start { padding: 15px 50px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.8rem; cursor: pointer; font-weight: bold; }
+        #touch-ui { position: absolute; bottom: 5%; width: 100%; display: flex; justify-content: space-between; padding: 0 5%; z-index: 20; }
+        .ctrl-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; color: white; font-size: 25px; display: flex; justify-content: center; align-items: center; }
+        .jump-btn { width: 90px; height: 90px; background: rgba(255, 165, 0, 0.5); border-radius: 20px; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="overlay">
-        <h1 style="font-size: 2.5rem; letter-spacing: 2px; margin-bottom: 20px;">PRO VOLLEY</h1>
-        <button class="btn-start" onclick="begin()">SERVE</button>
+        <h1 style="font-size: 2.5rem; margin-bottom: 20px;">PRO VOLLEY</h1>
+        <button class="btn-start" onclick="begin()">START</button>
     </div>
     <div id="hud">
         <div class="score">AI: <span id="c-s">0</span></div>
@@ -35,7 +34,7 @@
     </div>
     <canvas id="stage"></canvas>
     <div id="touch-ui">
-        <div style="display: flex; gap: 20px;">
+        <div style="display: flex; gap: 15px;">
             <div class="ctrl-btn" id="l-btn">←</div>
             <div class="ctrl-btn" id="r-btn">→</div>
         </div>
@@ -47,16 +46,6 @@
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('game-container');
-
-// 1000-Year Developer Settings (Smoothed Physics)
-const PHYSICS = {
-    gravity: 0.38,      // Slightly lower for a "floatier" feel
-    drag: 0.99,         // Air resistance for smoothness
-    bounce: -0.65,      // Ground restitution
-    speed: 6.5,         // Player move speed
-    jump: -15,          // Jump force
-    lerp: 0.15          // Camera/Movement smoothing factor
-};
 
 let W, H, G_Y, NET;
 let state = { scores: { p: 0, c: 0 }, time: 120, running: false, lastWinner: null };
@@ -74,7 +63,7 @@ function syncDimensions() {
     W = canvas.width = container.clientWidth;
     H = canvas.height = container.clientHeight;
     G_Y = H - 40;
-    NET = { x: W/2, y: H - 140, w: 10, h: 100 };
+    NET = { x: W/2, y: H - 160, w: 12, h: 120 };
     p1.reset(); cpu.reset(); ball.spawn();
 }
 
@@ -86,19 +75,15 @@ class Player {
         this.dx = 0; this.dy = 0; this.air = false;
     }
     render() {
-        ctx.save();
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 3; ctx.stroke();
-        // Eye
+        ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.stroke();
         ctx.fillStyle = "white"; ctx.beginPath();
-        ctx.arc(this.x + (this.side === 'right' ? -12 : 12), this.y - 12, 8, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
+        ctx.arc(this.x + (this.side === 'right' ? -15 : 15), this.y - 12, 10, 0, Math.PI*2); ctx.fill();
     }
     update() {
-        this.x += this.dx; 
-        this.y += this.dy;
-        if (this.y < G_Y - this.r) this.dy += PHYSICS.gravity;
+        this.x += this.dx; this.y += this.dy;
+        if (this.y < G_Y - this.r) this.dy += 0.8;
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         
         if (this.x < this.r) this.x = this.r;
@@ -111,52 +96,41 @@ class Player {
 }
 
 const ball = {
-    r: 15,
+    r: 16,
+    // HEAVY BALL PHYSICS
+    drag: 0.985, 
+    gravity: 0.4, 
     spawn() {
-        this.y = H * 0.3;
-        this.dy = 0;
-        this.dx = 0;
+        this.y = H * 0.2; this.dy = 0; this.dx = 0;
+        this.x = (state.lastWinner === 'p') ? W * 0.85 : (state.lastWinner === 'c' ? W * 0.15 : W / 2);
         
-        if (!state.lastWinner) {
-            this.x = W/2;
-        } else if (state.lastWinner === 'c') {
-            this.x = W * 0.15;
-            // RANDOM AI SERVICE TECHNIQUE
-            const technique = Math.random();
-            if (technique < 0.33) { // High Lob
-                this.dx = 4 + Math.random() * 2;
-                this.dy = -12;
-            } else if (technique < 0.66) { // Sharp Drive
-                this.dx = 8 + Math.random() * 3;
-                this.dy = -4;
-            } else { // Soft Drop
-                this.dx = 3;
-                this.dy = -6;
-            }
-        } else {
-            this.x = W * 0.85;
+        // AI RANDOM SERVICE LOGIC
+        if (state.lastWinner === 'c') {
+            const mode = Math.random();
+            if (mode < 0.3) { this.dx = 6; this.dy = -12; } // Lob
+            else if (mode < 0.6) { this.dx = 9; this.dy = -4; } // Drive
+            else { this.dx = 4; this.dy = -7; } // Drop
         }
     },
     render() {
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
-        ctx.fillStyle = "#fff200"; ctx.fill();
-        ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = "#fff200"; ctx.fill(); ctx.stroke();
     },
     update() {
-        this.dy += PHYSICS.gravity;
-        this.x += this.dx;
+        this.dy += this.gravity;
+        this.dx *= this.drag; // Air resistance slows the ball down over time
+        this.dy *= this.drag;
+        
+        this.x += this.dx; 
         this.y += this.dy;
 
-        // Ceiling Clamp
-        if (this.y < this.r + 5) { this.y = this.r + 5; this.dy = Math.abs(this.dy) * 0.4; }
-        // Ground Bounce
-        if (this.y > G_Y - this.r) { this.y = G_Y - this.r; this.dy *= PHYSICS.bounce; this.dx *= 0.98; }
-        // Net
+        if (this.y < this.r + 5) { this.y = this.r + 5; this.dy = Math.abs(this.dy) * 0.5; }
+        if (this.y > G_Y - this.r) { this.y = G_Y - this.r; this.dy *= -0.7; this.dx *= 0.95; }
+
         if (this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -1.1; 
-            this.x = (this.x < NET.x) ? NET.x - 20 : NET.x + 20;
+            this.dx *= -1.1; this.x = (this.x < NET.x) ? NET.x - 20 : NET.x + 20;
         }
-        // Scoring
+
         if (this.x < -this.r || this.x > W + this.r) {
             if (this.x > W) { state.scores.c++; state.lastWinner = 'c'; }
             else { state.scores.p++; state.lastWinner = 'p'; }
@@ -166,7 +140,7 @@ const ball = {
 };
 
 const p1 = new Player('right', '#ff4757');
-const cpu = new Player('left', '#2c3e50');
+const cpu = new Player('left', '#2f3542');
 
 const bind = (id, k) => {
     const el = document.getElementById(id);
@@ -178,54 +152,43 @@ bind('l-btn', 'l'); bind('r-btn', 'r'); bind('j-btn', 'j');
 function engine() {
     if (!state.running) return;
     ctx.clearRect(0, 0, W, H);
-    
-    // Background Details
-    ctx.fillStyle = "rgba(255,255,255,0.05)";
-    ctx.fillRect(W*0.2, G_Y - 100, 2, 100); ctx.fillRect(W*0.8, G_Y - 100, 2, 100);
-
-    // Court & Net
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(0, G_Y, W, 40);
+    ctx.fillStyle = "#27ae60"; ctx.fillRect(0, G_Y, W, 40);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    // Smooth Input
+    // FAST PLAYER SPEED RESTORED
     p1.dx = 0;
-    if (input.l) p1.dx = -PHYSICS.speed;
-    if (input.r) p1.dx = PHYSICS.speed;
-    if (input.j && !p1.air) { p1.dy = PHYSICS.jump; p1.air = true; }
+    if (input.l) p1.dx = -9; 
+    if (input.r) p1.dx = 9;
+    if (input.j && !p1.air) { p1.dy = -18; p1.air = true; }
 
-    // Dynamic AI Brain
-    let aiDecisionX = (ball.x < NET.x) ? ball.x - 10 : W * 0.15;
-    if (ball.dx < 0 && ball.x < W*0.3) aiDecisionX = ball.x - 5; // Aggressive track
-    
-    // Smooth AI movement
-    cpu.dx = (cpu.x < aiDecisionX - 5) ? 6 : (cpu.x > aiDecisionX + 5) ? -6 : 0;
-    
-    if (ball.x < NET.x && Math.abs(ball.x - cpu.x) < 50 && !cpu.air && ball.y < G_Y - 40) {
-        if (Math.random() > 0.4) { cpu.dy = PHYSICS.jump * 0.9; cpu.air = true; }
+    // AI SHUFFLE BRAIN
+    let aiTargetX = (ball.x < NET.x) ? ball.x - 20 : W * 0.15;
+    cpu.dx = (cpu.x < aiTargetX - 5) ? 8 : (cpu.x > aiTargetX + 5) ? -8 : 0;
+    if (ball.x < NET.x && Math.abs(ball.x - cpu.x) < 50 && ball.y < G_Y - 60 && !cpu.air) {
+        if (Math.random() > 0.4) { cpu.dy = -16; cpu.air = true; }
     }
 
     [p1, cpu].forEach(p => {
         p.update();
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
-            let impact = (ball.x - p.x) / p.r; 
-            let variation = (Math.random() - 0.5) * 1.5;
+            const angleOffset = (ball.x - p.x) / p.r; 
+            const isBackCourt = (p.side === 'right' && p.x > W * 0.8) || (p.side === 'left' && p.x < W * 0.2);
             
-            // Back-court dampening to keep ball in play
-            let zoneMult = (p.side === 'right' && p.x > W*0.8) || (p.side === 'left' && p.x < W*0.2) ? 0.75 : 1.1;
-            
-            ball.dx = (impact * 9 + p.dx * 0.4 + variation) * zoneMult;
-            ball.dy = -10 - Math.abs(impact * 2);
+            // Ball gets a velocity kick, but is immediately acted upon by "Drag"
+            let powerX = angleOffset * 13 + p.dx * 0.5;
+            if (isBackCourt) powerX *= 0.75; // Stay in play logic
 
-            // Directional Correction
-            if (p.side === 'left' && ball.dx < 1) ball.dx = 4;
-            if (p.side === 'right' && ball.dx > -1) ball.dx = -4;
+            ball.dx = powerX;
+            ball.dy = -13 - Math.abs(angleOffset * 4);
+            
+            if (p.side === 'left' && ball.dx < 2) ball.dx = 5;
+            if (p.side === 'right' && ball.dx > -2) ball.dx = -5;
         }
     });
 
     ball.update();
     p1.render(); cpu.render(); ball.render();
-    
     document.getElementById('u-s').innerText = state.scores.p;
     document.getElementById('c-s').innerText = state.scores.c;
     requestAnimationFrame(engine);
