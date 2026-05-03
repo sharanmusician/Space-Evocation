@@ -3,36 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Open World | Engine v2.0</title>
+    <title>GTA Physics Prototype</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
-        #game-container { position: relative; width: 100vw; height: 100vh; perspective: 1200px; }
+        
+        /* THE STAGE: This holds everything */
+        #stage { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
+            background: #050508;
+            overflow: hidden;
+        }
 
-        /* THE WORLD CANVAS */
-        #world {
+        /* THE WORLD: This rotates "All Left" or "All Right" */
+        #world-wrapper {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             z-index: 1;
-            transition: transform 0.05s linear;
+            /* Center of rotation is roughly where the car hood is */
+            transform-origin: 50% 70%;
+            transition: transform 0.1s ease-out;
         }
 
-        /* SPEEDO & NAVIGATION (Behind the dash) */
-        #ui-layer {
+        /* DASHBOARD SPEEDO */
+        #speedo-ui {
             position: absolute;
             bottom: 12.8%; right: 17.6%;
-            width: 90px;
+            width: 95px;
             z-index: 5;
             text-align: center;
             font-family: 'Orbitron', sans-serif;
             pointer-events: none;
         }
-        #kmh { color: #00ffcc; font-size: 24px; text-shadow: 0 0 10px #00ffcc; margin: 0; }
-        #distance { color: #ffcc00; font-size: 10px; margin-top: 5px; }
+        #kmh { color: #00ffcc; font-size: 28px; text-shadow: 0 0 15px #00ffcc; line-height: 1; }
 
-        /* THE COCKPIT OVERLAY */
-        #cockpit {
+        /* YOUR COCKPIT PNG */
+        #cockpit-img {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
@@ -41,58 +50,48 @@
             pointer-events: none;
         }
 
-        /* STEERING INPUT */
-        #steering {
+        /* STEERING INPUT RADIUS */
+        #steering-zone {
             position: absolute;
-            bottom: 4%; right: 7%;
-            width: 150px; height: 150px;
-            z-index: 50;
-            border: 4px solid rgba(0, 255, 204, 0.3);
+            bottom: 5%; right: 7%;
+            width: 160px; height: 160px;
+            z-index: 20;
+            border: 2px dashed rgba(0, 255, 204, 0.3);
             border-radius: 50%;
-            display: flex; justify-content: center; align-items: center;
-            color: #00ffcc; font-family: 'Orbitron'; font-size: 12px;
         }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <canvas id="world"></canvas>
-    
-    <div id="ui-layer">
-        <div id="kmh">0</div>
-        <div style="color: #00ffcc; font-size: 7px; font-weight: bold;">KM/H</div>
-        <div id="distance">LOC: 0m</div>
+<div id="stage">
+    <div id="world-wrapper">
+        <canvas id="gameCanvas"></canvas>
     </div>
 
-    <img src="Cock.png" id="cockpit">
+    <div id="speedo-ui">
+        <div id="kmh">000</div>
+        <div style="color: #00ffcc; font-size: 8px; font-weight: bold; opacity: 0.7;">KM/H</div>
+    </div>
 
-    <div id="steering">DRIVE</div>
+    <img src="Cock.png" id="cockpit-img">
+
+    <div id="steering-zone" id="wheel"></div>
 </div>
 
 <script>
-    const canvas = document.getElementById('world');
+    const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const kmhDisp = document.getElementById('kmh');
-    const distDisp = document.getElementById('distance');
-    const wheel = document.getElementById('steering');
+    const worldWrapper = document.getElementById('world-wrapper');
+    const kmhTxt = document.getElementById('kmh');
+    const steeringZone = document.getElementById('steering-zone');
 
-    // --- ENGINE CONSTANTS ---
-    const MAP_LENGTH = 20000; // The "Big Map" size
-    const LANES = 4;
-    const SEGMENT_LENGTH = 200; 
-
-    // --- GAME STATE ---
-    let state = {
-        pos: 0,           // Distance traveled on the map
-        playerX: 0,       // Lateral position (-3 to 3)
-        velocityX: 0,     // Momentum for GTA physics
-        wheelRot: 0,      // Steering angle
-        speed: 0,         // Current velocity
-        maxSpeed: 0.8,
-        tilt: 0,
-        traffic: []
-    };
+    // Engine States
+    let playerX = 0;       // Left/Right position
+    let velocityX = 0;     // Side-to-side speed (Momentum)
+    let wheelAngle = 0;    // Rotation of your touch
+    let worldTilt = 0;     // The "Lean" degree
+    let gameSpeed = 0.08;
+    let obstacles = [];
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -101,139 +100,110 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // --- 3D ENGINE MATH ---
-    function project(x, y, z, curve = 0) {
+    // 3D Engine Projection (GTA style)
+    function project(x, y, z) {
         const scale = 1 / z;
-        // vanishing point logic + curve simulation
-        const px = (canvas.width * 0.63) + (x - state.playerX * 1600 + curve) * scale;
+        // vanishing point logic
+        const px = (canvas.width * 0.63) + (x - playerX * 1800) * scale;
         const py = (canvas.height * 0.38) + (y * scale);
         return { x: px, y: py, scale: scale };
     }
 
-    // --- TRAFFIC SYSTEM ---
-    class Vehicle {
-        constructor(zPos) {
-            this.lane = Math.floor(Math.random() * LANES);
+    class Car {
+        constructor() {
+            this.lane = Math.floor(Math.random() * 4);
             this.laneX = -900 + (this.lane * 600);
-            this.z = zPos;
-            this.speed = 0.02 + Math.random() * 0.04;
-            this.color = ["#ff0000", "#00ff00", "#ffffff"][Math.floor(Math.random()*3)];
+            this.z = 60;
         }
-        draw(pZ) {
-            let relativeZ = this.z - pZ;
-            if (relativeZ <= 0 || relativeZ > 60) return;
-            const p = project(this.laneX, 350, relativeZ);
+        update() { this.z -= (gameSpeed * 0.8); }
+        draw() {
+            if (this.z < 0.2) return;
+            const p = project(this.laneX, 350, this.z);
             const s = 650 * p.scale;
-            ctx.fillStyle = this.color;
+            ctx.fillStyle = "#900"; // Red Box Traffic
             ctx.fillRect(p.x - s/2, p.y - s, s, s);
         }
     }
 
-    // Initialize initial traffic
-    for(let i=0; i<15; i++) state.traffic.push(new Vehicle(10 + i * 50));
-
-    // --- INPUT CONTROLLER ---
-    let isTouching = false, lastAngle = 0;
-    const getTouchAngle = (e) => {
-        const r = wheel.getBoundingClientRect();
+    // Steering Logic
+    let isTouching = false, lastTouchA = 0;
+    const getA = (e) => {
+        const r = steeringZone.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
         const px = e.touches ? e.touches[0].clientX : e.clientX;
         const py = e.touches ? e.touches[0].clientY : e.clientY;
         return Math.atan2(py - cy, px - cx) * 180 / Math.PI;
     };
-    wheel.ontouchstart = (e) => { isTouching = true; lastAngle = getTouchAngle(e); e.preventDefault(); };
+
+    steeringZone.ontouchstart = (e) => { isTouching = true; lastTouchA = getA(e); e.preventDefault(); };
     window.ontouchmove = (e) => {
         if (!isTouching) return;
-        let a = getTouchAngle(e), d = a - lastAngle;
-        if (d > 180) d -= 360; if (d < -180) d += 360;
-        state.wheelRot = Math.max(-130, Math.min(130, state.wheelRot + d));
-        wheel.style.transform = `rotate(${state.wheelRot}deg)`;
-        lastAngle = a;
+        let a = getA(e), delta = a - lastTouchA;
+        if (delta > 180) delta -= 360; if (delta < -180) delta += 360;
+        wheelAngle = Math.max(-150, Math.min(150, wheelAngle + delta));
+        steeringZone.style.transform = `rotate(${wheelAngle}deg)`;
+        lastTouchA = a;
     };
     window.ontouchend = () => isTouching = false;
 
-    // --- MAIN RENDER LOOP ---
-    function update() {
-        ctx.fillStyle = "#050508"; 
+    function mainLoop() {
+        ctx.fillStyle = "#050508";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Update Physics
-        let steerIntensity = (state.wheelRot / 130) * 0.03;
-        state.velocityX += steerIntensity;
-        state.velocityX *= 0.90; // Friction
-        state.playerX += state.velocityX;
-        state.playerX = Math.max(-3, Math.min(3, state.playerX));
+        // --- GTA PHYSICS ENGINE ---
+        // Turn intensity creates Momentum
+        let force = (wheelAngle / 150) * 0.04;
+        velocityX += force;
+        
+        // Friction: The car tries to straighten out
+        velocityX *= 0.93; 
+        playerX += velocityX;
+        
+        // Boundaries
+        if(playerX > 2.8) { playerX = 2.8; velocityX = 0; }
+        if(playerX < -2.8) { playerX = -2.8; velocityX = 0; }
 
-        // Acceleration
-        if (state.speed < state.maxSpeed) state.speed += 0.001;
-        state.pos += state.speed * 40; // Movement on the Map
-
-        // 2. Horizon Tilt (GTA Lean)
-        state.tilt = state.velocityX * 18;
-        canvas.style.transform = `rotate(${-state.tilt}deg) scale(1.15)`;
+        // --- THE "ALL LEFT" LEAN ---
+        // When you turn left, the world tilts right to show weight shift
+        worldTilt = velocityX * 18; 
+        worldWrapper.style.transform = `rotate(${-worldTilt}deg) scale(1.2)`;
 
         if (!isTouching) { 
-            state.wheelRot *= 0.85; 
-            wheel.style.transform = `rotate(${state.wheelRot}deg)`; 
+            wheelAngle *= 0.85; 
+            steeringZone.style.transform = `rotate(${wheelAngle}deg)`; 
         }
 
-        // 3. Draw Map Segments (The Big Road)
-        // We draw only the segments in front of us (Z 0 to 60)
-        for (let z = 60; z > 0.5; z -= 2) {
-            const p = project(0, 350, z);
-            const pNext = project(0, 350, z - 2);
-            const w = 6000 * p.scale;
-            
-            // Checkerboard pattern for road texture
-            let segmentID = Math.floor((state.pos + z*10) / 40);
-            ctx.fillStyle = (segmentID % 2 === 0) ? "#222" : "#1a1a1a";
-            
+        // --- DRAW ROAD ---
+        for (let z = 60; z > 0.1; z -= 2) {
+            const p = project(0, 350, z), pNext = project(0, 350, z - 2);
+            const w = 6500 * p.scale;
+            ctx.fillStyle = (Math.floor(z + (Date.now()/80)) % 2 == 0) ? "#222" : "#1a1a1a";
             ctx.beginPath();
             ctx.moveTo(p.x - w/2, p.y);
             ctx.lineTo(p.x + w/2, p.y);
-            ctx.lineTo(pNext.x + (6000 * pNext.scale)/2, pNext.y);
-            ctx.lineTo(pNext.x - (6000 * pNext.scale)/2, pNext.y);
+            ctx.lineTo(pNext.x + (6500 * pNext.scale)/2, pNext.y);
+            ctx.lineTo(pNext.x - (6500 * pNext.scale)/2, pNext.y);
             ctx.fill();
-
-            // Draw Road Lines
-            if (segmentID % 4 === 0) {
-                ctx.fillStyle = "#fff";
-                ctx.fillRect(p.x - 5 * p.scale, p.y, 10 * p.scale, pNext.y - p.y);
-            }
         }
 
-        // 4. Update & Draw Traffic
-        state.traffic.forEach((v, i) => {
-            v.draw(state.pos / 40);
-            
-            // Respawn car if it goes behind player
-            if (v.z < (state.pos / 40) - 5) {
-                v.z = (state.pos / 40) + 60;
-                v.lane = Math.floor(Math.random() * 4);
-                v.laneX = -900 + (v.lane * 600);
+        // --- TRAFFIC ---
+        if (Math.random() < 0.02) obstacles.push(new Car());
+        obstacles.forEach((v, i) => {
+            v.update(); v.draw();
+            // Crash
+            if (v.z < 1.2 && v.z > 0.5 && Math.abs(v.laneX - playerX * 1800) < 400) {
+                location.reload(); 
             }
-
-            // Collision
-            let relZ = v.z - (state.pos / 40);
-            if (relZ < 1.2 && relZ > 0.5 && Math.abs(v.laneX - state.playerX * 1600) < 350) {
-                location.reload(); // Crash
-            }
+            if (v.z < 0.1) obstacles.splice(i, 1);
         });
 
-        // 5. Update UI
-        kmhDisp.innerText = Math.round(state.speed * 1800);
-        distDisp.innerText = `LOC: ${Math.round(state.pos)}m`;
+        // --- SPEEDO ---
+        kmhTxt.innerText = Math.round(gameSpeed * 1600);
+        if (gameSpeed < 0.9) gameSpeed += 0.0001;
 
-        // Loop end condition
-        if (state.pos > MAP_LENGTH) {
-            alert("Map Finished! Welcome to the next City.");
-            state.pos = 0;
-        }
-
-        requestAnimationFrame(update);
+        requestAnimationFrame(mainLoop);
     }
-
-    update();
+    mainLoop();
 </script>
 </body>
 </html>
