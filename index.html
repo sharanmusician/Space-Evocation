@@ -3,60 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Head Ball MVP - Optimized</title>
+    <title>Head Ball 2 Recreation</title>
     <style>
-        :root { --accent: #ff4757; --bg: #1e272e; }
+        :root { --player-red: #ff4757; --cpu-blue: #2f3542; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; user-select: none; }
-        body { margin: 0; background: var(--bg); font-family: 'Arial Black', sans-serif; overflow: hidden; height: 100vh; }
+        body { margin: 0; background: #1e272e; font-family: 'Arial Black', sans-serif; overflow: hidden; height: 100vh; }
 
-        /* Orientation Logic */
+        /* Orientation Warning */
         #rotate-overlay {
             position: fixed; inset: 0; background: #000; color: white;
             display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000;
         }
         @media (orientation: portrait) { #rotate-overlay { display: flex; } }
 
-        /* Game Layout */
-        #stage { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-        
-        #header { height: 60px; display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.3); color: white; }
-        .score-box { background: #333; padding: 5px 20px; border-radius: 10px; border: 2px solid #555; min-width: 80px; text-align: center; }
-
-        canvas { flex-grow: 1; background: linear-gradient(#4facfe 0%, #00f2fe 100%); display: block; }
-
-        /* Professional Control Pad */
-        #control-bar {
-            height: 140px; background: #2f3542; display: flex; 
-            justify-content: space-between; align-items: center; padding: 0 50px;
-            border-top: 4px solid #57606f;
+        /* Game UI */
+        #game-wrapper { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        #scoreboard {
+            height: 60px; display: flex; justify-content: center; align-items: center; 
+            gap: 20px; background: #000; color: #fff; border-bottom: 3px solid #f1c40f;
         }
+        .score { font-size: 24px; min-width: 60px; text-align: center; }
 
-        .d-pad { display: flex; gap: 15px; }
+        canvas { flex-grow: 1; background: #3498db; display: block; width: 100%; }
+
+        /* Controls */
+        #controls {
+            height: 150px; background: #2c3e50; display: flex; 
+            justify-content: space-between; align-items: center; padding: 0 40px;
+        }
+        .btn-group { display: flex; gap: 15px; }
         .btn {
-            width: 85px; height: 85px; background: #57606f; border: none;
-            border-radius: 50%; color: white; font-size: 30px; font-weight: bold;
-            box-shadow: 0 6px #2f3542; transform: translateY(-3px);
+            width: 90px; height: 90px; background: #ecf0f1; border-radius: 15px;
             display: flex; justify-content: center; align-items: center;
+            font-size: 2rem; color: #2c3e50; box-shadow: 0 6px #bdc3c7;
         }
-        .btn:active { transform: translateY(0px); box-shadow: 0 2px #2f3542; background: #747d8c; }
-        .jump-btn { background: var(--accent); width: 100px; height: 100px; font-size: 18px; }
+        .btn:active { transform: translateY(4px); box-shadow: 0 2px #bdc3c7; }
+        .jump-btn { background: #e67e22; color: white; width: 110px; height: 110px; box-shadow: 0 6px #d35400; }
     </style>
 </head>
 <body>
 
-    <div id="rotate-overlay"><h2>ROTATE FOR LANDSCAPE</h2></div>
+    <div id="rotate-overlay"><h2>ROTATE TO LANDSCAPE</h2></div>
 
-    <div id="stage">
-        <div id="header">
-            <div class="score-box" id="cpu-score">AI: 0</div>
-            <div style="color: yellow;">VS</div>
-            <div class="score-box" id="player-score">YOU: 0</div>
+    <div id="game-wrapper">
+        <div id="scoreboard">
+            <div class="score" id="cpu-score">0</div>
+            <div style="color: #f1c40f;">LIVE</div>
+            <div class="score" id="user-score">0</div>
         </div>
 
-        <canvas id="game"></canvas>
+        <canvas id="gameCanvas"></canvas>
 
-        <div id="control-bar">
-            <div class="d-pad">
+        <div id="controls">
+            <div class="btn-group">
                 <div class="btn" id="left">←</div>
                 <div class="btn" id="right">→</div>
             </div>
@@ -65,115 +64,163 @@
     </div>
 
 <script>
-const canvas = document.getElementById('game');
+const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 let w, h, groundY;
 let scores = { player: 0, cpu: 0 };
 let input = { left: false, right: false, jump: false };
 
-function init() {
+function resize() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = canvas.offsetHeight;
-    groundY = h - 20;
+    groundY = h - 30;
+    // Reposition players on resize
+    if(player) player.x = w - 100;
+    if(cpu) cpu.x = 100;
 }
-window.addEventListener('resize', init);
-init();
 
-// --- Entities ---
-const ball = {
-    x: 0, y: 0, r: 12, dx: 0, dy: 0,
-    reset() { this.x = w/2; this.y = h/2; this.dx = 0; this.dy = 0; }
-};
-ball.reset();
-
-class Player {
+class Entity {
     constructor(x, color, isUser) {
-        this.x = x; this.color = color; this.isUser = isUser;
-        this.r = 35; this.dy = 0; this.dx = 0; this.isJumping = false;
+        this.x = x;
+        this.color = color;
+        this.isUser = isUser;
+        this.r = 40; // Head size
+        this.dy = 0;
+        this.dx = 0;
+        this.y = groundY - this.r;
+        this.isJumping = false;
     }
+
     draw() {
+        // Draw Boot (Small rectangle at bottom)
+        ctx.fillStyle = "#333";
+        ctx.fillRect(this.x - 20, this.y + 25, 40, 15);
+
+        // Draw Head
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fill();
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
         // Eye
         ctx.fillStyle = "white";
-        ctx.beginPath(); ctx.arc(this.x + (this.isUser ? -15 : 15), this.y - 12, 7, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this.x + (this.isUser ? -18 : 18), this.y - 15, 10, 0, Math.PI * 2);
+        ctx.fill();
     }
+
     update() {
-        this.y = Math.min(this.y + this.dy, groundY - this.r);
-        if (this.y < groundY - this.r) { this.dy += 0.6; } 
-        else { this.dy = 0; this.isJumping = false; }
-        this.x = Math.max(this.r, Math.min(w - this.r, this.x + this.dx));
+        this.dy += 0.7; // Gravity
+        this.y += this.dy;
+        this.x += this.dx;
+
+        if (this.y > groundY - this.r) {
+            this.y = groundY - this.r;
+            this.dy = 0;
+            this.isJumping = false;
+        }
+
+        if (this.x < this.r) this.x = this.r;
+        if (this.x > w - this.r) this.x = w - this.r;
     }
 }
 
-const user = new Player(w - 100, '#ff4757', true);
-const cpu = new Player(100, '#2f3542', false);
-
-// --- Input Handling ---
-const handle = (id, key, val) => {
-    const el = document.getElementById(id);
-    const set = (e) => { e.preventDefault(); input[key] = val; };
-    el.addEventListener('touchstart', set, {passive: false});
-    el.addEventListener('mousedown', set);
-    el.addEventListener('touchend', (e) => { e.preventDefault(); input[key] = !val; }, {passive: false});
-    el.addEventListener('mouseup', () => input[key] = !val);
+const ball = {
+    x: 0, y: 0, r: 15, dx: 0, dy: 0,
+    reset() {
+        this.x = w / 2;
+        this.y = h / 3;
+        this.dx = 0;
+        this.dy = 0;
+    }
 };
-handle('left', 'left', true); handle('right', 'right', true); handle('jump', 'jump', true);
 
-function physics() {
-    // User logic
-    user.dx = 0;
-    if (input.left) user.dx = -7;
-    if (input.right) user.dx = 7;
-    if (input.jump && !user.isJumping) { user.dy = -14; user.isJumping = true; }
+const player = new Entity(0, '#ff4757', true);
+const cpu = new Entity(0, '#2f3542', false);
 
-    // CPU AI logic (Tracks ball)
-    const cpuTarget = ball.x - 30;
-    cpu.dx = (cpu.x < cpuTarget) ? 5 : (cpu.x > cpuTarget) ? -5 : 0;
-    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 60 && !cpu.isJumping) { cpu.dy = -14; cpu.isJumping = true; }
+window.addEventListener('resize', resize);
+resize();
+ball.reset();
 
-    user.update(); cpu.update();
+// --- Controls ---
+const bind = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); input[key] = true; });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); input[key] = false; });
+    el.addEventListener('mousedown', () => input[key] = true);
+    el.addEventListener('mouseup', () => input[key] = false);
+};
+bind('left', 'left'); bind('right', 'right'); bind('jump', 'jump');
 
-    // Ball Physics
-    ball.dy += 0.4; ball.x += ball.dx; ball.y += ball.dy;
-    if (ball.y > groundY - ball.r) { ball.y = groundY - ball.r; ball.dy *= -0.7; }
+function loop() {
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. Draw Field & Goals
+    ctx.fillStyle = "#27ae60"; // Grass
+    ctx.fillRect(0, groundY, w, 30);
+    
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 5;
+    ctx.strokeRect(0, groundY - 120, 20, 120); // Left Goal
+    ctx.strokeRect(w - 20, groundY - 120, 20, 120); // Right Goal
+
+    // 2. Player Logic (Right side)
+    player.dx = 0;
+    if (input.left) player.dx = -7;
+    if (input.right) player.dx = 7;
+    if (input.jump && !player.isJumping) { player.dy = -15; player.isJumping = true; }
+
+    // 3. AI Logic (Left side)
+    const targetX = ball.x - 20;
+    if (cpu.x < targetX) cpu.dx = 5;
+    else if (cpu.x > targetX) cpu.dx = -5;
+    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 70 && !cpu.isJumping) {
+        cpu.dy = -15; cpu.isJumping = true;
+    }
+
+    // 4. Ball Physics
+    ball.dy += 0.5;
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    if (ball.y > groundY - ball.r) { ball.y = groundY - ball.r; ball.dy *= -0.8; ball.dx *= 0.95; }
+    if (ball.y < ball.r) { ball.y = ball.r; ball.dy *= -1; }
     if (ball.x < 0 || ball.x > w) ball.dx *= -0.8;
 
-    // Collisions
-    [user, cpu].forEach(p => {
-        let d = Math.hypot(p.x - ball.x, p.y - ball.y);
-        if (d < p.r + ball.r) {
-            ball.dx = (ball.x - p.x) * 0.4;
-            ball.dy = (ball.y - p.y) * 0.4 - 5;
+    // 5. Collisions
+    [player, cpu].forEach(p => {
+        let dist = Math.hypot(p.x - ball.x, p.y - ball.y);
+        if (dist < p.r + ball.r) {
+            ball.dx = (ball.x - p.x) * 0.5 + p.dx;
+            ball.dy = (ball.y - p.y) * 0.5 - 5;
         }
     });
 
-    // Score Check
-    if (ball.x < 15 && ball.y > groundY - 110) { scores.player++; ball.reset(); }
-    if (ball.x > w - 15 && ball.y > groundY - 110) { scores.cpu++; ball.reset(); }
+    // 6. Scoring
+    if (ball.x < 20 && ball.y > groundY - 120) { scores.player++; ball.reset(); }
+    if (ball.x > w - 20 && ball.y > groundY - 120) { scores.cpu++; ball.reset(); }
+
+    player.update();
+    cpu.update();
+    player.draw();
+    cpu.draw();
+
+    // Draw Ball
+    ctx.fillStyle = "white";
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+    ctx.stroke();
+
+    document.getElementById('user-score').innerText = scores.player;
+    document.getElementById('cpu-score').innerText = scores.cpu;
+
+    requestAnimationFrame(loop);
 }
 
-function render() {
-    ctx.clearRect(0,0,w,h);
-    // Grass & Goals
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(0, groundY, w, 20);
-    ctx.fillStyle = "white"; 
-    ctx.fillRect(0, groundY - 100, 15, 100); // CPU Goal
-    ctx.fillRect(w - 15, groundY - 100, 15, 100); // User Goal
-
-    user.draw(); cpu.draw();
-    ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
-
-    document.getElementById('cpu-score').innerText = `AI: ${scores.cpu}`;
-    document.getElementById('player-score').innerText = `YOU: ${scores.player}`;
-
-    physics();
-    requestAnimationFrame(render);
-}
-
-render();
+loop();
 </script>
 </body>
 </html>
