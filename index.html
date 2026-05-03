@@ -3,245 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Head Ball Mobile Recreation</title>
+    <title>Head Ball MVP - Optimized</title>
     <style>
-        * { box-sizing: border-box; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-        body { margin: 0; background: #111; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        :root { --accent: #ff4757; --bg: #1e272e; }
+        * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; user-select: none; }
+        body { margin: 0; background: var(--bg); font-family: 'Arial Black', sans-serif; overflow: hidden; height: 100vh; }
 
-        /* Landscape Force / Warning */
-        @media screen and (orientation: portrait) {
-            #rotate-warning { display: flex; }
-            #game-container { display: none; }
+        /* Orientation Logic */
+        #rotate-overlay {
+            position: fixed; inset: 0; background: #000; color: white;
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000;
         }
-        @media screen and (orientation: landscape) {
-            #rotate-warning { display: none; }
-            #game-container { display: flex; }
-        }
+        @media (orientation: portrait) { #rotate-overlay { display: flex; } }
 
-        #rotate-warning {
-            position: fixed; inset: 0; background: #222; color: white;
-            flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 100;
-        }
+        /* Game Layout */
+        #stage { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        
+        #header { height: 60px; display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.3); color: white; }
+        .score-box { background: #333; padding: 5px 20px; border-radius: 10px; border: 2px solid #555; min-width: 80px; text-align: center; }
 
-        #game-container {
-            width: 100vw; height: 100vh; flex-direction: column; position: relative;
-        }
+        canvas { flex-grow: 1; background: linear-gradient(#4facfe 0%, #00f2fe 100%); display: block; }
 
-        canvas { background: linear-gradient(#1e90ff, #87CEEB); width: 100%; height: 70%; touch-action: none; }
-
-        /* UI Overlays */
-        #score-board {
-            position: absolute; top: 10px; width: 100%; display: flex; 
-            justify-content: center; gap: 40px; color: white; font-size: 2rem; font-weight: 900;
+        /* Professional Control Pad */
+        #control-bar {
+            height: 140px; background: #2f3542; display: flex; 
+            justify-content: space-between; align-items: center; padding: 0 50px;
+            border-top: 4px solid #57606f;
         }
 
-        /* Control Panel */
-        #controls {
-            height: 30%; background: #333; display: flex; justify-content: space-between; align-items: center; padding: 0 40px;
+        .d-pad { display: flex; gap: 15px; }
+        .btn {
+            width: 85px; height: 85px; background: #57606f; border: none;
+            border-radius: 50%; color: white; font-size: 30px; font-weight: bold;
+            box-shadow: 0 6px #2f3542; transform: translateY(-3px);
+            display: flex; justify-content: center; align-items: center;
         }
-
-        .btn-group { display: flex; gap: 20px; }
-        .control-btn {
-            width: 80px; height: 80px; background: #555; border: 4px solid #fff; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center; color: white; font-weight: bold;
-            font-size: 1.2rem; active-state: brightness(1.5);
-        }
-        .control-btn:active { background: #888; transform: scale(0.95); }
-        .jump-btn { background: #ff4757; width: 100px; height: 100px; }
+        .btn:active { transform: translateY(0px); box-shadow: 0 2px #2f3542; background: #747d8c; }
+        .jump-btn { background: var(--accent); width: 100px; height: 100px; font-size: 18px; }
     </style>
 </head>
 <body>
 
-    <div id="rotate-warning">
-        <h1>🔄</h1>
-        <p>Please rotate your device to Landscape to play</p>
-    </div>
+    <div id="rotate-overlay"><h2>ROTATE FOR LANDSCAPE</h2></div>
 
-    <div id="game-container">
-        <div id="score-board">
-            <div id="cpuScore">0</div>
-            <span>VS</span>
-            <div id="playerScore">0</div>
+    <div id="stage">
+        <div id="header">
+            <div class="score-box" id="cpu-score">AI: 0</div>
+            <div style="color: yellow;">VS</div>
+            <div class="score-box" id="player-score">YOU: 0</div>
         </div>
 
-        <canvas id="gameCanvas"></canvas>
+        <canvas id="game"></canvas>
 
-        <div id="controls">
-            <div class="btn-group">
-                <div class="control-btn" id="btnLeft">←</div>
-                <div class="control-btn" id="btnRight">→</div>
+        <div id="control-bar">
+            <div class="d-pad">
+                <div class="btn" id="left">←</div>
+                <div class="btn" id="right">→</div>
             </div>
-
-            <div class="btn-group">
-                <div class="control-btn jump-btn" id="btnJump">JUMP</div>
-            </div>
+            <div class="btn jump-btn" id="jump">JUMP</div>
         </div>
     </div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
+const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// Set canvas resolution for wide screen
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight * 0.7;
-}
-window.addEventListener('resize', resize);
-resize();
-
-const GRAVITY = 0.5;
-const GROUND_Y = canvas.height - 20;
-
-let scores = { cpu: 0, player: 0 };
+let w, h, groundY;
+let scores = { player: 0, cpu: 0 };
 let input = { left: false, right: false, jump: false };
 
-class Player {
-    constructor(x, color, isPlayer) {
-        this.x = x;
-        this.y = GROUND_Y - 40;
-        this.radius = 35;
-        this.color = color;
-        this.dx = 0;
-        this.dy = 0;
-        this.isJumping = false;
-        this.isPlayer = isPlayer;
-    }
-
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "#fff";
-        ctx.stroke();
-        
-        // Eye (direction)
-        ctx.fillStyle = "white";
-        ctx.beginPath();
-        ctx.arc(this.x + (this.isPlayer ? -15 : 15), this.y - 10, 8, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    update() {
-        this.x += this.dx;
-        this.y += this.dy;
-
-        if (this.y + this.radius < GROUND_Y) {
-            this.dy += GRAVITY;
-        } else {
-            this.dy = 0;
-            this.y = GROUND_Y - this.radius;
-            this.isJumping = false;
-        }
-
-        // Keep in bounds
-        if (this.x < this.radius) this.x = this.radius;
-        if (this.x > canvas.width - this.radius) this.x = canvas.width - this.radius;
-    }
+function init() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = canvas.offsetHeight;
+    groundY = h - 20;
 }
+window.addEventListener('resize', init);
+init();
 
-class Ball {
-    constructor() {
-        this.reset();
-    }
-    reset() {
-        this.x = canvas.width / 2;
-        this.y = 50;
-        this.dx = 0;
-        this.dy = 0;
-        this.radius = 15;
-    }
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "white";
-        ctx.fill();
-        ctx.stroke();
-    }
-    update() {
-        this.dy += 0.3;
-        this.x += this.dx;
-        this.y += this.dy;
-
-        // Ground bounce
-        if (this.y + this.radius > GROUND_Y) {
-            this.y = GROUND_Y - this.radius;
-            this.dy *= -0.6;
-        }
-        // Goal Check (Left is CPU, Right is Player)
-        if (this.x < 10 && this.y > GROUND_Y - 100) { scores.player++; this.reset(); }
-        if (this.x > canvas.width - 10 && this.y > GROUND_Y - 100) { scores.cpu++; this.reset(); }
-        
-        // Wall bounce
-        if (this.x < 0 || this.x > canvas.width) this.dx *= -1;
-    }
-}
-
-const p1 = new Player(canvas.width - 100, "#ff4757", true); // Player (Right)
-const cpu = new Player(100, "#2f3542", false); // CPU (Left)
-const ball = new Ball();
-
-// --- TOUCH CONTROLS ---
-const setupBtn = (id, key) => {
-    const btn = document.getElementById(id);
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); input[key] = true; });
-    btn.addEventListener('touchend', (e) => { e.preventDefault(); input[key] = false; });
+// --- Entities ---
+const ball = {
+    x: 0, y: 0, r: 12, dx: 0, dy: 0,
+    reset() { this.x = w/2; this.y = h/2; this.dx = 0; this.dy = 0; }
 };
-setupBtn('btnLeft', 'left');
-setupBtn('btnRight', 'right');
-setupBtn('btnJump', 'jump');
+ball.reset();
 
-function checkCollision(p) {
-    let dist = Math.hypot(p.x - ball.x, p.y - ball.y);
-    if (dist < p.radius + ball.radius) {
-        ball.dx = (ball.x - p.x) * 0.3;
-        ball.dy = (ball.y - p.y) * 0.3 - 5;
+class Player {
+    constructor(x, color, isUser) {
+        this.x = x; this.color = color; this.isUser = isUser;
+        this.r = 35; this.dy = 0; this.dx = 0; this.isJumping = false;
+    }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
+        // Eye
+        ctx.fillStyle = "white";
+        ctx.beginPath(); ctx.arc(this.x + (this.isUser ? -15 : 15), this.y - 12, 7, 0, Math.PI*2); ctx.fill();
+    }
+    update() {
+        this.y = Math.min(this.y + this.dy, groundY - this.r);
+        if (this.y < groundY - this.r) { this.dy += 0.6; } 
+        else { this.dy = 0; this.isJumping = false; }
+        this.x = Math.max(this.r, Math.min(w - this.r, this.x + this.dx));
     }
 }
 
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw Grass/Goals
-    ctx.fillStyle = "#2ed573";
-    ctx.fillRect(0, GROUND_Y, canvas.width, 20);
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, GROUND_Y - 100, 10, 100); // CPU Goal
-    ctx.fillRect(canvas.width - 10, GROUND_Y - 100, 10, 100); // Player Goal
+const user = new Player(w - 100, '#ff4757', true);
+const cpu = new Player(100, '#2f3542', false);
 
-    // Player Movement
-    p1.dx = 0;
-    if (input.left) p1.dx = -6;
-    if (input.right) p1.dx = 6;
-    if (input.jump && !p1.isJumping) { p1.dy = -12; p1.isJumping = true; }
+// --- Input Handling ---
+const handle = (id, key, val) => {
+    const el = document.getElementById(id);
+    const set = (e) => { e.preventDefault(); input[key] = val; };
+    el.addEventListener('touchstart', set, {passive: false});
+    el.addEventListener('mousedown', set);
+    el.addEventListener('touchend', (e) => { e.preventDefault(); input[key] = !val; }, {passive: false});
+    el.addEventListener('mouseup', () => input[key] = !val);
+};
+handle('left', 'left', true); handle('right', 'right', true); handle('jump', 'jump', true);
 
-    // CPU AI logic
-    if (ball.x < cpu.x + 40) cpu.dx = -4;
-    else if (ball.x > cpu.x + 60) cpu.dx = 4;
-    else cpu.dx = 0;
-    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 50 && !cpu.isJumping) {
-        cpu.dy = -12; cpu.isJumping = true;
-    }
+function physics() {
+    // User logic
+    user.dx = 0;
+    if (input.left) user.dx = -7;
+    if (input.right) user.dx = 7;
+    if (input.jump && !user.isJumping) { user.dy = -14; user.isJumping = true; }
 
-    p1.update();
-    cpu.update();
-    ball.update();
-    checkCollision(p1);
-    checkCollision(cpu);
+    // CPU AI logic (Tracks ball)
+    const cpuTarget = ball.x - 30;
+    cpu.dx = (cpu.x < cpuTarget) ? 5 : (cpu.x > cpuTarget) ? -5 : 0;
+    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 60 && !cpu.isJumping) { cpu.dy = -14; cpu.isJumping = true; }
 
-    p1.draw();
-    cpu.draw();
-    ball.draw();
+    user.update(); cpu.update();
 
-    document.getElementById('cpuScore').innerText = scores.cpu;
-    document.getElementById('playerScore').innerText = scores.player;
+    // Ball Physics
+    ball.dy += 0.4; ball.x += ball.dx; ball.y += ball.dy;
+    if (ball.y > groundY - ball.r) { ball.y = groundY - ball.r; ball.dy *= -0.7; }
+    if (ball.x < 0 || ball.x > w) ball.dx *= -0.8;
 
-    requestAnimationFrame(gameLoop);
+    // Collisions
+    [user, cpu].forEach(p => {
+        let d = Math.hypot(p.x - ball.x, p.y - ball.y);
+        if (d < p.r + ball.r) {
+            ball.dx = (ball.x - p.x) * 0.4;
+            ball.dy = (ball.y - p.y) * 0.4 - 5;
+        }
+    });
+
+    // Score Check
+    if (ball.x < 15 && ball.y > groundY - 110) { scores.player++; ball.reset(); }
+    if (ball.x > w - 15 && ball.y > groundY - 110) { scores.cpu++; ball.reset(); }
 }
 
-gameLoop();
+function render() {
+    ctx.clearRect(0,0,w,h);
+    // Grass & Goals
+    ctx.fillStyle = "#2ecc71"; ctx.fillRect(0, groundY, w, 20);
+    ctx.fillStyle = "white"; 
+    ctx.fillRect(0, groundY - 100, 15, 100); // CPU Goal
+    ctx.fillRect(w - 15, groundY - 100, 15, 100); // User Goal
+
+    user.draw(); cpu.draw();
+    ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+
+    document.getElementById('cpu-score').innerText = `AI: ${scores.cpu}`;
+    document.getElementById('player-score').innerText = `YOU: ${scores.player}`;
+
+    physics();
+    requestAnimationFrame(render);
+}
+
+render();
 </script>
 </body>
 </html>
