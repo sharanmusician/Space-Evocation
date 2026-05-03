@@ -3,99 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Head Volley Fullscreen</title>
+    <title>Pro Head Volley AI</title>
     <style>
         :root { --p-color: #ff4757; --ai-color: #2f3542; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
-        
-        body { 
-            margin: 0; background: #000; 
-            display: flex; justify-content: center; align-items: center; 
-            height: 100vh; width: 100vw; overflow: hidden;
-            font-family: 'Arial Black', sans-serif;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 56.25vw;
-            max-height: 100vh;
-            max-width: 177.78vh;
-            background: linear-gradient(#4facfe, #00f2fe);
-            overflow: hidden;
-        }
-
+        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Arial Black', sans-serif; }
+        #game-container { position: relative; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; background: linear-gradient(#4facfe, #00f2fe); overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; }
-
-        /* Fullscreen Start Overlay */
-        #start-overlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.9);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100; color: white; text-align: center;
-        }
-        .start-btn {
-            padding: 20px 50px; background: #f1c40f; color: #000;
-            border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold;
-            cursor: pointer; box-shadow: 0 5px #d35400;
-        }
-
-        #hud {
-            position: absolute; top: 10px; width: 100%; 
-            display: flex; justify-content: center; gap: 30px;
-            pointer-events: none; z-index: 5;
-        }
+        #start-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
+        .start-btn { padding: 20px 50px; background: #f1c40f; border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold; cursor: pointer; box-shadow: 0 5px #d35400; }
+        #hud { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; gap: 30px; pointer-events: none; z-index: 5; }
         .score-item { background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 8px; font-size: 1.2rem; }
         #timer { color: #f1c40f; font-size: 1.5rem; }
-
-        #touch-ui {
-            position: absolute; bottom: 15px; width: 100%;
-            display: flex; justify-content: space-between; padding: 0 30px;
-            z-index: 10;
-        }
-        .btn {
-            width: 70px; height: 70px; background: rgba(255,255,255,0.3);
-            border: 3px solid #fff; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center; font-size: 28px; color: white;
-        }
-        .btn:active { background: rgba(255,255,255,0.6); transform: scale(0.9); }
+        #touch-ui { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; z-index: 10; }
+        .btn { width: 70px; height: 70px; background: rgba(255,255,255,0.3); border: 3px solid #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 28px; color: white; }
         .jump-btn { background: rgba(230, 126, 34, 0.7); width: 90px; height: 90px; border-radius: 20px; font-size: 16px; }
-
-        #end-screen {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.9);
-            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: white;
-        }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="start-overlay">
-            <h1>HEAD VOLLEYBALL</h1>
-            <p>16:9 Landscape Mode</p>
-            <button class="start-btn" onclick="startFullscreen()">START FULLSCREEN</button>
-        </div>
-
-        <div id="hud">
-            <div class="score-item">AI: <span id="c-s">0</span></div>
-            <div id="timer">02:00</div>
-            <div class="score-item">YOU: <span id="u-s">0</span></div>
-        </div>
-
-        <div id="end-screen">
-            <h1 id="result-msg">GAME OVER</h1>
-            <button onclick="location.reload()" style="padding: 10px 30px; background: #27ae60; color: white; border: none; font-weight: bold; border-radius: 5px;">REPLAY</button>
-        </div>
-
-        <canvas id="gameCanvas"></canvas>
-
-        <div id="touch-ui">
-            <div style="display: flex; gap: 20px;">
-                <div class="btn" id="l-btn">←</div>
-                <div class="btn" id="r-btn">→</div>
-            </div>
-            <div class="btn jump-btn" id="j-btn">JUMP</div>
-        </div>
+<div id="game-container">
+    <div id="start-overlay">
+        <h1>PRO HEAD VOLLEY</h1>
+        <button class="start-btn" onclick="startFullscreen()">START GAME</button>
     </div>
+
+    <div id="hud">
+        <div class="score-item">AI: <span id="c-s">0</span></div>
+        <div id="timer">02:00</div>
+        <div class="score-item">YOU: <span id="u-s">0</span></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="touch-ui">
+        <div style="display: flex; gap: 20px;">
+            <div class="btn" id="l-btn">←</div>
+            <div class="btn" id="r-btn">→</div>
+        </div>
+        <div class="btn jump-btn" id="j-btn">JUMP</div>
+    </div>
+</div>
 
 <script>
 const cvs = document.getElementById('gameCanvas');
@@ -108,16 +56,14 @@ let timeLeft = 120;
 let keys = { l: false, r: false, j: false };
 let isRunning = false;
 
-function startFullscreen() {
-    // Request full screen on the container
-    if (container.requestFullscreen) {
-        container.requestFullscreen();
-    } else if (container.webkitRequestFullscreen) { /* Safari */
-        container.webkitRequestFullscreen();
-    } else if (container.msRequestFullscreen) { /* IE11 */
-        container.msRequestFullscreen();
-    }
+// AI Variabilities
+let aiActionTimer = 0;
+let aiCurrentSpeed = 5;
+let aiShouldJump = false;
 
+function startFullscreen() {
+    if (container.requestFullscreen) container.requestFullscreen();
+    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
     document.getElementById('start-overlay').style.display = 'none';
     isRunning = true;
     init();
@@ -129,21 +75,12 @@ function init() {
     h = cvs.height = cvs.offsetHeight;
     gY = h - 30;
     net = { x: w/2, y: h - 130, w: 8, h: 100 };
-    user.reset();
-    cpu.reset();
-    ball.reset();
+    user.reset(); cpu.reset(); ball.reset();
 }
 
 class Player {
-    constructor(side, color) {
-        this.side = side; this.color = color;
-        this.r = 32;
-    }
-    reset() {
-        this.x = this.side === 'left' ? 100 : w - 100;
-        this.y = gY - this.r;
-        this.dx = 0; this.dy = 0; this.air = false;
-    }
+    constructor(side, color) { this.side = side; this.color = color; this.r = 32; }
+    reset() { this.x = this.side === 'left' ? 100 : w - 100; this.y = gY - this.r; this.dx = 0; this.dy = 0; this.air = false; }
     draw() {
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
@@ -168,7 +105,12 @@ class Player {
 
 const ball = {
     r: 13,
-    reset() { this.x = w/2; this.y = 60; this.dx = 0; this.dy = 0; },
+    reset() { 
+        this.x = w/2; 
+        this.y = 50; 
+        this.dx = (Math.random() - 0.5) * 4; // Serve ball with slight random angle
+        this.dy = 0; 
+    },
     draw() {
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
         ctx.fillStyle = "#f1c40f"; ctx.fill(); ctx.stroke();
@@ -179,7 +121,6 @@ const user = new Player('right', '#ff4757');
 const cpu = new Player('left', '#2c3e50');
 
 window.addEventListener('resize', init);
-
 const bind = (id, k) => {
     const el = document.getElementById(id);
     el.ontouchstart = (e) => { e.preventDefault(); keys[k] = true; };
@@ -193,14 +134,7 @@ setInterval(() => {
         timeLeft--;
         let m = Math.floor(timeLeft/60), s = timeLeft%60;
         document.getElementById('timer').innerText = `${m}:${s<10?'0'+s:s}`;
-    } else {
-        isRunning = false;
-        document.getElementById('end-screen').style.display = 'flex';
-        const msg = document.getElementById('result-msg');
-        if (scores.p > scores.c) msg.innerText = "YOU WON!";
-        else if (scores.p < scores.c) msg.innerText = "AI WON!";
-        else msg.innerText = "GAME MATCH (TIE)";
-    }
+    } else isRunning = false;
 }, 1000);
 
 function loop() {
@@ -209,37 +143,66 @@ function loop() {
     ctx.fillStyle = "#27ae60"; ctx.fillRect(0, gY, w, 30);
     ctx.fillStyle = "white"; ctx.fillRect(net.x - 4, net.y, net.w, net.h);
 
+    // --- USER LOGIC ---
     user.dx = 0;
-    if (keys.l) user.dx = -6; if (keys.r) user.dx = 6;
+    if (keys.l) user.dx = -7; if (keys.r) user.dx = 7;
     if (keys.j && !user.air) { user.dy = -15; user.air = true; }
 
-    const aiTarget = ball.x - 15;
-    cpu.dx = (cpu.x < aiTarget) ? 5 : (cpu.x > aiTarget) ? -5 : 0;
-    if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 50 && !cpu.air) { cpu.dy = -15; cpu.air = true; }
+    // --- ENHANCED AI LOGIC ---
+    aiActionTimer--;
+    if (aiActionTimer <= 0) {
+        // Randomize AI Behavior every 0.5 - 1 second
+        aiActionTimer = 30 + Math.random() * 30;
+        aiCurrentSpeed = 3 + Math.random() * 6; // Low to High speed
+        aiShouldJump = Math.random() > 0.4; // Sometime jumps, sometime stays flat
+    }
+
+    const aiTargetX = ball.x - 10;
+    if (cpu.x < aiTargetX - 10) cpu.dx = aiCurrentSpeed;
+    else if (cpu.x > aiTargetX + 10) cpu.dx = -aiCurrentSpeed;
+    else cpu.dx = 0;
+
+    // AI Jump Decision (only when ball is on its side and close)
+    if (aiShouldJump && ball.x < net.x && ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 40 && !cpu.air) {
+        cpu.dy = -15; cpu.air = true;
+    }
 
     user.update(); cpu.update();
-    ball.dy += 0.4; ball.x += ball.dx; ball.y += ball.dy;
+    ball.dy += 0.45; ball.x += ball.dx; ball.y += ball.dy;
 
-    if (ball.y > net.y && Math.abs(ball.x - net.x) < ball.r + 5) { ball.dx *= -1.1; ball.x += ball.dx; }
+    // Net Physics (Bounce back)
+    if (ball.y > net.y && Math.abs(ball.x - net.x) < ball.r + 5) {
+        ball.dx *= -1.2;
+        ball.x = (ball.x < net.x) ? net.x - 15 : net.x + 15;
+    }
 
+    // GROUND COLLISION = POINT (No wall return)
     if (ball.y > gY - ball.r) {
         if (ball.x < net.x) scores.p++; else scores.c++;
         ball.reset();
+        user.reset();
+        cpu.reset();
     }
-    if (ball.x < 0 || ball.x > w) ball.dx *= -1;
 
+    // Out of Bounds (Side Walls)
+    if (ball.x < 0 || ball.x > w) {
+        if (ball.x < 0) scores.p++; else scores.c++;
+        ball.reset();
+    }
+
+    // Dynamic Hit Physics
     [user, cpu].forEach(p => {
         let d = Math.hypot(p.x - ball.x, p.y - ball.y);
         if (d < p.r + ball.r) {
-            ball.dx = (ball.x - p.x) * 0.4 + p.dx;
-            ball.dy = (ball.y - p.y) * 0.4 - 6;
+            // Calculate Hit Angle: If p.dx is high, ball speed is high
+            ball.dx = (ball.x - p.x) * 0.4 + p.dx * 0.5;
+            ball.dy = (ball.y - p.y) * 0.4 - 7;
         }
     });
 
     user.draw(); cpu.draw(); ball.draw();
     document.getElementById('u-s').innerText = scores.p;
     document.getElementById('c-s').innerText = scores.c;
-
     requestAnimationFrame(loop);
 }
 </script>
