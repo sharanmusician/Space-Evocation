@@ -3,52 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley - Professional Edition</title>
+    <title>Elite Volley: Pro Circuit</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         
         html, body { 
-            width: 100%; height: 100%; 
+            width: 100vw; height: 100vh; 
             background: #000; overflow: hidden; 
             position: fixed; top: 0; left: 0;
         }
 
         #game-view { 
             position: absolute; inset: 0;
-            background: radial-gradient(circle at 50% 30%, #1e2a47 0%, #000000 100%);
+            background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
             display: flex; flex-direction: column;
         }
 
         canvas { width: 100%; height: 100%; display: block; }
 
-        /* Premium HUD */
         #hud { 
             position: absolute; top: env(safe-area-inset-top, 20px); 
-            width: 100%; display: flex; justify-content: center; gap: 100px; 
+            width: 100%; display: flex; justify-content: center; gap: 80px; 
             pointer-events: none; z-index: 10;
         }
-        .score { color: white; font-size: 48px; font-weight: 900; font-family: 'Arial Black', sans-serif; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .score { color: white; font-size: 38px; font-weight: 900; font-family: 'Verdana', sans-serif; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
 
-        /* Professional Layout Controls */
-        #left-ctrl { position: absolute; bottom: 40px; left: 30px; width: 220px; height: 100px; }
-        #knob { position: absolute; top: 50%; left: 50%; width: 85px; height: 85px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); }
+        /* Pro-Touch Zones */
+        #left-ctrl { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 80px; }
+        #knob { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(255,255,255,0.08); border: 1.5px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); }
 
-        #right-ctrl { position: absolute; bottom: 30px; right: 30px; width: 280px; height: 220px; }
-        .btn { position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; }
-        #spike { width: 90px; height: 90px; bottom: 105px; right: 10px; border-color: var(--red); color: var(--red); font-size: 14px; }
-        #lob { width: 90px; height: 90px; bottom: 105px; right: 110px; border-color: #2ecc71; color: #2ecc71; font-size: 14px; }
-        #jump { width: 200px; height: 75px; bottom: 10px; right: 10px; border-radius: 40px; border-color: var(--blue); color: var(--blue); }
+        #right-ctrl { position: absolute; bottom: 30px; right: 20px; width: 260px; height: 180px; }
+        .btn { position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; }
+        #spike { width: 85px; height: 85px; bottom: 95px; right: 10px; border-color: var(--red); color: var(--red); }
+        #lob { width: 85px; height: 85px; bottom: 95px; right: 105px; border-color: #2ecc71; color: #2ecc71; }
+        #jump { width: 180px; height: 65px; bottom: 10px; right: 10px; border-radius: 35px; border-color: var(--blue); color: var(--blue); }
 
-        #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="game-view">
     <div id="overlay" onclick="start()">
-        <h1 style="letter-spacing: 10px; font-size: 2.5rem;">ELITE VOLLEY</h1>
-        <p style="margin-top: 20px; color: var(--gold);">CLICK TO START MATCH</p>
+        <h1 style="letter-spacing: 12px; font-size: 2rem; margin-bottom: 10px;">ELITE VOLLEY</h1>
+        <p style="color: var(--gold); font-size: 14px;">TAP TO ENTER PRO ARENA</p>
     </div>
     
     <div id="hud">
@@ -73,6 +72,7 @@ let W, H, G_Y, NET, input = { x: 0, id: null }, state = { u: 0, c: 0, active: fa
 
 function start() {
     document.getElementById('overlay').style.display = 'none';
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
     state.active = true;
     resize();
     ball.spawn();
@@ -82,19 +82,18 @@ function start() {
 function resize() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
-    // Lowered stage height for better ball visibility
-    G_Y = H - 70; 
-    NET = { x: W/2, y: G_Y - 180, w: 10, h: 180 };
+    G_Y = H - 60; // Lowered stage
+    NET = { x: W/2, y: G_Y - 140, w: 8, h: 140 }; // Scaled net
     if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
-// Controls
+// Input Handlers
 const lZone = document.getElementById('left-ctrl');
 lZone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; });
 window.addEventListener('touchmove', e => {
     for (let t of e.changedTouches) if (t.identifier === input.id) {
         const r = lZone.getBoundingClientRect();
-        input.x = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 50));
+        input.x = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 45));
         knob.style.left = (50 + input.x * 35) + "%";
     }
 });
@@ -104,7 +103,7 @@ const bind = (id, act) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => { 
         e.preventDefault(); 
-        if(act === 'jump') { if(!p1.air) { p1.dy = -18; p1.air = true; } }
+        if(act === 'jump') { if(!p1.air) { p1.dy = -15; p1.air = true; } }
         else p1.skill = act;
     });
     b.addEventListener('touchend', () => p1.skill = null);
@@ -112,84 +111,77 @@ const bind = (id, act) => {
 bind('spike', 'spike'); bind('lob', 'lob'); bind('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 105; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 75; } // Smaller character scale
     reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 0.85; 
+        if(this.y < G_Y - this.h) this.dy += 0.8; 
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-        const limit = NET.x + (this.side === 'right' ? 35 : -35);
-        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-40, this.x)) : Math.min(limit, Math.max(40, this.x));
-        this.anim += Math.abs(this.dx) * 0.1;
+        const limit = NET.x + (this.side === 'right' ? 25 : -25);
+        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
+        this.anim += Math.abs(this.dx) * 0.12;
     }
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
         if(this.side === 'right') ctx.scale(-1, 1);
 
-        ctx.strokeStyle = "white"; ctx.lineWidth = 5; ctx.lineCap = "round";
+        ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.lineCap = "round";
 
-        // THE ATHLETIC JUMP CURVE (Refined Bend)
+        // PRO JUMP CURVE
         let spineArch = 0;
         if(this.air) {
-            // "C-Curve" Spine: Arch back when hitting, tuck when falling
-            spineArch = (this.dy < 0) ? -0.3 : 0.1;
-        }
-
-        // LEGS: Pro Kinematics (Bending one leg back)
-        if(this.air) {
-            // Front leg: Strong driving knee
-            ctx.beginPath(); 
-            ctx.moveTo(0, 50); ctx.lineTo(15, 65); ctx.lineTo(10, 95); ctx.stroke();
-            // Back leg: Curled sharply toward glutes (Pro Volley Style)
-            ctx.beginPath();
-            ctx.moveTo(0, 50); ctx.lineTo(-20, 60); ctx.lineTo(-45, 45); ctx.stroke();
+            spineArch = (this.dy < 0) ? -0.25 : 0.05;
+            // Leg Bend Logic
+            ctx.beginPath(); // Front leg
+            ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke();
+            ctx.beginPath(); // Back leg curved back
+            ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke();
         } else {
-            let s = Math.sin(this.anim) * 15;
-            ctx.beginPath(); ctx.moveTo(0, 50); ctx.lineTo(s, 75); ctx.lineTo(s, 105); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, 50); ctx.lineTo(-s, 75); ctx.lineTo(-s, 105); ctx.stroke();
+            let s = Math.sin(this.anim) * 12;
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(s, 60); ctx.lineTo(s, 75); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-s, 60); ctx.lineTo(-s, 75); ctx.stroke();
         }
 
-        // TORSO & ARMS
         ctx.save();
         ctx.rotate(spineArch);
         ctx.fillStyle = this.color; 
-        ctx.fillRect(-12, 10, 24, 45); // Core
-        ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill(); // Head
+        ctx.fillRect(-10, 8, 20, 35); // Core
+        ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill(); // Head
 
         ctx.strokeStyle = "white";
         if(this.skill === 'spike') {
-            ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(45, -55); ctx.stroke(); // High reach
+            ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke(); // Reach
         } else if(this.skill === 'lob') {
-            ctx.beginPath(); ctx.moveTo(12, 20); ctx.lineTo(45, 30); ctx.lineTo(60, 25); ctx.stroke(); // Bump
+            ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke(); // Underhand
         } else {
-            ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(25, 55); ctx.stroke(); // Idle
+            ctx.beginPath(); ctx.moveTo(8, 15); ctx.lineTo(20, 45); ctx.stroke(); // Idle
         }
         ctx.restore(); ctx.restore();
     }
 }
 
 const ball = {
-    r: 20, dx: 0, dy: 0, x: 0, y: 0,
-    spawn() { this.y = H * 0.2; this.dx = 0; this.dy = 0; this.x = W * 0.2; },
+    r: 16, dx: 0, dy: 0, x: 0, y: 0,
+    spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = W * 0.25; },
     update() {
-        this.dy += 0.52; this.dx *= 0.99; this.x += this.dx; this.y += this.dy;
+        this.dy += 0.45; this.dx *= 0.995; this.x += this.dx; this.y += this.dy;
         
-        // NO-HIDE LOGIC: Ensure ball stays within visible vertical bounds
+        // NO-HIDE GUARD
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
 
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
-            if(Math.abs(this.dy) > 3) this.dy *= -0.7;
+            if(Math.abs(this.dy) > 3) this.dy *= -0.65;
             else { state[this.x > NET.x ? 'c' : 'u']++; p1.reset(); cpu.reset(); this.spawn(); }
         }
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.75; this.x = (this.x < NET.x) ? NET.x - 25 : NET.x + 25;
+            this.dx *= -0.7; this.x = (this.x < NET.x) ? NET.x - 15 : NET.x + 15;
         }
     },
     draw() {
         ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
     }
 };
 
@@ -199,29 +191,40 @@ function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
     
-    // Environment
-    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 70);
+    // Pro Court
+    ctx.fillStyle = "rgba(255,255,255,0.04)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    p1.dx = input.x * 9.5;
+    p1.dx = input.x * 8;
 
-    // AI Logic
+    // AI logic
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = dist > 10 ? 7.8 : dist < -10 ? -7.8 : 0;
-        if(!cpu.air && ball.y < G_Y - 180 && Math.abs(dist) < 80) cpu.dy = -17;
-        cpu.skill = (Math.abs(NET.x - cpu.x) < 180) ? 'spike' : 'lob';
-    } else { cpu.dx = (cpu.x < W * 0.1) ? 5 : -5; cpu.skill = null; }
+        cpu.dx = dist > 5 ? 7 : dist < -5 ? -7 : 0;
+        if(!cpu.air && ball.y < G_Y - 120 && Math.abs(dist) < 60) cpu.dy = -14;
+        cpu.skill = (Math.abs(NET.x - cpu.x) < 140) ? 'spike' : 'lob';
+    } else { cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; cpu.skill = null; }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        let bDx = ball.x - p.x, bDy = ball.y - (p.y + 15), d = Math.sqrt(bDx*bDx + bDy*bDy);
-        if(d < 80) {
+        let bDx = ball.x - p.x, bDy = ball.y - (p.y + 10), d = Math.sqrt(bDx*bDx + bDy*bDy);
+        if(d < 65) {
             const side = (p.side === 'right') ? -1 : 1;
-            if(p.skill === 'spike') { ball.dx = side * 23; ball.dy = 12; }
-            else if(p.skill === 'lob') { ball.dx = side * 10; ball.dy = -20; }
-            else { ball.dx = side * 9 + (p.dx * 0.4); ball.dy = -12; }
-            ball.x = p.x + (side * 85);
+            
+            if(p.skill === 'spike') { 
+                ball.dx = side * 22; 
+                // Strike Ballistics: Calculate if ball goes down or straight based on Y hit-point
+                ball.dy = (ball.y < p.y) ? 12 : 2; 
+            }
+            else if(p.skill === 'lob') { 
+                ball.dx = side * 8; 
+                ball.dy = -18; // Pure Lob arc
+            }
+            else { 
+                ball.dx = side * 7 + (p.dx * 0.4); 
+                ball.dy = -10; 
+            }
+            ball.x = p.x + (side * 60);
         }
     });
 
