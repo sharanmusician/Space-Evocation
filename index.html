@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Multi-Touch Pro</title>
+    <title>Elite Volley: Pro-Compact</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -11,15 +11,15 @@
         #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
         
-        #hud { position: absolute; top: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; pointer-events: none; z-index: 10; }
+        #hud { position: absolute; top: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 0.5s; }
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 4px; width: 45px; height: 35px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
         #timer { color: #fff; font-size: 28px; font-weight: 800; width: 80px; text-align: center; }
 
-        /* Multi-Touch Optimized Controls */
-        #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px; }
+        /* Controls */
+        #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px; opacity: 0; }
         #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
 
-        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 240px; height: 110px; z-index: 20; }
+        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 240px; height: 110px; z-index: 20; opacity: 0; }
         .btn { position: absolute; background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10px; letter-spacing: 1px; }
         .btn.active { background: #fff; color: #000; }
         
@@ -27,12 +27,24 @@
         #lob { width: 75px; height: 50px; top: 0; right: 85px; border-radius: 6px; }
         #jump { width: 160px; height: 50px; bottom: 0; right: 0; border-radius: 6px; font-weight: 800; }
 
-        #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; }
+        /* Full-Screen Start Button */
+        #overlay { 
+            position: absolute; inset: 0; background: #000; z-index: 100; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        }
+        #start-btn {
+            padding: 20px 40px; background: #fff; color: #000; border: none; border-radius: 4px;
+            font-weight: 800; font-size: 16px; letter-spacing: 4px; cursor: pointer;
+        }
     </style>
 </head>
 <body>
 <div id="game-container">
-    <div id="overlay" onclick="enterFullscreen()"><h1>START MATCH</h1></div>
+    <div id="overlay">
+        <button id="start-btn">INITIALIZE</button>
+        <p style="color: #444; margin-top: 15px; font-size: 10px; letter-spacing: 2px;">PRO-COMPACT V2.1</p>
+    </div>
+    
     <div id="hud">
         <div class="score-box" id="s-c">0</div>
         <div id="timer">01:00</div>
@@ -50,27 +62,53 @@
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('start-btn');
+const hud = document.getElementById('hud'), actZone = document.getElementById('act-zone');
+
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60 };
+const inputs = { moveX: 0, spike: false, lob: false, jump: false, buffer: 0 };
 
-// Improved Multi-Touch Input Map
-const inputs = { moveX: 0, spike: false, lob: false, jump: false, buffer: 0, touches: new Map() };
-
-async function enterFullscreen() {
-    try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (e) {}
-    start();
-}
-
-function start() {
-    document.getElementById('overlay').style.display = 'none';
-    state.active = true; resize(); ball.spawn();
-    setInterval(() => { if(state.time > 0 && state.active) state.time--; }, 1000);
+// Optimized Start Sequence
+startBtn.addEventListener('click', async () => {
+    state.active = true;
+    try { 
+        if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+        }
+    } catch (e) { console.log("Fullscreen declined, starting windowed."); }
+    
+    overlay.style.display = 'none';
+    hud.style.opacity = "1";
+    joyZone.style.opacity = "1";
+    actZone.style.opacity = "1";
+    
+    resize();
+    ball.spawn();
+    startTimer();
     requestAnimationFrame(loop);
+});
+
+function startTimer() {
+    const clock = setInterval(() => { 
+        if(state.time > 0 && state.active) {
+            state.time--;
+            document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`;
+        }
+        if(state.time <= 0) {
+            clearInterval(clock);
+            location.reload();
+        }
+    }, 1000);
 }
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
-    updateKnobUI(0); p1.reset(); cpu.reset();
+    G_Y = H - 50; 
+    NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
+    updateKnobUI(0); 
+    if(p1) p1.reset(); 
+    if(cpu) cpu.reset();
 }
 
 function updateKnobUI(val) {
@@ -79,27 +117,25 @@ function updateKnobUI(val) {
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
-// Global Touch Handler for Multi-Button Support
-window.addEventListener('touchstart', handleTouch, {passive: false});
-window.addEventListener('touchmove', handleTouch, {passive: false});
-window.addEventListener('touchend', handleTouch, {passive: false});
-
+// Multi-Touch Input Logic
 function handleTouch(e) {
+    if (!state.active) return;
     e.preventDefault();
     const rectJ = joyZone.getBoundingClientRect();
-    const btns = { spike: document.getElementById('spike').getBoundingClientRect(), lob: document.getElementById('lob').getBoundingClientRect(), jump: document.getElementById('jump').getBoundingClientRect() };
+    const btns = { 
+        spike: document.getElementById('spike').getBoundingClientRect(), 
+        lob: document.getElementById('lob').getBoundingClientRect(), 
+        jump: document.getElementById('jump').getBoundingClientRect() 
+    };
     
-    // Reset transient states
     inputs.spike = false; inputs.lob = false; inputs.jump = false;
     let foundJoy = false;
 
     for (let t of e.touches) {
-        // Check Joystick
         if (t.clientX > rectJ.left && t.clientX < rectJ.right && t.clientY > rectJ.top && t.clientY < rectJ.bottom) {
             inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rectJ.left + rectJ.width/2)) / (rectJ.width/2 - 20)));
             foundJoy = true;
         }
-        // Check Buttons
         for (let key in btns) {
             const b = btns[key];
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
@@ -112,18 +148,21 @@ function handleTouch(e) {
     if (!foundJoy) inputs.moveX = 0;
     updateKnobUI(inputs.moveX);
     
-    // UI Feedback
     document.getElementById('spike').classList.toggle('active', inputs.spike);
     document.getElementById('lob').classList.toggle('active', inputs.lob);
     document.getElementById('jump').classList.toggle('active', inputs.jump);
 }
+
+window.addEventListener('touchstart', handleTouch, {passive: false});
+window.addEventListener('touchmove', handleTouch, {passive: false});
+window.addEventListener('touchend', handleTouch, {passive: false});
 
 class Athlete {
     constructor(side, color) { this.side = side; this.color = color; this.h = 40; }
     reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.6; // FAST LANDING
+        if(this.y < G_Y - this.h) this.dy += 1.6;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const limit = NET.x + (this.side === 'right' ? 18 : -18);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
@@ -151,12 +190,9 @@ const ball = {
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.38; // SMOOTH BALL GRAVITY
+        this.dy += 0.38; // Smooth Ball Grav
         this.x += this.dx; this.y += this.dy;
-
-        // CEILING LOCK: Ball never hides
-        if (this.y < 20) { this.y = 20; this.dy = Math.abs(this.dy) * 0.5; }
-
+        if (this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.5; } // Ceiling Lock
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r; if(Math.abs(this.dy) > 3) this.dy *= -0.6;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
@@ -201,10 +237,10 @@ function loop() {
     ball.update(); ball.draw();
     document.getElementById('s-u').innerText = state.u;
     document.getElementById('s-c').innerText = state.c;
-    document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`;
     requestAnimationFrame(loop);
 }
 window.addEventListener('resize', resize);
+window.onload = resize;
 </script>
 </body>
 </html>
