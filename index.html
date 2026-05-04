@@ -3,41 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro-Circuit v2</title>
+    <title>Elite Volley: Ultra Multi-Touch</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         
-        html, body { 
-            width: 100vw; height: 100vh; 
-            background: #000; overflow: hidden; 
-            position: fixed; top: 0; left: 0;
-        }
-
-        #game-view { 
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-            display: flex; flex-direction: column;
-        }
-
+        html, body { width: 100vw; height: 100vh; background: #000; overflow: hidden; position: fixed; top: 0; left: 0; }
+        #game-view { position: absolute; inset: 0; background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%); display: flex; flex-direction: column; }
         canvas { width: 100%; height: 100%; display: block; }
 
-        #hud { 
-            position: absolute; top: env(safe-area-inset-top, 20px); 
-            width: 100%; display: flex; justify-content: center; gap: 80px; 
-            pointer-events: none; z-index: 10;
-        }
+        #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; gap: 80px; pointer-events: none; z-index: 10; }
         .score { color: white; font-size: 38px; font-weight: 900; font-family: 'Verdana', sans-serif; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
 
-        /* Pro-Touch Zones */
-        #left-ctrl { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 80px; }
-        #knob { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(255,255,255,0.08); border: 1.5px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); }
+        /* Multi-Touch Zones */
+        #joy-zone { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 100px; z-index: 20; }
+        #knob { position: absolute; top: 50%; left: 50%; width: 75px; height: 75px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 
-        #right-ctrl { position: absolute; bottom: 30px; right: 20px; width: 260px; height: 180px; }
+        #act-zone { position: absolute; bottom: 30px; right: 20px; width: 280px; height: 200px; z-index: 20; }
         .btn { position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; }
-        #spike { width: 85px; height: 85px; bottom: 95px; right: 10px; border-color: var(--red); color: var(--red); }
-        #lob { width: 85px; height: 85px; bottom: 95px; right: 105px; border-color: #2ecc71; color: #2ecc71; }
-        #jump { width: 180px; height: 65px; bottom: 10px; right: 10px; border-radius: 35px; border-color: var(--blue); color: var(--blue); }
+        #spike { width: 85px; height: 85px; bottom: 100px; right: 10px; border-color: var(--red); color: var(--red); }
+        #lob { width: 85px; height: 85px; bottom: 100px; right: 105px; border-color: #2ecc71; color: #2ecc71; }
+        #jump { width: 180px; height: 70px; bottom: 10px; right: 10px; border-radius: 35px; border-color: var(--blue); color: var(--blue); }
 
         #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; cursor: pointer; }
     </style>
@@ -47,7 +33,7 @@
 <div id="game-view">
     <div id="overlay" onclick="start()">
         <h1 style="letter-spacing: 12px; font-size: 2rem; margin-bottom: 10px;">ELITE VOLLEY</h1>
-        <p style="color: var(--gold); font-size: 14px;">TAP TO ENTER PRO ARENA</p>
+        <p style="color: var(--gold); font-size: 14px;">MULTI-TOUCH ENGINE ENABLED</p>
     </div>
     
     <div id="hud">
@@ -57,8 +43,10 @@
 
     <canvas id="canvas"></canvas>
 
-    <div id="left-ctrl"><div id="knob"></div></div>
-    <div id="right-ctrl">
+    <div id="joy-zone"></div>
+    <div id="knob"></div>
+
+    <div id="act-zone">
         <div class="btn" id="spike">STRIKE</div>
         <div class="btn" id="lob">LOB</div>
         <div class="btn" id="jump">JUMP</div>
@@ -67,8 +55,16 @@
 
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-const knob = document.getElementById('knob');
-let W, H, G_Y, NET, input = { x: 0, id: null }, state = { u: 0, c: 0, active: false };
+const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
+let W, H, G_Y, NET, state = { u: 0, c: 0, active: false };
+
+// MULTI-TOUCH REGISTRY
+const inputs = {
+    joyId: null,
+    moveX: 0,
+    spike: false,
+    lob: false
+};
 
 function start() {
     document.getElementById('overlay').style.display = 'none';
@@ -87,76 +83,74 @@ function resize() {
     if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
-// Controls
-const lZone = document.getElementById('left-ctrl');
-lZone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; });
+// ADVANCED JOYSTICK HANDLER (Isolated from buttons)
+joyZone.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (inputs.joyId === null) {
+        inputs.joyId = e.changedTouches[0].identifier;
+    }
+}, {passive: false});
+
 window.addEventListener('touchmove', e => {
-    for (let t of e.changedTouches) if (t.identifier === input.id) {
-        const r = lZone.getBoundingClientRect();
-        input.x = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 45));
-        knob.style.left = (50 + input.x * 35) + "%";
+    for (let t of e.changedTouches) {
+        if (t.identifier === inputs.joyId) {
+            const r = joyZone.getBoundingClientRect();
+            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 50));
+            knob.style.left = (r.left + r.width/2 + inputs.moveX * 40) + "px";
+            knob.style.top = (r.top + r.height/2) + "px";
+        }
+    }
+}, {passive: false});
+
+window.addEventListener('touchend', e => {
+    for (let t of e.changedTouches) {
+        if (t.identifier === inputs.joyId) {
+            inputs.joyId = null;
+            inputs.moveX = 0;
+            knob.style.left = "110px"; // Reset to center of zone
+            knob.style.top = (window.innerHeight - 90) + "px";
+        }
     }
 });
-window.addEventListener('touchend', e => { if(input.id !== null) { input.id = null; input.x = 0; knob.style.left = "50%"; }});
 
-const bind = (id, act) => {
+// BUTTON HANDLERS (Parallel to Joystick)
+const bindBtn = (id, key) => {
     const b = document.getElementById(id);
-    b.addEventListener('touchstart', e => { 
-        e.preventDefault(); 
-        if(act === 'jump') { 
-            if(!p1.air) { 
-                p1.dy = -15; 
-                p1.air = true;
-                // CAPTURE MOMENTUM: Allow diagonal jumping
-                p1.jumpDx = input.x * 8;
-            } 
-        }
-        else p1.skill = act;
-    });
-    b.addEventListener('touchend', () => p1.skill = null);
+    b.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if(key === 'jump') { if(!p1.air) { p1.dy = -15; p1.air = true; p1.jumpDx = inputs.moveX * 8; } }
+        else inputs[key] = true;
+    }, {passive: false});
+    b.addEventListener('touchend', () => inputs[key] = false);
 };
-bind('spike', 'spike'); bind('lob', 'lob'); bind('jump', 'jump');
+bindBtn('spike', 'spike'); bindBtn('lob', 'lob'); bindBtn('jump', 'jump');
 
 class Athlete {
     constructor(side, color) { this.side = side; this.color = color; this.h = 75; this.jumpDx = 0; }
-    reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.jumpDx = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
-        // Horizontal logic
-        if(this.air) {
-            this.x += this.jumpDx; // Maintain horizontal momentum in air
-        } else {
-            this.x += this.dx;
-        }
+        if(this.air) this.x += this.jumpDx; 
+        else this.x += this.dx;
 
-        // Vertical logic
         this.y += this.dy;
-        if(this.y < G_Y - this.h) {
-            this.dy += 0.8; 
-        } else { 
-            this.y = G_Y - this.h; 
-            this.dy = 0; 
-            this.air = false; 
-            this.jumpDx = 0; 
-        }
+        if(this.y < G_Y - this.h) this.dy += 0.8; 
+        else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
 
-        // Boundary logic
         const limit = NET.x + (this.side === 'right' ? 25 : -25);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
-        this.anim += Math.abs(this.air ? this.jumpDx : this.dx) * 0.12;
+        this.anim += Math.abs(this.air ? this.jumpDx : this.dx) * 0.15;
     }
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
         if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.strokeStyle = "white"; ctx.lineWidth = 4;
 
-        let spineArch = 0;
+        let activeSkill = (this === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : this.skill;
+
         if(this.air) {
-            spineArch = (this.dy < 0) ? -0.25 : 0.05;
-            ctx.beginPath(); // Front leg
-            ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke();
-            ctx.beginPath(); // Back leg curved back (The requested volleyball bend)
-            ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke(); // Front
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke(); // Back Curve
         } else {
             let s = Math.sin(this.anim) * 12;
             ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(s, 60); ctx.lineTo(s, 75); ctx.stroke();
@@ -164,19 +158,14 @@ class Athlete {
         }
 
         ctx.save();
-        ctx.rotate(spineArch);
-        ctx.fillStyle = this.color; 
-        ctx.fillRect(-10, 8, 20, 35);
+        if(this.air && activeSkill === 'spike') ctx.rotate(-0.3);
+        ctx.fillStyle = this.color; ctx.fillRect(-10, 8, 20, 35);
         ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
 
         ctx.strokeStyle = "white";
-        if(this.skill === 'spike') {
-            ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke();
-        } else if(this.skill === 'lob') {
-            ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke();
-        } else {
-            ctx.beginPath(); ctx.moveTo(8, 15); ctx.lineTo(20, 45); ctx.stroke();
-        }
+        if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke(); }
+        else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke(); }
+        else { ctx.beginPath(); ctx.moveTo(8, 15); ctx.lineTo(20, 45); ctx.stroke(); }
         ctx.restore(); ctx.restore();
     }
 }
@@ -196,10 +185,7 @@ const ball = {
             this.dx *= -0.7; this.x = (this.x < NET.x) ? NET.x - 15 : NET.x + 15;
         }
     },
-    draw() {
-        ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
-    }
+    draw() { ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
 };
 
 const p1 = new Athlete('right', '#ff4757'), cpu = new Athlete('left', '#444');
@@ -207,47 +193,31 @@ const p1 = new Athlete('right', '#ff4757'), cpu = new Athlete('left', '#444');
 function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
-    
-    ctx.fillStyle = "rgba(255,255,255,0.04)"; ctx.fillRect(0, G_Y, W, 60);
+    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    p1.dx = input.x * 8;
+    p1.dx = inputs.moveX * 8;
 
-    // AI FIX: Predicting landing and staying anchored to floor
+    // AI Logic
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        let moveSpeed = dist > 5 ? 7 : dist < -5 ? -7 : 0;
-        if(cpu.air) {
-            // CPU Diagonal Jump momentum
-        } else {
-            cpu.dx = moveSpeed;
-            if(ball.y < G_Y - 120 && Math.abs(dist) < 60) {
-                cpu.dy = -14;
-                cpu.air = true;
-                cpu.jumpDx = moveSpeed;
-            }
+        if(!cpu.air) {
+            cpu.dx = dist > 5 ? 7 : dist < -5 ? -7 : 0;
+            if(ball.y < G_Y - 120 && Math.abs(dist) < 60) { cpu.dy = -14; cpu.air = true; cpu.jumpDx = cpu.dx; }
         }
         cpu.skill = (Math.abs(NET.x - cpu.x) < 140) ? 'spike' : 'lob';
-    } else { 
-        if(!cpu.air) cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; 
-        cpu.skill = null; 
-    }
+    } else { if(!cpu.air) cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; cpu.skill = null; }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let bDx = ball.x - p.x, bDy = ball.y - (p.y + 10), d = Math.sqrt(bDx*bDx + bDy*bDy);
         if(d < 65) {
             const side = (p.side === 'right') ? -1 : 1;
-            if(p.skill === 'spike') { 
-                ball.dx = side * 22; 
-                ball.dy = (ball.y < p.y) ? 12 : 2; 
-            }
-            else if(p.skill === 'lob') { 
-                ball.dx = side * 8; ball.dy = -18; 
-            }
-            else { 
-                ball.dx = side * 7 + (p.dx * 0.4); ball.dy = -10; 
-            }
+            let currentSkill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : p.skill;
+            
+            if(currentSkill === 'spike') { ball.dx = side * 22; ball.dy = (ball.y < p.y) ? 12 : 2; }
+            else if(currentSkill === 'lob') { ball.dx = side * 8; ball.dy = -18; }
+            else { ball.dx = side * 7 + (p.dx * 0.4); ball.dy = -10; }
             ball.x = p.x + (side * 60);
         }
     });
