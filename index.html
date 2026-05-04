@@ -3,36 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Playmaker Edition</title>
+    <title>Elite Volley: Pro UI</title>
     <style>
-        :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
+        :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; position: fixed; font-family: sans-serif; }
-        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); }
+        html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; position: fixed; font-family: -apple-system, system-ui, sans-serif; }
+        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
-        #hud { position: absolute; top: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; pointer-events: none; z-index: 10; opacity: 0; }
-        .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 4px; width: 45px; height: 35px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
-        #timer { color: #fff; font-size: 28px; font-weight: 800; width: 80px; text-align: center; }
         
-        #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px; opacity: 0; }
-        #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
+        #hud { position: absolute; top: 25px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 0.5s; }
+        .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 600; backdrop-filter: blur(5px); }
+        #timer { color: #fff; font-size: 24px; font-weight: 800; width: 90px; text-align: center; font-variant-numeric: tabular-nums; }
         
-        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 260px; height: 120px; z-index: 20; opacity: 0; }
-        .btn { position: absolute; background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 1px;}
-        .btn.active { background: #fff; color: #000; }
+        /* Joystick - Small & Tactile */
+        #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
+        #knob { position: absolute; width: 34px; height: 34px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
         
-        #lift { width: 80px; height: 50px; top: 0; left: 0; }
-        #lob { width: 80px; height: 50px; top: 0; left: 90px; }
-        #spike { width: 80px; height: 50px; top: 0; left: 180px; }
-        #jump { width: 260px; height: 60px; bottom: 0; left: 0; font-weight: 900; font-size: 14px; }
+        /* Action Buttons - Optimized Grid */
+        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 200px; height: 100px; z-index: 20; opacity: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 45px 45px; gap: 8px; }
+        .btn { background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; border-radius: 8px; text-transform: uppercase; backdrop-filter: blur(5px); transition: transform 0.1s; }
+        .btn.active { background: #fff; color: #000; transform: scale(0.95); }
+        #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
 
         #overlay { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #start-btn { padding: 25px 50px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 900; font-size: 18px; letter-spacing: 5px; }
+        #start-btn { padding: 20px 40px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: 900; font-size: 16px; letter-spacing: 4px; }
     </style>
 </head>
 <body>
 <div id="game-container">
-    <div id="overlay"><button id="start-btn">KICKOFF</button></div>
+    <div id="overlay"><button id="start-btn">START MATCH</button></div>
     <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -40,7 +39,7 @@
         <div class="btn" id="lift">Lift</div>
         <div class="btn" id="lob">Lob</div>
         <div class="btn" id="spike">Strike</div>
-        <div class="btn" id="jump">Jump</div>
+        <div class="btn" id="jump">JUMP</div>
     </div>
 </div>
 
@@ -70,31 +69,25 @@ function resize() {
 
 function updateKnobUI(val) {
     const r = joyZone.getBoundingClientRect();
-    knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 20)) + "px";
+    knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 17)) + "px";
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
 window.addEventListener('touchstart', e => {
     const rJ = joyZone.getBoundingClientRect();
-    const actR = document.getElementById('act-zone').getBoundingClientRect();
-    const btns = { 
-        lift: document.getElementById('lift').getBoundingClientRect(),
-        lob: document.getElementById('lob').getBoundingClientRect(), 
-        spike: document.getElementById('spike').getBoundingClientRect(), 
-        jump: document.getElementById('jump').getBoundingClientRect() 
-    };
-
+    const btnIds = ['lift', 'lob', 'spike', 'jump'];
+    
     for (let t of e.changedTouches) {
         if (t.clientX > rJ.left && t.clientX < rJ.right && t.clientY > rJ.top && t.clientY < rJ.bottom) inputs.joyID = t.identifier;
-        for (let k in btns) {
-            const b = btns[k];
+        btnIds.forEach(id => {
+            const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                inputs[k] = true;
-                if (k === 'jump' && !p1.air) { p1.dy = -19; p1.air = true; }
-                if (k !== 'jump') { inputs.buffer = 15; inputs.type = k; }
-                document.getElementById(k).classList.add('active');
+                inputs[id] = true;
+                if (id === 'jump' && !p1.air) { p1.dy = -18.5; p1.air = true; }
+                if (id !== 'jump') { inputs.buffer = 15; inputs.type = id; }
+                document.getElementById(id).classList.add('active');
             }
-        }
+        });
     }
 }, {passive: false});
 
@@ -103,7 +96,7 @@ window.addEventListener('touchmove', e => {
     const rJ = joyZone.getBoundingClientRect();
     for (let t of e.touches) {
         if (t.identifier === inputs.joyID) {
-            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 20)));
+            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 17)));
             updateKnobUI(inputs.moveX);
         }
     }
@@ -119,7 +112,7 @@ window.addEventListener('touchend', e => {
 });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 40; this.cpuSkill = null; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; }
     reset() { 
         this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; 
         this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; 
@@ -127,7 +120,7 @@ class Athlete {
     update() {
         this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.5;
+        if(this.y < G_Y - this.h) this.dy += 1.55;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const limit = NET.x + (this.side === 'right' ? 18 : -18);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
@@ -135,28 +128,28 @@ class Athlete {
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
-        let walk = Math.sin(this.anim) * 6;
-        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 40); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 40); ctx.stroke();
-        ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 22);
-        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+        let walk = Math.sin(this.anim) * 5;
+        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 38); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
+        ctx.fillStyle = this.color; ctx.fillRect(-5, 6, 10, 20);
+        ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
         let s = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : this.cpuSkill;
         ctx.beginPath();
-        if(s === 'spike') { ctx.moveTo(6, 6); ctx.lineTo(20, -12); }
-        else if(s === 'lob' || s === 'lift') { ctx.moveTo(6, 10); ctx.lineTo(25, 35); }
-        else { ctx.moveTo(3, 10); ctx.lineTo(3, 30); }
+        if(s === 'spike') { ctx.moveTo(5, 5); ctx.lineTo(18, -10); }
+        else if(s === 'lob' || s === 'lift') { ctx.moveTo(5, 8); ctx.lineTo(20, 30); }
+        else { ctx.moveTo(3, 8); ctx.lineTo(3, 28); }
         ctx.stroke(); ctx.restore();
     }
 }
 
 const ball = {
-    r: 9, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
+    r: 8, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.23; this.x += this.dx; this.y += this.dy;
-        if (this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.2; } 
+        this.dy += 0.24; this.x += this.dx; this.y += this.dy;
+        if(this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.2; } 
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
@@ -166,7 +159,11 @@ const ball = {
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
-    draw() { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
+    draw() { 
+        ctx.shadowBlur = 10; ctx.shadowColor = "#fff";
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+    }
 };
 
 const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#444');
@@ -175,18 +172,17 @@ function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
     if(inputs.buffer > 0) inputs.buffer--;
-    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
-    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
+    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 2);
+    ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // AI PREDICTION
-    let futureBallX = ball.x + (ball.dx * 12);
-    let ballDist = futureBallX - cpu.x;
+    let futureX = ball.x + (ball.dx * 12);
+    let ballDist = futureX - cpu.x;
     if (ball.x < NET.x) {
-        cpu.cpuDX = ballDist > 10 ? 7.2 : ballDist < -10 ? -7.2 : 0;
-        if (Math.abs(ball.x - cpu.x) < 45 && ball.dy > 0 && ball.y > G_Y - 170 && !cpu.air) { 
+        cpu.cpuDX = ballDist > 8 ? 7 : ballDist < -8 ? -7 : 0;
+        if (Math.abs(ball.x - cpu.x) < 40 && ball.dy > 0 && ball.y > G_Y - 160 && !cpu.air) { 
             cpu.dy = -17; cpu.air = true; 
         }
-        if (Math.abs(ball.x - cpu.x) < 55) {
+        if (Math.abs(ball.x - cpu.x) < 50) {
             cpu.cpuSkill = (ball.y < cpu.y) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
         }
     } else {
@@ -203,20 +199,17 @@ function loop() {
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 20;
             let hitDir = (ball.x < p.x) ? -1 : 1; 
-            let boost = (p === p1 && hitDir === -1) ? 1.12 : 1.0;
+            let autoBoost = (p === p1 && hitDir === -1) ? 1.15 : 1.0;
 
             if(act === 'lift') { 
-                ball.dx = hitDir * 1.5; // Very slow horizontal
-                ball.dy = -14; // High vertical pop
+                ball.dx = hitDir * 0.8; // ULTRA SLOW LIFT
+                ball.dy = -13.5; 
             } else if(act === 'spike') { 
-                ball.dx = hitDir * 12 * boost; 
-                ball.dy = 6; 
+                ball.dx = hitDir * 11.5 * autoBoost; ball.dy = 5.5; 
             } else if(act === 'lob') { 
-                ball.dx = hitDir * 4.5 * boost; 
-                ball.dy = -16.5; 
+                ball.dx = hitDir * 4.2 * autoBoost; ball.dy = -16; 
             } else { 
-                ball.dx = hitDir * 4 * boost; 
-                ball.dy = -5; 
+                ball.dx = hitDir * 3.8 * autoBoost; ball.dy = -5; 
             }
             inputs.buffer = 0;
         }
