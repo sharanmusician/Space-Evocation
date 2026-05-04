@@ -3,53 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Heavyweight Pro</title>
+    <title>Elite Volley: Ultra Premium</title>
     <style>
-        :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; --glass: rgba(255, 255, 255, 0.15); }
+        :root { 
+            --accent: #00d2ff; --warn: #ff0055; --bg: #050505;
+            --glass: rgba(255, 255, 255, 0.03); --border: rgba(255, 255, 255, 0.1);
+        }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         
         html, body { 
             width: 100vw; height: 100vh; height: -webkit-fill-available;
-            background: #050505; overflow: hidden; position: fixed; top: 0; left: 0; 
+            background: var(--bg); overflow: hidden; position: fixed; top: 0; left: 0; 
+            font-family: 'Inter', -apple-system, sans-serif;
         }
         
         #game-container { 
             position: absolute; inset: 0; 
-            background: radial-gradient(circle at center, #1e3c72 0%, #000 100%);
+            background: radial-gradient(circle at 50% 30%, #101820 0%, #000 100%);
             display: flex; align-items: center; justify-content: center;
         }
 
         canvas { width: 100%; height: 100%; display: block; }
         
+        /* 1 Cr Project HUD Layout */
         #hud { 
-            position: absolute; top: 30px; 
-            width: 100%; display: flex; justify-content: center; align-items: center; gap: 40px; 
-            pointer-events: none; z-index: 10; font-family: 'Courier New', Courier, monospace;
+            position: absolute; top: 40px; width: 100%; 
+            display: flex; justify-content: center; align-items: center; gap: 20px; 
+            pointer-events: none; z-index: 10;
         }
-        .score-box { background: var(--glass); padding: 10px 20px; border-radius: 8px; border-bottom: 3px solid #fff; }
-        .score { color: white; font-size: 28px; font-weight: 900; }
-        #timer { color: var(--gold); font-size: 36px; font-weight: 900; text-shadow: 0 0 10px var(--gold); }
+        .panel { 
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 10px 25px; display: flex; align-items: center; justify-content: center;
+        }
+        .score { color: #fff; font-size: 24px; font-weight: 200; letter-spacing: 2px; }
+        #timer { 
+            font-size: 38px; font-weight: 800; color: #fff; width: 140px; text-align: center;
+            text-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
         
-        #joy-zone { position: absolute; bottom: 50px; left: 40px; width: 160px; height: 4px; background: rgba(255,255,255,0.3); z-index: 20; border-radius: 2px; }
+        /* Premium Linear Slider */
+        #joy-zone { 
+            position: absolute; bottom: 60px; left: 50px; width: 180px; height: 2px; 
+            background: var(--border); z-index: 20; 
+        }
+        #joy-zone::before { content: ''; position: absolute; top: -10px; left: 0; width: 1px; height: 20px; background: var(--border); }
+        #joy-zone::after { content: ''; position: absolute; top: -10px; right: 0; width: 1px; height: 20px; background: var(--border); }
+        
         #knob { 
-            position: absolute; width: 45px; height: 45px; 
-            background: #fff; border-radius: 4px; 
+            position: absolute; width: 30px; height: 50px; 
+            background: #fff; border-radius: 2px; 
             transform: translate(-50%, -50%); pointer-events: none; 
-            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+            box-shadow: 0 0 30px rgba(255,255,255,0.2);
         }
         
-        #act-zone { position: absolute; bottom: 30px; right: 20px; width: 240px; height: 160px; z-index: 20; }
+        /* Pro Action Buttons */
+        #act-zone { position: absolute; bottom: 40px; right: 30px; width: 260px; height: 180px; z-index: 20; }
         .btn { 
-            position: absolute; border-radius: 12px; 
-            background: var(--glass); backdrop-filter: blur(10px); 
-            color: white; display: flex; align-items: center; justify-content: center; 
-            font-weight: 700; border: 1.5px solid rgba(255,255,255,0.3);
-            font-size: 12px;
+            position: absolute; border-radius: 50%; 
+            background: var(--glass); backdrop-filter: blur(15px); 
+            color: #fff; display: flex; align-items: center; justify-content: center; 
+            font-weight: 300; border: 1px solid var(--border);
+            font-size: 10px; letter-spacing: 2px; transition: all 0.2s;
         }
+        .btn:active { background: #fff; color: #000; transform: scale(0.9); }
         
-        #spike { width: 75px; height: 75px; bottom: 85px; right: 10px; }
-        #lob { width: 75px; height: 75px; bottom: 85px; right: 95px; }
-        #jump { width: 160px; height: 60px; bottom: 10px; right: 10px; }
+        #spike { width: 85px; height: 85px; bottom: 95px; right: 10px; }
+        #lob { width: 85px; height: 85px; bottom: 95px; right: 110px; }
+        #jump { 
+            width: 185px; height: 65px; bottom: 10px; right: 10px; 
+            border-radius: 4px; font-weight: 700; background: rgba(255,255,255,0.05);
+        }
         
         #overlay { 
             position: absolute; inset: 0; background: #000; 
@@ -61,14 +85,14 @@
 <body>
 <div id="game-container">
     <div id="overlay" onclick="enterFullscreen()">
-        <h1 style="letter-spacing: 12px; font-family: sans-serif; font-weight: 200;">MATCH START</h1>
-        <p style="color: var(--gold); margin-top: 15px; font-size: 12px;">WEIGHTED PHYSICS ACTIVE</p>
+        <h1 style="letter-spacing: 20px; font-weight: 100; font-size: 14px; color: #888;">E V O L V E</h1>
+        <p style="margin-top: 20px; font-size: 10px; letter-spacing: 5px;">INITIALIZE ENGINE</p>
     </div>
     
     <div id="hud">
-        <div class="score-box"><div class="score" id="s-c">0</div></div>
+        <div class="panel"><div class="score" id="s-c">0</div></div>
         <div id="timer">01:00</div>
-        <div class="score-box"><div class="score" id="s-u">0</div></div>
+        <div class="panel"><div class="score" id="s-u">0</div></div>
     </div>
     
     <canvas id="canvas"></canvas>
@@ -114,7 +138,7 @@ function startTimer() {
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 50; NET = { x: W/2, y: G_Y - 90, w: 6, h: 90 };
+    G_Y = H - 50; NET = { x: W/2, y: G_Y - 90, w: 4, h: 90 };
     updateKnobUI(0);
     if(p1) p1.reset(); if(cpu) cpu.reset();
 }
@@ -141,44 +165,41 @@ const bindBtn = (id, key) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
         e.preventDefault(); inputs[key] = true; inputs.buffer = 12;
-        if(key === 'jump' && !p1.air) { p1.dy = -17; p1.air = true; } // Faster jump to counter gravity
+        if(key === 'jump' && !p1.air) { p1.dy = -18.5; p1.air = true; } 
     }, {passive: false});
     b.addEventListener('touchend', () => { if(key !== 'jump') inputs[key] = false; });
 };
 bindBtn('spike', 'spike'); bindBtn('lob', 'lob'); bindBtn('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 50; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 45; }
     reset() { 
         this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; 
         this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; 
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        // HEAVIER GRAVITY: Increased from 0.75 to 1.2
-        if(this.y < G_Y - this.h) {
-            this.dy += 1.2; 
-        } else {
-            this.y = G_Y - this.h; this.dy = 0; this.air = false;
-        }
-        const limit = NET.x + (this.side === 'right' ? 22 : -22);
-        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-25, this.x)) : Math.min(limit, Math.max(25, this.x));
+        // FAST PLAYER LANDING
+        if(this.y < G_Y - this.h) { this.dy += 1.4; } 
+        else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        const limit = NET.x + (this.side === 'right' ? 20 : -20);
+        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.25;
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 2;
         let walk = Math.sin(this.anim) * 7;
-        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(walk, 50); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(-walk, 50); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 25); ctx.lineTo(walk, 45); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 25); ctx.lineTo(-walk, 45); ctx.stroke();
         ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.roundRect(-8, 8, 16, 26, 4); ctx.fill();
-        ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(-7, 7, 14, 24, 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
         let skill = (this === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : this.skill;
         ctx.beginPath();
-        if(skill === 'spike') { ctx.moveTo(8, 10); ctx.lineTo(30, -15); }
-        else if(skill === 'lob') { ctx.moveTo(8, 15); ctx.lineTo(35, 45); }
-        else { ctx.moveTo(4, 15); ctx.lineTo(4, 40); }
+        if(skill === 'spike') { ctx.moveTo(6, 8); ctx.lineTo(25, -12); }
+        else if(skill === 'lob') { ctx.moveTo(6, 12); ctx.lineTo(30, 40); }
+        else { ctx.moveTo(3, 12); ctx.lineTo(3, 35); }
         ctx.stroke();
         ctx.restore();
     }
@@ -189,7 +210,8 @@ const ball = {
     spawn() { this.y = H * 0.2; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.45; this.x += this.dx; this.y += this.dy;
+        // FLOATY BALL GRAVITY (RESTORED)
+        this.dy += 0.42; this.x += this.dx; this.y += this.dy;
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
             if(Math.abs(this.dy) > 3) this.dy *= -0.6;
@@ -200,40 +222,53 @@ const ball = {
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
-    draw() { ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
+    draw() { 
+        ctx.save();
+        ctx.shadowBlur = 20; ctx.shadowColor = "#fff";
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); 
+        ctx.restore();
+    }
 };
 
-const p1 = new Athlete('right', '#ff4757'), cpu = new Athlete('left', '#2e86de');
+const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#444');
 
 function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
     if(inputs.buffer > 0) inputs.buffer--;
-    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
-    ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
-    p1.dx = inputs.moveX * 8.5;
+    
+    // Aesthetic Floor Reflection
+    let grad = ctx.createRadialGradient(ball.x, G_Y, 0, ball.x, G_Y, 150);
+    grad.addColorStop(0, "rgba(255,255,255,0.05)"); grad.addColorStop(1, "transparent");
+    ctx.fillStyle = grad; ctx.fillRect(0, G_Y, W, 50);
+
+    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 1);
+    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
+
+    p1.dx = inputs.moveX * 9.5;
     let d = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = d > 5 ? 7.5 : d < -5 ? -7.5 : 0;
-        if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -17; cpu.air = true; }
+        cpu.dx = d > 5 ? 8 : d < -5 ? -8 : 0;
+        if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -18; cpu.air = true; }
         cpu.skill = (Math.abs(NET.x - cpu.x) < 140) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
     } else { cpu.dx = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; }
+    
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let action = (p === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : p.skill;
-        let hb = { x1: p.x - 40, x2: p.x + 40, y1: p.y - 20, y2: p.y + 70 };
+        let hb = { x1: p.x - 35, x2: p.x + 35, y1: p.y - 20, y2: p.y + 60 };
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 12;
             const side = (p.side === 'right') ? -1 : 1;
-            if(action === 'spike') { ball.dx = side * 18; ball.dy = (ball.y < p.y + 15) ? 10 : 4; }
+            if(action === 'spike') { ball.dx = side * 18.5; ball.dy = (ball.y < p.y + 10) ? 11 : 4; }
             else if(action === 'lob') { ball.dx = side * 7.5; ball.dy = -23; }
-            else { ball.dx = side * 6; ball.dy = -8; }
-            ball.x = p.x + (side * 45); inputs.buffer = 0;
+            else { ball.dx = side * 6.5; ball.dy = -8.5; }
+            ball.x = p.x + (side * 40); inputs.buffer = 0;
         }
     });
     ball.update(); ball.draw();
-    document.getElementById('s-u').innerText = state.u;
-    document.getElementById('s-c').innerText = state.c;
+    document.getElementById('s-u').innerText = state.u.toString().padStart(2, '0');
+    document.getElementById('s-c').innerText = state.c.toString().padStart(2, '0');
     requestAnimationFrame(loop);
 }
 window.addEventListener('resize', resize);
