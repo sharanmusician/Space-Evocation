@@ -3,63 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro-Series</title>
+    <title>Elite Volley: Pro-Compact</title>
     <style>
         :root { 
-            --accent: #ffffff; --glass: rgba(255, 255, 255, 0.08); 
-            --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0b;
+            --accent: #ffffff; --glass: rgba(255, 255, 255, 0.05); 
+            --border: rgba(255, 255, 255, 0.15); --bg: #080808;
         }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         
         html, body { 
             width: 100vw; height: 100vh; height: -webkit-fill-available;
             background: var(--bg); overflow: hidden; position: fixed;
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', sans-serif;
         }
         
-        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1a1c 0%, #000 100%); }
+        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
         
-        /* Premium HUD */
+        /* Streamlined HUD */
         #hud { 
-            position: absolute; top: 40px; width: 100%; 
-            display: flex; justify-content: center; align-items: center; gap: 20px; 
+            position: absolute; top: 30px; width: 100%; 
+            display: flex; justify-content: center; align-items: center; gap: 15px; 
             pointer-events: none; z-index: 10;
         }
         .score-box { 
-            background: var(--glass); border: 1px solid var(--border); border-radius: 8px;
-            padding: 8px 20px; color: #fff; font-size: 22px; font-weight: 300; letter-spacing: 2px;
+            background: var(--glass); border: 1px solid var(--border); border-radius: 4px;
+            width: 45px; height: 35px; display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 18px; font-weight: 200;
         }
-        #timer { color: #fff; font-size: 36px; font-weight: 800; width: 120px; text-align: center; }
+        #timer { color: #fff; font-size: 28px; font-weight: 800; letter-spacing: -1px; width: 80px; text-align: center; }
 
-        /* Symmetrical Ergo Controls */
+        /* Aligned Compact Controls */
         #joy-zone { 
-            position: absolute; bottom: 35px; left: 40px; width: 220px; height: 80px; 
-            z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; 
+            z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px;
         }
-        #joy-zone::before { content: 'STEER'; position: absolute; top: -20px; font-size: 10px; color: #666; letter-spacing: 2px; }
-        
         #knob { 
-            position: absolute; width: 40px; height: 60px; background: #fff; 
-            border-radius: 4px; transform: translate(-50%, -50%); pointer-events: none;
-            box-shadow: 0 0 25px rgba(255,255,255,0.2);
+            position: absolute; width: 30px; height: 40px; background: #fff; 
+            border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none;
         }
 
-        #act-zone { position: absolute; bottom: 35px; right: 40px; width: 340px; height: 170px; z-index: 20; }
+        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 240px; height: 110px; z-index: 20; }
         .btn { 
-            position: absolute; background: var(--glass); backdrop-filter: blur(10px);
+            position: absolute; background: var(--glass); backdrop-filter: blur(8px);
             border: 1px solid var(--border); color: #fff; display: flex; 
-            align-items: center; justify-content: center; font-weight: 600; font-size: 12px; letter-spacing: 1px;
-            transition: all 0.1s;
+            align-items: center; justify-content: center; font-weight: 600; font-size: 10px; letter-spacing: 1px;
         }
-        .btn:active { background: #fff; color: #000; transform: scale(0.96); }
+        .btn:active { background: #fff; color: #000; }
         
-        #spike { width: 100px; height: 80px; top: 0; right: 0; border-radius: 12px; }
-        #lob { width: 100px; height: 80px; top: 0; right: 110px; border-radius: 12px; }
-        
-        /* Aligned Jump Button */
-        #jump { width: 340px; height: 80px; bottom: 0; right: 0; border-radius: 12px; font-size: 14px; font-weight: 800; letter-spacing: 4px; }
+        /* Smaller Tactical Buttons */
+        #spike { width: 75px; height: 50px; top: 0; right: 0; border-radius: 6px; }
+        #lob { width: 75px; height: 50px; top: 0; right: 85px; border-radius: 6px; }
+        #jump { width: 160px; height: 50px; bottom: 0; right: 0; border-radius: 6px; font-weight: 800; }
 
         #overlay { 
             position: absolute; inset: 0; background: #000; 
@@ -70,19 +65,19 @@
 <body>
 <div id="game-container">
     <div id="overlay" onclick="enterFullscreen()">
-        <h1 style="letter-spacing: 10px; font-weight: 200; font-size: 18px;">INITIALIZE COMPETITION</h1>
+        <h1 style="letter-spacing: 8px; font-weight: 100; font-size: 14px;">ENTER ARENA</h1>
     </div>
     
     <div id="hud">
-        <div class="score-box" id="s-c">00</div>
+        <div class="score-box" id="s-c">0</div>
         <div id="timer">01:00</div>
-        <div class="score-box" id="s-u">00</div>
+        <div class="score-box" id="s-u">0</div>
     </div>
     
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
     <div id="act-zone">
-        <div class="btn" id="spike">STRIKE</div>
+        <div class="btn" id="spike">SPIKE</div>
         <div class="btn" id="lob">LOB</div>
         <div class="btn" id="jump">JUMP</div>
     </div>
@@ -111,14 +106,14 @@ function start() {
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 60; NET = { x: W/2, y: G_Y - 85, w: 2, h: 85 };
+    G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
     updateKnobUI(0);
     p1.reset(); cpu.reset();
 }
 
 function updateKnobUI(val) {
     const r = joyZone.getBoundingClientRect();
-    knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 25)) + "px";
+    knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 20)) + "px";
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
@@ -126,7 +121,7 @@ joyZone.addEventListener('touchstart', e => { e.preventDefault(); inputs.joyId =
 window.addEventListener('touchmove', e => {
     for (let t of e.changedTouches) if (t.identifier === inputs.joyId) {
         const r = joyZone.getBoundingClientRect();
-        inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / (r.width/2 - 25)));
+        inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / (r.width/2 - 20)));
         updateKnobUI(inputs.moveX);
     }
 }, {passive: false});
@@ -143,40 +138,39 @@ const bind = (id, key) => {
 bind('spike', 'spike'); bind('lob', 'lob'); bind('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 42; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 40; }
     reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.6; // Heavy Gravity (Weighted Players)
+        if(this.y < G_Y - this.h) this.dy += 1.6;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-        const limit = NET.x + (this.side === 'right' ? 20 : -20);
-        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-25, this.x)) : Math.min(limit, Math.max(25, this.x));
+        const limit = NET.x + (this.side === 'right' ? 18 : -18);
+        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2.5;
-        let walk = Math.sin(this.anim) * 7;
-        ctx.beginPath(); ctx.moveTo(0, 22); ctx.lineTo(walk, 42); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, 22); ctx.lineTo(-walk, 42); ctx.stroke();
-        ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.roundRect(-7, 7, 14, 24, 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+        let walk = Math.sin(this.anim) * 6;
+        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 40); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 40); ctx.stroke();
+        ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 22);
+        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
         let s = (this === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : this.skill;
         ctx.beginPath();
-        if(s === 'spike') { ctx.moveTo(6, 6); ctx.lineTo(22, -15); }
-        else if(s === 'lob') { ctx.moveTo(6, 12); ctx.lineTo(25, 40); }
-        else { ctx.moveTo(4, 12); ctx.lineTo(4, 38); } // Idle Hands Down
+        if(s === 'spike') { ctx.moveTo(6, 6); ctx.lineTo(20, -12); }
+        else if(s === 'lob') { ctx.moveTo(6, 10); ctx.lineTo(25, 35); }
+        else { ctx.moveTo(3, 10); ctx.lineTo(3, 30); }
         ctx.stroke(); ctx.restore();
     }
 }
 
 const ball = {
-    r: 10, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
+    r: 9, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
     spawn() { this.y = H * 0.2; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.42; this.x += this.dx; this.y += this.dy; // Original Floaty Ball Physics
+        this.dy += 0.42; this.x += this.dx; this.y += this.dy;
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r; if(Math.abs(this.dy) > 3) this.dy *= -0.6;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
@@ -195,10 +189,8 @@ function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
     if(inputs.buffer > 0) inputs.buffer--;
-
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
-    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
-
+    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     p1.dx = inputs.moveX * 9.5;
     let d = ball.x - cpu.x;
     if (ball.x < NET.x) {
@@ -206,23 +198,21 @@ function loop() {
         if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -18; cpu.air = true; }
         cpu.skill = (Math.abs(NET.x - cpu.x) < 130) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
     } else { cpu.dx = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; }
-
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let act = (p === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : p.skill;
-        let hb = { x1: p.x - 32, x2: p.x + 32, y1: p.y - 20, y2: p.y + 55 };
+        let hb = { x1: p.x - 30, x2: p.x + 30, y1: p.y - 20, y2: p.y + 50 };
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 12; const side = (p.side === 'right') ? -1 : 1;
-            if(act === 'spike') { ball.dx = side * 18.5; ball.dy = 11; }
-            else if(act === 'lob') { ball.dx = side * 7.5; ball.dy = -22.5; }
-            else { ball.dx = side * 6.5; ball.dy = -8.5; }
+            if(act === 'spike') { ball.dx = side * 18; ball.dy = 11; }
+            else if(act === 'lob') { ball.dx = side * 7.5; ball.dy = -22; }
+            else { ball.dx = side * 6; ball.dy = -8; }
             ball.x = p.x + (side * 40); inputs.buffer = 0;
         }
     });
-
     ball.update(); ball.draw();
-    document.getElementById('s-u').innerText = state.u.toString().padStart(2, '0');
-    document.getElementById('s-c').innerText = state.c.toString().padStart(2, '0');
+    document.getElementById('s-u').innerText = state.u;
+    document.getElementById('s-c').innerText = state.c;
     document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`;
     requestAnimationFrame(loop);
 }
