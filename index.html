@@ -3,33 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Fixed Legs & Instant Hit</title>
+    <title>Elite Volley: Unbreakable Physics</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         html, body { width: 100vw; height: 100vh; background: #000; overflow: hidden; position: fixed; top: 0; left: 0; }
-        #game-view { position: absolute; inset: 0; background: linear-gradient(180deg, #141e30, #243b55); }
+        #game-view { position: absolute; inset: 0; background: linear-gradient(180deg, #0f2027, #203a43, #2c5364); }
         canvas { width: 100%; height: 100%; display: block; }
-        #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; gap: 80px; pointer-events: none; z-index: 10; }
-        .score { color: white; font-size: 38px; font-weight: 900; font-family: sans-serif; }
-        #joy-zone { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 100px; z-index: 20; }
-        #knob { position: absolute; width: 70px; height: 70px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #act-zone { position: absolute; bottom: 30px; right: 20px; width: 280px; height: 200px; z-index: 20; }
-        .btn { position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; }
-        #spike { width: 85px; height: 85px; bottom: 100px; right: 10px; border-color: var(--red); color: var(--red); }
-        #lob { width: 85px; height: 85px; bottom: 100px; right: 105px; border-color: #2ecc71; color: #2ecc71; }
-        #jump { width: 180px; height: 70px; bottom: 10px; right: 10px; border-radius: 35px; border-color: var(--blue); color: var(--blue); }
+        #hud { position: absolute; top: 40px; width: 100%; display: flex; justify-content: center; gap: 100px; pointer-events: none; z-index: 10; }
+        .score { color: white; font-size: 42px; font-weight: 900; font-family: 'Arial Black', sans-serif; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #joy-zone { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 120px; z-index: 20; }
+        #knob { position: absolute; width: 70px; height: 70px; background: rgba(255,255,255,0.1); border: 3px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #act-zone { position: absolute; bottom: 30px; right: 20px; width: 300px; height: 220px; z-index: 20; }
+        .btn { position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.6); backdrop-filter: blur(15px); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        #spike { width: 95px; height: 95px; bottom: 110px; right: 10px; border-color: var(--red); color: var(--red); }
+        #lob { width: 95px; height: 95px; bottom: 110px; right: 115px; border-color: #2ecc71; color: #2ecc71; }
+        #jump { width: 200px; height: 80px; bottom: 10px; right: 10px; border-radius: 40px; border-color: var(--blue); color: var(--blue); }
         #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; cursor: pointer; }
     </style>
 </head>
 <body>
 <div id="game-view">
-    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">LEG FIX & INSTANT AURA HIT</p></div>
+    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">CONTINUOUS COLLISION DETECTION v9</p></div>
     <div id="hud"><div class="score" id="s-c">0</div><div class="score" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
     <div id="act-zone">
-        <div class="btn" id="spike">STRIKE</div>
+        <div class="btn" id="spike">SPIKE</div>
         <div class="btn" id="lob">LOB</div>
         <div class="btn" id="jump">JUMP</div>
     </div>
@@ -38,24 +38,23 @@
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false };
-const inputs = { joyId: null, moveX: 0, spike: false, lob: false };
+const inputs = { joyId: null, moveX: 0, spike: false, lob: false, buffer: 0 };
 
 function start() {
     document.getElementById('overlay').style.display = 'none';
-    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
     state.active = true; resize(); ball.spawn(); requestAnimationFrame(loop);
 }
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 60; NET = { x: W/2, y: G_Y - 140, w: 10, h: 140 };
+    G_Y = H - 60; NET = { x: W/2, y: G_Y - 140, w: 12, h: 140 };
     updateKnobUI(0);
     if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
 function updateKnobUI(val) {
     const r = joyZone.getBoundingClientRect();
-    knob.style.left = (r.left + r.width/2 + val * 40) + "px";
+    knob.style.left = (r.left + r.width/2 + val * 45) + "px";
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
@@ -75,64 +74,78 @@ const bindBtn = (id, key) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
         e.preventDefault();
-        if(key === 'jump') { if(!p1.air) { p1.dy = -15; p1.air = true; } }
-        else inputs[key] = true;
+        inputs[key] = true;
+        inputs.buffer = 12; // Input persists for 12 frames (buffer)
+        if(key === 'jump' && !p1.air) { p1.dy = -16; p1.air = true; }
     }, {passive: false});
-    b.addEventListener('touchend', () => inputs[key] = false);
+    b.addEventListener('touchend', () => { if(key !== 'jump') inputs[key] = false; });
 };
 bindBtn('spike', 'spike'); bindBtn('lob', 'lob'); bindBtn('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 80; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 85; }
     reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 0.85; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-        const limit = NET.x + (this.side === 'right' ? 35 : -35);
-        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
-        this.anim += Math.abs(this.dx) * 0.2;
+        if(this.y < G_Y - this.h) this.dy += 0.9; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        const limit = NET.x + (this.side === 'right' ? 40 : -40);
+        this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-40, this.x)) : Math.min(limit, Math.max(40, this.x));
+        this.anim += Math.abs(this.dx) * 0.25;
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "white"; ctx.lineWidth = 4;
-        let activeSkill = (this === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : this.skill;
+        ctx.strokeStyle = "white"; ctx.lineWidth = 5;
+        
+        // LEGS - Anchored to ground relative to player Y
+        let footY = G_Y - this.y;
+        let walk = Math.sin(this.anim) * 15;
+        ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(walk, footY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(-walk, footY); ctx.stroke();
 
-        // FIXED LEGS - Always drawn relative to ground/player base
-        let legOffset = Math.sin(this.anim) * 10;
-        ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(legOffset, 80); ctx.stroke(); // Left Leg
-        ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(-legOffset, 80); ctx.stroke(); // Right Leg
+        // Torso/Head
+        ctx.fillStyle = this.color; ctx.fillRect(-18, 10, 36, 40);
+        ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2); ctx.fill();
 
-        // Torso
-        ctx.fillStyle = this.color; ctx.fillRect(-15, 10, 30, 40); 
-        ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
-
-        // Arms
-        if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(45, -20); ctx.stroke(); }
-        else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(45, 50); ctx.stroke(); }
-        else { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 50); ctx.stroke(); }
+        // Arms - Action Visuals
+        let isActive = (this === p1) ? (inputs.spike || inputs.lob || inputs.buffer > 0) : this.skill;
+        if(isActive) {
+            ctx.beginPath(); ctx.moveTo(12, 15); 
+            ctx.lineTo(45, (inputs.spike || this.skill === 'spike') ? -25 : 55); 
+            ctx.stroke();
+        } else {
+            ctx.beginPath(); ctx.moveTo(12, 15); ctx.lineTo(25, 50); ctx.stroke();
+        }
         ctx.restore();
     }
 }
 
 const ball = {
-    r: 16, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
-    spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.2 : W*0.8; this.lock = 0; },
+    r: 18, dx: 0, dy: 0, x: 0, y: 0, px: 0, py: 0, lock: 0,
+    spawn() { this.y = H * 0.2; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.2 : W*0.8; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.45; this.dx *= 0.998;
+        this.px = this.x; this.py = this.y; // Previous position for Ray-Casting
+        this.dy += 0.5; this.dx *= 0.998;
         this.x += this.dx; this.y += this.dy;
+        
+        // Boundaries
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
-            if(Math.abs(this.dy) > 3) this.dy *= -0.65;
+            if(Math.abs(this.dy) > 3) this.dy *= -0.6;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
-        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2 + 2) {
-            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2 : Math.abs(this.dx) + 2;
-            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 8) : NET.x + (NET.w/2 + this.r + 8);
+        // Net Collision
+        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 3 : Math.abs(this.dx) + 3;
+            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 5) : NET.x + (NET.w/2 + this.r + 5);
         }
     },
-    draw() { ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); ctx.stroke(); }
+    draw() {
+        ctx.shadowBlur = 15; ctx.shadowColor = "rgba(255, 215, 0, 0.5)";
+        ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    }
 };
 
 const p1 = new Athlete('right', '#ff4757'), cpu = new Athlete('left', '#444');
@@ -140,49 +153,53 @@ const p1 = new Athlete('right', '#ff4757'), cpu = new Athlete('left', '#444');
 function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 60);
+    if(inputs.buffer > 0) inputs.buffer--;
+
+    // Court Drawing
+    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    p1.dx = inputs.moveX * 8.5;
+    p1.dx = inputs.moveX * 9.5;
 
-    // Harder AI
-    let dist = ball.x - cpu.x;
+    // Aggressive AI
+    let d = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = dist > 5 ? 7.5 : dist < -5 ? -7.5 : 0;
-        if(!cpu.air && ball.y < G_Y - 140 && Math.abs(dist) < 100) { cpu.dy = -15; cpu.air = true; }
-        cpu.skill = (Math.abs(NET.x - cpu.x) < 180) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
-    } else { cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; cpu.skill = null; }
+        cpu.dx = d > 5 ? 8 : d < -5 ? -8 : 0;
+        if(!cpu.air && ball.y < G_Y - 150 && Math.abs(d) < 120) { cpu.dy = -16; cpu.air = true; }
+        cpu.skill = (Math.abs(NET.x - cpu.x) < 200) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
+    } else { cpu.dx = (cpu.x < W * 0.1) ? 5 : -5; cpu.skill = null; }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         
-        // --- GLOBAL ACTION AURA ---
-        let activeSkill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : p.skill;
+        // --- PATH-SWEEP COLLISION (No Phasing) ---
+        let hit = false;
+        let skill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : (inputs.buffer > 0 ? 'spike' : null)) : p.skill;
         
-        // Box covering any reasonable hit distance (Front, Back, Top, Bottom)
-        let aura = { x: p.x - 55, y: p.y - 30, w: 110, h: 120 };
+        // Dynamic Hitbox Envelope
+        let hb = { x1: p.x - 60, x2: p.x + 60, y1: p.y - 40, y2: p.y + 110 };
 
-        if(ball.x + ball.r > aura.x && ball.x - ball.r < aura.x + aura.w &&
-           ball.y + ball.r > aura.y && ball.y - ball.r < aura.y + aura.h && ball.lock === 0) {
+        // Check if ball is inside OR if ball's previous path crossed this box
+        const isInside = (ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2);
+        const pathCrossed = (ball.px > hb.x1 && ball.px < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2);
+
+        if((isInside || pathCrossed) && ball.lock === 0) {
+            ball.lock = 15;
+            const dir = (p.side === 'right') ? -1 : 1;
             
-            ball.lock = 20;
-            const side = (p.side === 'right') ? -1 : 1;
-            
-            if(activeSkill === 'spike') { 
-                ball.dx = side * 18; 
-                ball.dy = (ball.y < p.y + 20) ? 11 : 4; 
+            if(skill === 'spike') {
+                ball.dx = dir * 20;
+                ball.dy = (ball.y < p.y + 20) ? 12 : 5;
+            } else if(skill === 'lob') {
+                ball.dx = dir * 9;
+                ball.dy = (ball.y > G_Y - 60) ? -26 : -21;
+            } else {
+                ball.dx = dir * 6 + (p.dx * 0.4);
+                ball.dy = -9;
             }
-            else if(activeSkill === 'lob') { 
-                ball.dx = side * 8; 
-                ball.dy = (ball.y > G_Y - 60) ? -24 : -20; 
-            }
-            else { 
-                // Passive Brick Wall - Hard response even if no button pressed
-                ball.dx = side * 5 + (p.dx * 0.3); 
-                ball.dy = -8; 
-            }
-            // Anti-Ghosting Snap
-            ball.x = p.x + (side * 65);
+            // Snap ball out of body
+            ball.x = p.x + (dir * 70);
+            inputs.buffer = 0; // Clear buffer on hit
         }
     });
 
