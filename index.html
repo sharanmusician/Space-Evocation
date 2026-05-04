@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Active AI</title>
+    <title>Pro Volley - Realistic Bounce</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -60,7 +60,7 @@ startBtn.addEventListener('click', () => {
     state.running = true; sync(); ball.spawn(); requestAnimationFrame(loop);
 });
 
-// Input handling
+// Controls logic
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
@@ -74,7 +74,7 @@ window.addEventListener('touchend', e => { for (let t of e.changedTouches) if (t
 
 const bind = (id, s) => {
     const b = document.getElementById(id);
-    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -11; p1.air=true; }} else activeSkill = s; });
+    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -11.5; p1.air=true; }} else activeSkill = s; });
     b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
@@ -84,7 +84,7 @@ class Actor {
     reset() { this.x = (this.side === 'left') ? W * 0.2 : W * 0.8; this.y = G_Y - this.r; this.dx = this.dy = 0; this.air = false; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.45; else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.r) this.dy += 0.48; else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, Math.min(W-this.r, this.x));
         else this.x = Math.min(NET.x - limit, Math.max(this.r, this.x));
@@ -93,31 +93,42 @@ class Actor {
 }
 
 const ball = {
-    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0,
-    spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; this.groundTimer = 0; },
+    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounceFactor: 0.7, // 70% energy retention
+    spawn() { this.y = H * 0.35; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; this.groundTimer = 0; },
     update() {
-        this.dy += 0.4; // Light gravity
-        this.dx *= 0.988; // Air damping
+        this.dy += 0.42; 
+        this.dx *= 0.99; 
         this.x += this.dx; this.y += this.dy;
 
-        if(this.y < this.r + 5) { this.y = this.r + 5; this.dy = 1; } // Gentle ceiling push
+        if(this.y < this.r + 5) { this.y = this.r + 5; this.dy = Math.abs(this.dy) * 0.5; }
 
+        // REALISTIC BOUNCE LOGIC
         if(this.y >= G_Y - this.r) {
-            this.y = G_Y - this.r; this.dy *= -0.35; this.dx *= 0.94;
-            if (Math.abs(this.dy) < 0.6) {
+            this.y = G_Y - this.r;
+            
+            // If the ball has significant speed, bounce it back up
+            if (Math.abs(this.dy) > 1.5) {
+                this.dy *= -this.bounceFactor; // Flip direction and lose some energy
+                this.dx *= 0.9;               // Lose horizontal speed on impact
+                this.groundTimer = 0;         // Reset settle timer because it's still live
+            } else {
+                // Ball is rolling/settling
+                this.dy = 0;
+                this.dx *= 0.85; 
                 this.groundTimer++;
-                if(this.groundTimer > 150) { // 2.5 seconds to save
+                
+                if(this.groundTimer > 100) { // Point scored only after settling
                     const win = this.x > NET.x ? 'c' : 'p';
                     state.scores[win]++; state.lastWinner = win;
                     p1.reset(); cpu.reset(); this.spawn();
                 }
-            } else { this.groundTimer = 0; }
-        } else { this.groundTimer = 0; }
+            }
+        }
 
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
+            this.dx *= -0.5; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
         }
-        if(this.x < -80 || this.x > W + 80) {
+        if(this.x < -100 || this.x > W + 100) {
             const win = this.x > W ? 'c' : 'p';
             state.scores[win]++; state.lastWinner = win;
             p1.reset(); cpu.reset(); this.spawn();
@@ -134,21 +145,14 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "#fff"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    p1.dx = input.x * 6.5;
+    p1.dx = input.x * 6.8;
 
-    // ACTIVE AI BRAIN
+    // AI logic
     let distToBall = ball.x - cpu.x;
-    // Always move toward ball if it's on your side or middle
-    if (ball.x < NET.x + 100) {
-        let aiSpeed = 5.5;
-        cpu.dx = (distToBall > 5) ? aiSpeed : (distToBall < -5) ? -aiSpeed : 0;
-        
-        // Anti-corner/Anti-stuck: Jump if ball is low and close to body
-        if(!cpu.air && ball.y > G_Y - 80 && Math.abs(distToBall) < 40) cpu.dy = -10;
-        // Normal jump
-        if(!cpu.air && ball.y < G_Y - 150 && Math.abs(distToBall) < 50 && Math.random() > 0.98) cpu.dy = -10;
+    if (ball.x < NET.x + 80) {
+        cpu.dx = (distToBall > 5) ? 5.8 : (distToBall < -5) ? -5.8 : 0;
+        if(!cpu.air && ball.y > G_Y - 100 && Math.abs(distToBall) < 40) cpu.dy = -10.5;
     } else {
-        // Return to defensive middle-left
         let home = W * 0.15;
         cpu.dx = (cpu.x < home) ? 3.5 : -3.5;
     }
@@ -162,11 +166,11 @@ function loop() {
             const dir = (p.side === 'right') ? -1 : 1;
             
             let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 150 ? 'spike' : 'lob');
-            if(skill === 'spike') { ball.dx = dir * 10; ball.dy = 1.5; }
-            else if(skill === 'lob') { ball.dx = dir * 5.5; ball.dy = -8.5; }
-            else { ball.dx = (nx * 3.5) + (p.dx * 0.4); ball.dy = (ny * 3.5) - 2.5; }
+            if(skill === 'spike') { ball.dx = dir * 13; ball.dy = 2; }
+            else if(skill === 'lob') { ball.dx = dir * 7.5; ball.dy = -10; }
+            else { ball.dx = (nx * 4.5) + (p.dx * 0.5); ball.dy = (ny * 4.5) - 3.5; }
             
-            if (ball.dy < -11) ball.dy = -11;
+            if (ball.dy < -13) ball.dy = -13;
         }
     });
 
