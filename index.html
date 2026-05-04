@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Natural Physics</title>
+    <title>Pro Volley - Solid AI</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -14,7 +14,7 @@
         .score { color: white; font-size: 1.2rem; font-weight: bold; }
         #timer { color: var(--gold); font-size: 1.8rem; font-weight: 900; }
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
-        .btn-start { padding: 20px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold; color: #000; }
+        .btn-start { padding: 20px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold; color: #000; cursor: pointer; }
         #slider-zone { position: absolute; bottom: 40px; left: 30px; width: 220px; height: 80px; }
         #slider-track { width: 100%; height: 14px; background: var(--white); border-radius: 20px; position: relative; top: 33px; }
         #slider-handle { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(255,255,255,0.3); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; backdrop-filter: blur(5px); }
@@ -37,7 +37,7 @@
     <canvas id="stage"></canvas>
     <div id="slider-zone"><div id="slider-track"><div id="slider-handle"></div></div></div>
     <div id="action-zone">
-        <div class="act-btn" id="btn-spike">SPIKE</div>
+        <div class="act-btn" id="btn-spike">STRIKE</div>
         <div class="act-btn" id="btn-lob">LOB</div>
         <div class="act-btn" id="btn-jump">JUMP</div>
     </div>
@@ -60,7 +60,7 @@ startBtn.addEventListener('click', () => {
     state.running = true; sync(); ball.spawn(); requestAnimationFrame(loop);
 });
 
-// Controls
+// Movement Controls
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
@@ -84,7 +84,7 @@ class Actor {
     reset() { this.x = (this.side === 'left') ? W * 0.2 : W * 0.8; this.y = G_Y - this.r; this.dx = this.dy = 0; this.air = false; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.52; // Natural gravity for players
+        if(this.y < G_Y - this.r) this.dy += 0.5; 
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, Math.min(W-this.r, this.x));
@@ -94,28 +94,23 @@ class Actor {
 }
 
 const ball = {
-    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounceDecay: 0.75,
+    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounceDecay: 0.72,
     spawn() { this.y = H * 0.35; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; this.groundTimer = 0; },
     update() {
-        // NATURAL BALL PHYSICS
-        this.dy += 0.45; // Constant weight
-        this.dx *= 0.985; // Air damping (slows high hits naturally)
-        this.dy *= 0.995; // Vertical air resistance
-        
+        this.dy += 0.44; // Ball Weight
+        this.dx *= 0.986; // Air Resistance
         this.x += this.dx; this.y += this.dy;
 
-        // Bounce Logic
+        // Ground Bounce
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
             if (Math.abs(this.dy) > 1.8) {
-                this.dy *= -this.bounceDecay; // Realistic bounce height decay
-                this.dx *= 0.92;
+                this.dy *= -this.bounceDecay;
+                this.dx *= 0.9;
                 this.groundTimer = 0;
             } else {
-                this.dy = 0;
-                this.dx *= 0.88;
-                this.groundTimer++;
-                if(this.groundTimer > 120) { 
+                this.dy = 0; this.dx *= 0.85; this.groundTimer++;
+                if(this.groundTimer > 100) { 
                     const win = this.x > NET.x ? 'c' : 'p';
                     state.scores[win]++; state.lastWinner = win;
                     p1.reset(); cpu.reset(); this.spawn();
@@ -123,14 +118,11 @@ const ball = {
             }
         } else { this.groundTimer = 0; }
 
-        // Visibility Safety
-        if(this.y < this.r) { this.y = this.r; this.dy = Math.abs(this.dy) * 0.4; }
+        if(this.y < this.r) { this.y = this.r; this.dy = 1.5; }
         
-        // Net
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.5; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
         }
-        
         if(this.x < -100 || this.x > W + 100) {
             const win = this.x > W ? 'c' : 'p';
             state.scores[win]++; state.lastWinner = win;
@@ -148,44 +140,45 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "#fff"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    p1.dx = input.x * 6.8;
+    p1.dx = input.x * 6.5;
 
-    // AI logic (Aggressive Chasing)
+    // AI logic
     let distToBall = ball.x - cpu.x;
     if (ball.x < NET.x + 100) {
-        cpu.dx = (distToBall > 6) ? 6 : (distToBall < -6) ? -6 : 0;
-        if(!cpu.air && ball.y > G_Y - 120 && Math.abs(distToBall) < 45) cpu.dy = -10.5;
+        cpu.dx = (distToBall > 5) ? 5.5 : (distToBall < -5) ? -5.5 : 0;
+        if(!cpu.air && ball.y > G_Y - 120 && Math.abs(distToBall) < 40) cpu.dy = -10.5;
     } else {
-        let home = W * 0.15;
-        cpu.dx = (cpu.x < home) ? 4 : -4;
+        cpu.dx = (cpu.x < W * 0.15) ? 4 : -4;
     }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy), minDist = p.r + ball.r;
+        let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
         
-        if(dist < minDist) {
-            // Player/AI don't move when hitting (no recoil)
-            let nx = dx / dist, ny = dy / dist;
-            ball.x = p.x + nx * (minDist + 1); ball.y = p.y + ny * (minDist + 1);
+        // HIT DETECTION: Radius based (solid collision)
+        if(dist < p.r + ball.r) {
             const dir = (p.side === 'right') ? -1 : 1;
             
+            // Skill Logic (Deterministic)
             let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 140 ? 'spike' : 'lob');
             
             if(skill === 'spike') { 
-                ball.dx = dir * 14.5; 
-                ball.dy = 2.2; 
+                ball.dx = dir * 16; 
+                ball.dy = 5; // Direct strike downwards
             } else if(skill === 'lob') { 
                 ball.dx = dir * 8; 
-                ball.dy = -11.5; 
+                ball.dy = -14; // Service/Upward set
             } else { 
-                // Natural bump based on contact point
-                ball.dx = (nx * 5) + (p.dx * 0.5); 
-                ball.dy = (ny * 5) - 4; 
+                // Default bump
+                ball.dx = dir * 6 + (p.dx * 0.5); 
+                ball.dy = -8; 
             }
             
-            // Hard cap to vertical fly speed to prevent off-screen loss
-            if (ball.dy < -14.5) ball.dy = -14.5;
+            // Push ball out of player so they don't get stuck
+            ball.x = p.x + (dir * (p.r + ball.r + 2));
+            
+            // SOLID PLAYER FIX: Reset player velocity so the ball doesn't push them
+            p.dx = (p === p1) ? input.x * 6.5 : cpu.dx;
         }
     });
 
