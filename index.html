@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro-Compact</title>
+    <title>Elite Volley: Aerial Pro</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -15,9 +15,8 @@
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 4px; width: 45px; height: 35px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
         #timer { color: #fff; font-size: 28px; font-weight: 800; width: 80px; text-align: center; }
 
-        /* Controls */
         #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px; opacity: 0; }
-        #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
+        #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; transition: left 0.1s ease-out; }
 
         #act-zone { position: absolute; bottom: 30px; right: 30px; width: 240px; height: 110px; z-index: 20; opacity: 0; }
         .btn { position: absolute; background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10px; letter-spacing: 1px; }
@@ -27,22 +26,15 @@
         #lob { width: 75px; height: 50px; top: 0; right: 85px; border-radius: 6px; }
         #jump { width: 160px; height: 50px; bottom: 0; right: 0; border-radius: 6px; font-weight: 800; }
 
-        /* Full-Screen Start Button */
-        #overlay { 
-            position: absolute; inset: 0; background: #000; z-index: 100; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-        }
-        #start-btn {
-            padding: 20px 40px; background: #fff; color: #000; border: none; border-radius: 4px;
-            font-weight: 800; font-size: 16px; letter-spacing: 4px; cursor: pointer;
-        }
+        #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #start-btn { padding: 20px 40px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 16px; letter-spacing: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
 <div id="game-container">
     <div id="overlay">
         <button id="start-btn">INITIALIZE</button>
-        <p style="color: #444; margin-top: 15px; font-size: 10px; letter-spacing: 2px;">PRO-COMPACT V2.1</p>
+        <p style="color: #444; margin-top: 15px; font-size: 10px; letter-spacing: 2px;">AERIAL PRECISION V5.0</p>
     </div>
     
     <div id="hud">
@@ -62,53 +54,26 @@
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
-const overlay = document.getElementById('overlay');
-const startBtn = document.getElementById('start-btn');
+const overlay = document.getElementById('overlay'), startBtn = document.getElementById('start-btn');
 const hud = document.getElementById('hud'), actZone = document.getElementById('act-zone');
 
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60 };
 const inputs = { moveX: 0, spike: false, lob: false, jump: false, buffer: 0 };
 
-// Optimized Start Sequence
 startBtn.addEventListener('click', async () => {
     state.active = true;
-    try { 
-        if (document.documentElement.requestFullscreen) {
-            await document.documentElement.requestFullscreen();
-        }
-    } catch (e) { console.log("Fullscreen declined, starting windowed."); }
-    
+    try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (e) {}
     overlay.style.display = 'none';
-    hud.style.opacity = "1";
-    joyZone.style.opacity = "1";
-    actZone.style.opacity = "1";
-    
-    resize();
-    ball.spawn();
-    startTimer();
+    hud.style.opacity = "1"; joyZone.style.opacity = "1"; actZone.style.opacity = "1";
+    resize(); ball.spawn();
+    setInterval(() => { if(state.time > 0 && state.active) { state.time--; document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; } }, 1000);
     requestAnimationFrame(loop);
 });
 
-function startTimer() {
-    const clock = setInterval(() => { 
-        if(state.time > 0 && state.active) {
-            state.time--;
-            document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`;
-        }
-        if(state.time <= 0) {
-            clearInterval(clock);
-            location.reload();
-        }
-    }, 1000);
-}
-
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 50; 
-    NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
-    updateKnobUI(0); 
-    if(p1) p1.reset(); 
-    if(cpu) cpu.reset();
+    G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
+    updateKnobUI(0); p1.reset(); cpu.reset();
 }
 
 function updateKnobUI(val) {
@@ -117,11 +82,10 @@ function updateKnobUI(val) {
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
-// Multi-Touch Input Logic
 function handleTouch(e) {
     if (!state.active) return;
     e.preventDefault();
-    const rectJ = joyZone.getBoundingClientRect();
+    const rJ = joyZone.getBoundingClientRect();
     const btns = { 
         spike: document.getElementById('spike').getBoundingClientRect(), 
         lob: document.getElementById('lob').getBoundingClientRect(), 
@@ -132,21 +96,21 @@ function handleTouch(e) {
     let foundJoy = false;
 
     for (let t of e.touches) {
-        if (t.clientX > rectJ.left && t.clientX < rectJ.right && t.clientY > rectJ.top && t.clientY < rectJ.bottom) {
-            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rectJ.left + rectJ.width/2)) / (rectJ.width/2 - 20)));
+        if (t.clientX > rJ.left && t.clientX < rJ.right && t.clientY > rJ.top && t.clientY < rJ.bottom) {
+            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 20)));
             foundJoy = true;
         }
-        for (let key in btns) {
-            const b = btns[key];
+        for (let k in btns) {
+            const b = btns[k];
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                inputs[key] = true;
-                if (key === 'jump' && !p1.air) { p1.dy = -19; p1.air = true; }
-                if (key !== 'jump') inputs.buffer = 12;
+                inputs[k] = true;
+                if (k === 'jump' && !p1.air) { p1.dy = -19; p1.air = true; }
+                if (k !== 'jump') inputs.buffer = 12;
             }
         }
     }
-    if (!foundJoy) inputs.moveX = 0;
-    updateKnobUI(inputs.moveX);
+    if (!foundJoy) { inputs.moveX = 0; updateKnobUI(0); }
+    else { updateKnobUI(inputs.moveX); }
     
     document.getElementById('spike').classList.toggle('active', inputs.spike);
     document.getElementById('lob').classList.toggle('active', inputs.lob);
@@ -161,9 +125,14 @@ class Athlete {
     constructor(side, color) { this.side = side; this.color = color; this.h = 40; }
     reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
-        this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.6;
+        // Horizontal logic applied every frame for Air Control
+        this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuMove;
+        this.x += this.dx; 
+        this.y += this.dy;
+
+        if(this.y < G_Y - this.h) this.dy += 1.6; // Heavy Gravity
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+
         const limit = NET.x + (this.side === 'right' ? 18 : -18);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
@@ -190,15 +159,14 @@ const ball = {
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.38; // Smooth Ball Grav
-        this.x += this.dx; this.y += this.dy;
-        if (this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.5; } // Ceiling Lock
+        this.dy += 0.35; this.x += this.dx; this.y += this.dy;
+        if (this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.3; } 
         if(this.y >= G_Y - this.r) {
-            this.y = G_Y - this.r; if(Math.abs(this.dy) > 3) this.dy *= -0.6;
+            this.y = G_Y - this.r; if(Math.abs(this.dy) > 3) this.dy *= -0.55;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2.5 : Math.abs(this.dx) + 2.5;
+            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2 : Math.abs(this.dx) + 2;
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
@@ -214,13 +182,13 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
     ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    p1.dx = inputs.moveX * 9.5;
+    // CPU Logic
     let d = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = d > 5 ? 7.5 : d < -5 ? -7.5 : 0;
-        if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -18; cpu.air = true; }
+        cpu.cpuMove = d > 5 ? 7 : d < -5 ? -7 : 0;
+        if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -17.5; cpu.air = true; }
         cpu.skill = (Math.abs(NET.x - cpu.x) < 130) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
-    } else { cpu.dx = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; }
+    } else { cpu.cpuMove = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; }
     
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
@@ -228,9 +196,9 @@ function loop() {
         let hb = { x1: p.x - 30, x2: p.x + 30, y1: p.y - 20, y2: p.y + 50 };
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 12; const side = (p.side === 'right') ? -1 : 1;
-            if(act === 'spike') { ball.dx = side * 18; ball.dy = 11; }
-            else if(act === 'lob') { ball.dx = side * 7.5; ball.dy = -22; }
-            else { ball.dx = side * 6; ball.dy = -8; }
+            if(act === 'spike') { ball.dx = side * 13; ball.dy = 7; }
+            else if(act === 'lob') { ball.dx = side * 5.5; ball.dy = -17.5; }
+            else { ball.dx = side * 5; ball.dy = -5.5; }
             ball.x = p.x + (side * 40); inputs.buffer = 0;
         }
     });
