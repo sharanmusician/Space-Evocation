@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: AI Evolution</title>
+    <title>Elite Volley: Pro Physics</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; position: fixed; font-family: sans-serif; left: 0; top: 0; }
-        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); width: 100vw; height: 100vh; }
+        html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; position: fixed; font-family: sans-serif; }
+        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
         #hud { position: absolute; top: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; pointer-events: none; z-index: 10; opacity: 0; }
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 4px; width: 45px; height: 35px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
@@ -41,14 +41,11 @@
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
-const container = document.documentElement;
-
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60 };
 const inputs = { moveX: 0, spike: false, lob: false, buffer: 0, joyID: null };
 
 document.getElementById('start-btn').addEventListener('click', function() {
-    if (container.requestFullscreen) container.requestFullscreen();
-    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
     state.active = true;
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('hud').style.opacity = 1;
@@ -71,7 +68,6 @@ function updateKnobUI(val) {
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
-// MULTI-TOUCH
 window.addEventListener('touchstart', e => {
     const rJ = joyZone.getBoundingClientRect();
     const btns = { spike: document.getElementById('spike').getBoundingClientRect(), lob: document.getElementById('lob').getBoundingClientRect(), jump: document.getElementById('jump').getBoundingClientRect() };
@@ -113,7 +109,7 @@ window.addEventListener('touchend', e => {
 });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 40; this.cpuSkill = null; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 40; this.cpuSkill = null; this.aiState = 'idle'; }
     reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
         this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuDX;
@@ -152,9 +148,9 @@ const ball = {
             this.y = G_Y - this.r; if(Math.abs(this.dy) > 3) this.dy *= -0.55;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
-        // SMOOTH NET COLLISION (DAMPING)
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) * 0.4 : Math.abs(this.dx) * 0.4;
+            this.dx = -this.dx * 0.2; // DAMPED NET RETURN
+            this.dy *= 0.5;
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
@@ -170,39 +166,43 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
     ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // ADVANCED AI BRAIN
-    let dist = ball.x - cpu.x;
+    // DYNAMIC AI BRAIN
+    let ballDist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.cpuDX = dist > 5 ? 7 : dist < -5 ? -7 : 0;
-        // Logic for random skill moves
-        if (Math.abs(dist) < 60) {
-            if (!cpu.air && ball.y < G_Y - 80) { cpu.dy = -17.5; cpu.air = true; }
-            if (ball.y < cpu.y) {
-                let rnd = Math.random();
-                if (rnd > 0.7) cpu.cpuSkill = 'spike';
-                else if (rnd > 0.4) cpu.cpuSkill = 'lob';
-                else cpu.cpuSkill = null;
-            }
+        cpu.cpuDX = ballDist > 8 ? 7.5 : ballDist < -8 ? -7.5 : 0;
+        if (Math.abs(ballDist) < 65) {
+            if (!cpu.air && ball.y < G_Y - 90 && Math.random() > 0.5) { cpu.dy = -18; cpu.air = true; }
+            let rnd = Math.random();
+            if (rnd > 0.8) cpu.cpuSkill = 'spike';
+            else if (rnd > 0.5) cpu.cpuSkill = 'lob';
+            else cpu.cpuSkill = null;
         }
-    } else { 
-        // Defensive positioning
-        let targetX = (ball.dx > 0) ? W * 0.15 : W * 0.3;
-        cpu.cpuDX = (cpu.x < targetX) ? 5 : -5;
+    } else {
+        // AI returns to defensive center
+        let homeX = W * 0.2;
+        cpu.cpuDX = (cpu.x < homeX - 5) ? 6 : (cpu.x > homeX + 5) ? -6 : 0;
         cpu.cpuSkill = null;
     }
     
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let act = (p === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : p.cpuSkill;
-        let hb = { x1: p.x - 30, x2: p.x + 30, y1: p.y - 20, y2: p.y + 50 };
+        let hb = { x1: p.x - 32, x2: p.x + 32, y1: p.y - 25, y2: p.y + 55 };
+        
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
-            ball.lock = 12; const side = (p.side === 'right') ? -1 : 1;
-            if(act === 'spike') { ball.dx = side * 12; ball.dy = 6.5; }
-            else if(act === 'lob') { ball.dx = side * 4.5; ball.dy = -16.5; }
-            else { ball.dx = side * 4; ball.dy = -5; }
-            ball.x = p.x + (side * 40); inputs.buffer = 0;
+            ball.lock = 15;
+            // TRUE DIRECTIONAL PHYSICS: Calculate hit side
+            const hitFromRight = ball.x > p.x;
+            const hitSide = hitFromRight ? 1 : -1;
+            
+            if(act === 'spike') { ball.dx = hitSide * 13; ball.dy = 7; }
+            else if(act === 'lob') { ball.dx = hitSide * 5; ball.dy = -18; }
+            else { ball.dx = hitSide * 5; ball.dy = -6; }
+            
+            inputs.buffer = 0;
         }
     });
+    
     ball.update(); ball.draw();
     document.getElementById('s-u').innerText = state.u;
     document.getElementById('s-c').innerText = state.c;
