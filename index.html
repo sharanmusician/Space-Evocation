@@ -3,61 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Ultra Fullscreen</title>
+    <title>Elite Volley: AI Evolution</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        
-        /* Force container to fill screen even if API fails */
-        html, body { 
-            width: 100%; height: 100%; 
-            background: var(--bg); overflow: hidden; 
-            position: fixed; font-family: sans-serif; 
-            left: 0; top: 0;
-        }
-
-        #game-container { 
-            position: absolute; inset: 0; 
-            background: radial-gradient(circle at center, #111 0%, #000 100%); 
-            width: 100vw; height: 100vh;
-        }
-
+        html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; position: fixed; font-family: sans-serif; left: 0; top: 0; }
+        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #111 0%, #000 100%); width: 100vw; height: 100vh; }
         canvas { width: 100%; height: 100%; display: block; }
-        
         #hud { position: absolute; top: 30px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; pointer-events: none; z-index: 10; opacity: 0; }
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 4px; width: 45px; height: 35px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
         #timer { color: #fff; font-size: 28px; font-weight: 800; width: 80px; text-align: center; }
-
         #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px; opacity: 0; }
         #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
-
         #act-zone { position: absolute; bottom: 30px; right: 30px; width: 240px; height: 110px; z-index: 20; opacity: 0; }
         .btn { position: absolute; background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10px; letter-spacing: 1px; border-radius: 6px;}
         .btn.active { background: #fff; color: #000; }
-        
         #spike { width: 75px; height: 50px; top: 0; right: 0; }
         #lob { width: 75px; height: 50px; top: 0; right: 85px; }
         #jump { width: 160px; height: 50px; bottom: 0; right: 0; font-weight: 800; }
-
-        #overlay { 
-            position: fixed; inset: 0; background: #000; z-index: 100; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-        }
-        #start-btn { 
-            padding: 25px 50px; background: #fff; color: #000; border: none; 
-            border-radius: 4px; font-weight: 900; font-size: 18px; letter-spacing: 5px; 
-            box-shadow: 0 0 20px rgba(255,255,255,0.2);
-        }
+        #overlay { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #start-btn { padding: 25px 50px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 900; font-size: 18px; letter-spacing: 5px; }
     </style>
 </head>
 <body>
 <div id="game-container">
-    <div id="overlay"><button id="start-btn">PLAY FULLSCREEN</button></div>
-    <div id="hud">
-        <div class="score-box" id="s-c">0</div>
-        <div id="timer">01:00</div>
-        <div class="score-box" id="s-u">0</div>
-    </div>
+    <div id="overlay"><button id="start-btn">START MATCH</button></div>
+    <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
     <div id="act-zone">
@@ -75,42 +46,23 @@ const container = document.documentElement;
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60 };
 const inputs = { moveX: 0, spike: false, lob: false, buffer: 0, joyID: null };
 
-// RELENTLESS FULLSCREEN TRIGGER
 document.getElementById('start-btn').addEventListener('click', function() {
-    // Attempt every known fullscreen method immediately on click
     if (container.requestFullscreen) container.requestFullscreen();
     else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-    else if (container.mozRequestFullScreen) container.mozRequestFullScreen();
-    else if (container.msRequestFullscreen) container.msRequestFullscreen();
-
     state.active = true;
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('hud').style.opacity = 1;
     document.getElementById('joy-zone').style.opacity = 1;
     document.getElementById('act-zone').style.opacity = 1;
-    
-    resize(); 
-    ball.spawn();
-    startMatchTimer();
+    resize(); ball.spawn();
+    setInterval(() => { if(state.time > 0 && state.active) { state.time--; document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; } }, 1000);
     requestAnimationFrame(loop);
 });
 
-function startMatchTimer() {
-    setInterval(() => { 
-        if(state.time > 0 && state.active) { 
-            state.time--; 
-            document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; 
-        } 
-    }, 1000);
-}
-
 function resize() {
-    W = canvas.width = window.innerWidth; 
-    H = canvas.height = window.innerHeight;
-    G_Y = H - 50; 
-    NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
-    updateKnobUI(0); 
-    p1.reset(); cpu.reset();
+    W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+    G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 2, h: 80 };
+    updateKnobUI(0); p1.reset(); cpu.reset();
 }
 
 function updateKnobUI(val) {
@@ -119,19 +71,12 @@ function updateKnobUI(val) {
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
-// STICKY TOUCH SYSTEM
+// MULTI-TOUCH
 window.addEventListener('touchstart', e => {
     const rJ = joyZone.getBoundingClientRect();
-    const btns = { 
-        spike: document.getElementById('spike').getBoundingClientRect(), 
-        lob: document.getElementById('lob').getBoundingClientRect(), 
-        jump: document.getElementById('jump').getBoundingClientRect() 
-    };
-
+    const btns = { spike: document.getElementById('spike').getBoundingClientRect(), lob: document.getElementById('lob').getBoundingClientRect(), jump: document.getElementById('jump').getBoundingClientRect() };
     for (let t of e.changedTouches) {
-        if (t.clientX > rJ.left && t.clientX < rJ.right && t.clientY > rJ.top && t.clientY < rJ.bottom) {
-            inputs.joyID = t.identifier;
-        }
+        if (t.clientX > rJ.left && t.clientX < rJ.right && t.clientY > rJ.top && t.clientY < rJ.bottom) inputs.joyID = t.identifier;
         for (let k in btns) {
             const b = btns[k];
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
@@ -149,7 +94,6 @@ window.addEventListener('touchmove', e => {
     const rJ = joyZone.getBoundingClientRect();
     for (let t of e.touches) {
         if (t.identifier === inputs.joyID) {
-            // Track finger even if it leaves the joy-zone area
             inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 20)));
             updateKnobUI(inputs.moveX);
         }
@@ -158,25 +102,21 @@ window.addEventListener('touchmove', e => {
 
 window.addEventListener('touchend', e => {
     for (let t of e.changedTouches) {
-        if (t.identifier === inputs.joyID) {
-            inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0);
-        }
+        if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); }
         ['spike', 'lob', 'jump'].forEach(k => {
             const b = document.getElementById(k).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                inputs[k] = false;
-                document.getElementById(k).classList.remove('active');
+                inputs[k] = false; document.getElementById(k).classList.remove('active');
             }
         });
     }
 });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 40; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 40; this.cpuSkill = null; }
     reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
-        // ALWAYS take moveX input for mid-air steering
-        this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuMove;
+        this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
         if(this.y < G_Y - this.h) this.dy += 1.6;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
@@ -192,7 +132,7 @@ class Athlete {
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 40); ctx.stroke();
         ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 22);
         ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
-        let s = (this === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : this.skill;
+        let s = (this === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : this.cpuSkill;
         ctx.beginPath();
         if(s === 'spike') { ctx.moveTo(6, 6); ctx.lineTo(20, -12); }
         else if(s === 'lob') { ctx.moveTo(6, 10); ctx.lineTo(25, 35); }
@@ -206,16 +146,15 @@ const ball = {
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.35; // Slower smooth gravity
-        this.x += this.dx; this.y += this.dy;
-        // Anti-Hide Ceiling
+        this.dy += 0.35; this.x += this.dx; this.y += this.dy;
         if (this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.3; } 
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r; if(Math.abs(this.dy) > 3) this.dy *= -0.55;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
+        // SMOOTH NET COLLISION (DAMPING)
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2 : Math.abs(this.dx) + 2;
+            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) * 0.4 : Math.abs(this.dx) * 0.4;
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
@@ -231,23 +170,36 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
     ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    let d = ball.x - cpu.x;
+    // ADVANCED AI BRAIN
+    let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.cpuMove = d > 5 ? 7 : d < -5 ? -7 : 0;
-        if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -17.5; cpu.air = true; }
-        cpu.skill = (Math.abs(NET.x - cpu.x) < 130) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
-    } else { cpu.cpuMove = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; }
+        cpu.cpuDX = dist > 5 ? 7 : dist < -5 ? -7 : 0;
+        // Logic for random skill moves
+        if (Math.abs(dist) < 60) {
+            if (!cpu.air && ball.y < G_Y - 80) { cpu.dy = -17.5; cpu.air = true; }
+            if (ball.y < cpu.y) {
+                let rnd = Math.random();
+                if (rnd > 0.7) cpu.cpuSkill = 'spike';
+                else if (rnd > 0.4) cpu.cpuSkill = 'lob';
+                else cpu.cpuSkill = null;
+            }
+        }
+    } else { 
+        // Defensive positioning
+        let targetX = (ball.dx > 0) ? W * 0.15 : W * 0.3;
+        cpu.cpuDX = (cpu.x < targetX) ? 5 : -5;
+        cpu.cpuSkill = null;
+    }
     
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        let act = (p === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : p.skill;
+        let act = (p === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : p.cpuSkill;
         let hb = { x1: p.x - 30, x2: p.x + 30, y1: p.y - 20, y2: p.y + 50 };
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 12; const side = (p.side === 'right') ? -1 : 1;
-            // Cap speed for smooth movement
-            if(act === 'spike') { ball.dx = side * 12.5; ball.dy = 7; }
-            else if(act === 'lob') { ball.dx = side * 5; ball.dy = -17; }
-            else { ball.dx = side * 4.5; ball.dy = -5; }
+            if(act === 'spike') { ball.dx = side * 12; ball.dy = 6.5; }
+            else if(act === 'lob') { ball.dx = side * 4.5; ball.dy = -16.5; }
+            else { ball.dx = side * 4; ball.dy = -5; }
             ball.x = p.x + (side * 40); inputs.buffer = 0;
         }
     });
