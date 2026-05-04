@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Volley - Weight & Bounce</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Pro Volley - Elite Physics</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
@@ -39,7 +39,7 @@
 <div id="game-container">
     <div id="overlay">
         <h1>PRO VOLLEY</h1>
-        <button class="btn-start" onclick="begin()">START</button>
+        <button class="btn-start" onclick="begin()">PLAY FULLSCREEN</button>
     </div>
     <div id="hud">
         <div class="score">CPU: <span id="c-s">0</span></div>
@@ -77,6 +77,15 @@ function sync() {
 }
 
 function begin() {
+    // Robust Fullscreen Trigger
+    const doc = window.document;
+    const docEl = doc.documentElement;
+    const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+
+    if (requestFullScreen) {
+        requestFullScreen.call(docEl).catch(e => console.log("Fullscreen blocked"));
+    }
+
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
     sync();
@@ -120,54 +129,43 @@ class Actor {
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.85; // Heavy gravity for player
+        if(this.y < G_Y - this.r) this.dy += 0.85;
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         
-        // Solid net boundary for players
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, this.x);
         else this.x = Math.min(NET.x - limit, this.x);
         
-        // Screen bounds (Players don't go out of screen)
         this.x = Math.max(this.r, Math.min(W - this.r, this.x));
     }
     draw() {
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 4; ctx.stroke();
     }
 }
 
 const ball = {
     r: 16, dx: 0, dy: 0, x: 0, y: 0, angle: 0,
     spawn() { 
-        this.y = H * 0.2; this.dx = 0; this.dy = 0; 
+        this.y = H * 0.3; this.dx = 0; this.dy = 0; 
         this.x = (state.lastWinner === 'p') ? W * 0.7 : W * 0.3; 
     },
     update() {
-        const GRAVITY = 0.65; // High gravity for weight
-        const BOUNCE_LOSS = 0.6; // Loses 40% height each bounce
-        const FRICTION = 0.98; // Rolling friction
+        const GRAVITY = 0.6;
+        const BOUNCE_LOSS = 0.55; // Weight effect: smaller bounce each time
 
         this.dy += GRAVITY;
         this.x += this.dx;
         this.y += this.dy;
         this.angle += this.dx * 0.1;
 
-        // Ground Collision with Energy Loss
         if(this.y > G_Y - this.r) {
             this.y = G_Y - this.r;
+            if (Math.abs(this.dy) > 2) this.dy *= -BOUNCE_LOSS;
+            else this.dy = 0;
+            this.dx *= 0.97;
             
-            // If the bounce is very small, stop bouncing and roll
-            if (Math.abs(this.dy) > 2) {
-                this.dy *= -BOUNCE_LOSS;
-            } else {
-                this.dy = 0;
-            }
-            this.dx *= FRICTION; // Slow down rolling
-            
-            // Scoring condition: Ball is rolling slowly on the floor
-            if(Math.abs(this.dy) < 0.1 && Math.abs(this.dx) < 1) {
+            if(Math.abs(this.dy) < 0.2 && Math.abs(this.dx) < 1) {
                 const winner = this.x > NET.x ? 'c' : 'p';
                 state.scores[winner]++;
                 state.lastWinner = winner;
@@ -175,14 +173,12 @@ const ball = {
             }
         }
 
-        // Net Collision
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.7;
             this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 1) : NET.x + (this.r + NET.w/2 + 1);
         }
 
-        // Screen Out (Scoring for flying out back)
-        if(this.x < -this.r*2 || this.x > W + this.r*2) {
+        if(this.x < -100 || this.x > W + 100) {
             const winner = this.x > W ? 'c' : 'p';
             state.scores[winner]++;
             state.lastWinner = winner;
@@ -195,9 +191,6 @@ const ball = {
         ctx.rotate(this.angle);
         ctx.fillStyle = "#fff200";
         ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.fill();
-        // Drawing a line on the ball to see rotation
-        ctx.strokeStyle = "#d4ac0d"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(-this.r, 0); ctx.lineTo(this.r, 0); ctx.stroke();
         ctx.restore();
     }
 };
@@ -212,10 +205,24 @@ function loop() {
 
     p1.dx = input.x * 9;
     
-    // AI follows ball
-    let target = (ball.x < NET.x) ? ball.x : W * 0.2;
-    cpu.dx = (cpu.x < target - 5) ? 7 : (cpu.x > target + 5) ? -7 : 0;
-    if(ball.x < NET.x && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -17;
+    // SMART AI LOGIC
+    if (ball.x < NET.x) {
+        // AI is on the left. If ball is too close to net, Spike. If far back, Lob.
+        let distToNet = NET.x - ball.x;
+        let aiTarget = ball.x;
+        
+        if (distToNet < 100) aiTarget = ball.x - 20; // Reposition for a hit
+        cpu.dx = (cpu.x < aiTarget - 5) ? 7.5 : (cpu.x > aiTarget + 5) ? -7.5 : 0;
+        
+        // Jump logic
+        if(!cpu.air && ball.y < G_Y - 120 && distToNet < 150) {
+            cpu.dy = -17; cpu.air = true;
+        }
+    } else {
+        // Return to home position when ball is on player's side
+        let home = W * 0.2;
+        cpu.dx = (cpu.x < home - 5) ? 5 : (cpu.x > home + 5) ? -5 : 0;
+    }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
@@ -229,14 +236,19 @@ function loop() {
             ball.y = p.y + ny * (minDist + 1);
 
             const dir = (p.side === 'right') ? -1 : 1;
-            let skill = (p === p1) ? activeSkill : (Math.random() > 0.93 ? 'spike' : null);
+            
+            // AI Skill Selection
+            let skill = activeSkill;
+            if (p === cpu) {
+                let distToNet = Math.abs(NET.x - p.x);
+                skill = (distToNet < 150) ? 'spike' : 'lob';
+            }
 
             if(skill === 'spike') {
-                ball.dx = dir * 26; ball.dy = 4;
+                ball.dx = dir * 25; ball.dy = 4;
             } else if(skill === 'lob') {
-                ball.dx = dir * 10; ball.dy = -24;
+                ball.dx = dir * 11; ball.dy = -22;
             } else {
-                // Weak Touch: Adds player speed to the bounce
                 ball.dx = (nx * 6) + (p.dx * 0.5);
                 ball.dy = (ny * 6) - 5;
             }
