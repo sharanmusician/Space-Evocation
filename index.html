@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Aerial Pro</title>
+    <title>Elite Volley: Persistent Pro</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -16,27 +16,23 @@
         #timer { color: #fff; font-size: 28px; font-weight: 800; width: 80px; text-align: center; }
 
         #joy-zone { position: absolute; bottom: 30px; left: 30px; width: 160px; height: 50px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 6px; opacity: 0; }
-        #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; transition: left 0.1s ease-out; }
+        #knob { position: absolute; width: 30px; height: 40px; background: #fff; border-radius: 2px; transform: translate(-50%, -50%); pointer-events: none; }
 
         #act-zone { position: absolute; bottom: 30px; right: 30px; width: 240px; height: 110px; z-index: 20; opacity: 0; }
-        .btn { position: absolute; background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10px; letter-spacing: 1px; }
+        .btn { position: absolute; background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10px; letter-spacing: 1px; border-radius: 6px;}
         .btn.active { background: #fff; color: #000; }
         
-        #spike { width: 75px; height: 50px; top: 0; right: 0; border-radius: 6px; }
-        #lob { width: 75px; height: 50px; top: 0; right: 85px; border-radius: 6px; }
-        #jump { width: 160px; height: 50px; bottom: 0; right: 0; border-radius: 6px; font-weight: 800; }
+        #spike { width: 75px; height: 50px; top: 0; right: 0; }
+        #lob { width: 75px; height: 50px; top: 0; right: 85px; }
+        #jump { width: 160px; height: 50px; bottom: 0; right: 0; font-weight: 800; }
 
         #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #start-btn { padding: 20px 40px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 16px; letter-spacing: 4px; cursor: pointer; }
+        #start-btn { padding: 20px 40px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 16px; letter-spacing: 4px; }
     </style>
 </head>
 <body>
 <div id="game-container">
-    <div id="overlay">
-        <button id="start-btn">INITIALIZE</button>
-        <p style="color: #444; margin-top: 15px; font-size: 10px; letter-spacing: 2px;">AERIAL PRECISION V5.0</p>
-    </div>
-    
+    <div id="overlay"><button id="start-btn" onclick="startMatch()">INITIALIZE</button></div>
     <div id="hud">
         <div class="score-box" id="s-c">0</div>
         <div id="timer">01:00</div>
@@ -54,21 +50,21 @@
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
-const overlay = document.getElementById('overlay'), startBtn = document.getElementById('start-btn');
-const hud = document.getElementById('hud'), actZone = document.getElementById('act-zone');
-
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60 };
-const inputs = { moveX: 0, spike: false, lob: false, jump: false, buffer: 0 };
 
-startBtn.addEventListener('click', async () => {
+// PERSISTENT INPUT TRACKING
+const inputs = { moveX: 0, spike: false, lob: false, buffer: 0, joyID: null };
+
+function startMatch() {
     state.active = true;
-    try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (e) {}
-    overlay.style.display = 'none';
-    hud.style.opacity = "1"; joyZone.style.opacity = "1"; actZone.style.opacity = "1";
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('hud').style.opacity = 1;
+    document.getElementById('joy-zone').style.opacity = 1;
+    document.getElementById('act-zone').style.opacity = 1;
     resize(); ball.spawn();
     setInterval(() => { if(state.time > 0 && state.active) { state.time--; document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; } }, 1000);
     requestAnimationFrame(loop);
-});
+}
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
@@ -82,57 +78,70 @@ function updateKnobUI(val) {
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
-function handleTouch(e) {
-    if (!state.active) return;
-    e.preventDefault();
+// TOUCH SYSTEM: LOCKED TRACKING
+window.addEventListener('touchstart', e => {
     const rJ = joyZone.getBoundingClientRect();
     const btns = { 
         spike: document.getElementById('spike').getBoundingClientRect(), 
         lob: document.getElementById('lob').getBoundingClientRect(), 
         jump: document.getElementById('jump').getBoundingClientRect() 
     };
-    
-    inputs.spike = false; inputs.lob = false; inputs.jump = false;
-    let foundJoy = false;
 
-    for (let t of e.touches) {
+    for (let t of e.changedTouches) {
+        // Start Joystick Tracking
         if (t.clientX > rJ.left && t.clientX < rJ.right && t.clientY > rJ.top && t.clientY < rJ.bottom) {
-            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 20)));
-            foundJoy = true;
+            inputs.joyID = t.identifier;
         }
+        // Handle Buttons
         for (let k in btns) {
             const b = btns[k];
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
                 inputs[k] = true;
                 if (k === 'jump' && !p1.air) { p1.dy = -19; p1.air = true; }
                 if (k !== 'jump') inputs.buffer = 12;
+                document.getElementById(k).classList.add('active');
             }
         }
     }
-    if (!foundJoy) { inputs.moveX = 0; updateKnobUI(0); }
-    else { updateKnobUI(inputs.moveX); }
-    
-    document.getElementById('spike').classList.toggle('active', inputs.spike);
-    document.getElementById('lob').classList.toggle('active', inputs.lob);
-    document.getElementById('jump').classList.toggle('active', inputs.jump);
-}
+}, {passive: false});
 
-window.addEventListener('touchstart', handleTouch, {passive: false});
-window.addEventListener('touchmove', handleTouch, {passive: false});
-window.addEventListener('touchend', handleTouch, {passive: false});
+window.addEventListener('touchmove', e => {
+    if (!state.active) return;
+    const rJ = joyZone.getBoundingClientRect();
+    for (let t of e.touches) {
+        if (t.identifier === inputs.joyID) {
+            // Calculate movement based on distance from center, even if thumb is outside box
+            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 20)));
+            updateKnobUI(inputs.moveX);
+        }
+    }
+}, {passive: false});
+
+window.addEventListener('touchend', e => {
+    for (let t of e.changedTouches) {
+        if (t.identifier === inputs.joyID) {
+            inputs.joyID = null;
+            inputs.moveX = 0;
+            updateKnobUI(0);
+        }
+        ['spike', 'lob', 'jump'].forEach(k => {
+            const b = document.getElementById(k).getBoundingClientRect();
+            if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
+                inputs[k] = false;
+                document.getElementById(k).classList.remove('active');
+            }
+        });
+    }
+});
 
 class Athlete {
     constructor(side, color) { this.side = side; this.color = color; this.h = 40; }
     reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
-        // Horizontal logic applied every frame for Air Control
         this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuMove;
-        this.x += this.dx; 
-        this.y += this.dy;
-
-        if(this.y < G_Y - this.h) this.dy += 1.6; // Heavy Gravity
+        this.x += this.dx; this.y += this.dy;
+        if(this.y < G_Y - this.h) this.dy += 1.6;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-
         const limit = NET.x + (this.side === 'right' ? 18 : -18);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
@@ -182,7 +191,6 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
     ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // CPU Logic
     let d = ball.x - cpu.x;
     if (ball.x < NET.x) {
         cpu.cpuMove = d > 5 ? 7 : d < -5 ? -7 : 0;
