@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Iron Wall Edition</title>
+    <title>Elite Volley: Fixed Legs & Instant Hit</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -24,7 +24,7 @@
 </head>
 <body>
 <div id="game-view">
-    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">HARD COLLISION & INDEPENDENT ACTIONS</p></div>
+    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">LEG FIX & INSTANT AURA HIT</p></div>
     <div id="hud"><div class="score" id="s-c">0</div><div class="score" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -61,12 +61,10 @@ function updateKnobUI(val) {
 
 joyZone.addEventListener('touchstart', e => { e.preventDefault(); if (inputs.joyId === null) inputs.joyId = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
-    for (let t of e.changedTouches) {
-        if (t.identifier === inputs.joyId) {
-            const r = joyZone.getBoundingClientRect();
-            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 50));
-            updateKnobUI(inputs.moveX);
-        }
+    for (let t of e.changedTouches) if (t.identifier === inputs.joyId) {
+        const r = joyZone.getBoundingClientRect();
+        inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 50));
+        updateKnobUI(inputs.moveX);
     }
 }, {passive: false});
 window.addEventListener('touchend', e => {
@@ -89,34 +87,38 @@ class Athlete {
     reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 0.8; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.h) this.dy += 0.85; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const limit = NET.x + (this.side === 'right' ? 35 : -35);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
-        this.anim += Math.abs(this.dx) * 0.15;
+        this.anim += Math.abs(this.dx) * 0.2;
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "white"; ctx.lineWidth = 5;
+        ctx.strokeStyle = "white"; ctx.lineWidth = 4;
         let activeSkill = (this === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : this.skill;
-        
-        // Torso/Body
-        ctx.fillStyle = this.color; ctx.fillRect(-15, 10, 30, 45); 
+
+        // FIXED LEGS - Always drawn relative to ground/player base
+        let legOffset = Math.sin(this.anim) * 10;
+        ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(legOffset, 80); ctx.stroke(); // Left Leg
+        ctx.beginPath(); ctx.moveTo(0, 45); ctx.lineTo(-legOffset, 80); ctx.stroke(); // Right Leg
+
+        // Torso
+        ctx.fillStyle = this.color; ctx.fillRect(-15, 10, 30, 40); 
         ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
-        
-        // Dynamic Arms
-        if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(45, -25); ctx.stroke(); }
-        else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(45, 55); ctx.stroke(); }
-        else { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(25, 55); ctx.stroke(); }
+
+        // Arms
+        if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(45, -20); ctx.stroke(); }
+        else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(45, 50); ctx.stroke(); }
+        else { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 50); ctx.stroke(); }
         ctx.restore();
     }
 }
 
 const ball = {
-    r: 16, dx: 0, dy: 0, x: 0, y: 0, lastX: 0, lastY: 0, lock: 0,
+    r: 16, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
     spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.2 : W*0.8; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.lastX = this.x; this.lastY = this.y;
         this.dy += 0.45; this.dx *= 0.998;
         this.x += this.dx; this.y += this.dy;
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
@@ -125,9 +127,8 @@ const ball = {
             if(Math.abs(this.dy) > 3) this.dy *= -0.65;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
-        // Hard Net Collision
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2 + 2) {
-            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2.5 : Math.abs(this.dx) + 2.5;
+            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2 : Math.abs(this.dx) + 2;
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 8) : NET.x + (NET.w/2 + this.r + 8);
         }
     },
@@ -144,48 +145,43 @@ function loop() {
 
     p1.dx = inputs.moveX * 8.5;
 
-    // AI Engine
+    // Harder AI
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = dist > 5 ? 7 : dist < -5 ? -7 : 0;
-        if(!cpu.air && ball.y < G_Y - 130 && Math.abs(dist) < 80) { cpu.dy = -14.5; cpu.air = true; }
-        cpu.skill = (Math.abs(NET.x - cpu.x) < 150) ? (Math.random() > 0.5 ? 'spike' : 'lob') : null;
+        cpu.dx = dist > 5 ? 7.5 : dist < -5 ? -7.5 : 0;
+        if(!cpu.air && ball.y < G_Y - 140 && Math.abs(dist) < 100) { cpu.dy = -15; cpu.air = true; }
+        cpu.skill = (Math.abs(NET.x - cpu.x) < 180) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
     } else { cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; cpu.skill = null; }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         
-        // --- IRON WALL PHYSICS ---
+        // --- GLOBAL ACTION AURA ---
         let activeSkill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : p.skill;
         
-        // Large box hitbox covering the full player width and height
-        let box = { x: p.x - 38, y: p.y - 15, w: 76, h: 100 };
-        
-        // Precise intersection check (Circle to AABB + Path Sweep)
-        let closestX = Math.max(box.x, Math.min(ball.x, box.x + box.w));
-        let closestY = Math.max(box.y, Math.min(ball.y, box.y + box.h));
-        let distSq = ((ball.x - closestX)**2 + (ball.y - closestY)**2);
+        // Box covering any reasonable hit distance (Front, Back, Top, Bottom)
+        let aura = { x: p.x - 55, y: p.y - 30, w: 110, h: 120 };
 
-        // Forced Collision if in range
-        if(distSq < (ball.r * ball.r + 200) && ball.lock === 0) {
-            ball.lock = 18;
+        if(ball.x + ball.r > aura.x && ball.x - ball.r < aura.x + aura.w &&
+           ball.y + ball.r > aura.y && ball.y - ball.r < aura.y + aura.h && ball.lock === 0) {
+            
+            ball.lock = 20;
             const side = (p.side === 'right') ? -1 : 1;
             
             if(activeSkill === 'spike') { 
-                ball.dx = side * 18.5; 
-                ball.dy = (ball.y < p.y + 25) ? 10 : 3.5; 
+                ball.dx = side * 18; 
+                ball.dy = (ball.y < p.y + 20) ? 11 : 4; 
             }
             else if(activeSkill === 'lob') { 
-                ball.dx = side * 8.5; 
-                ball.dy = (ball.y > G_Y - 55) ? -23.5 : -19.5; 
+                ball.dx = side * 8; 
+                ball.dy = (ball.y > G_Y - 60) ? -24 : -20; 
             }
             else { 
-                // Passive "Brick Wall" Bounce
-                ball.dx = side * 5.5 + (p.dx * 0.3); 
-                ball.dy = -7.5; 
+                // Passive Brick Wall - Hard response even if no button pressed
+                ball.dx = side * 5 + (p.dx * 0.3); 
+                ball.dy = -8; 
             }
-            
-            // Critical: Force ball to the surface so it cannot enter the player body
+            // Anti-Ghosting Snap
             ball.x = p.x + (side * 65);
         }
     });
