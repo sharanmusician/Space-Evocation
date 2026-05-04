@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Natural Curve</title>
+    <title>Pro Volley - Ground Play</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -28,7 +28,7 @@
 <body>
 
 <div id="game-container">
-    <div id="overlay"><h1>PRO VOLLEYBALL</h1><button class="btn-start" id="startBtn">START</button></div>
+    <div id="overlay"><h1>PRO VOLLEY</h1><button class="btn-start" id="startBtn">START</button></div>
     <div id="hud">
         <div class="score">CPU: <span id="c-s">0</span></div>
         <div id="timer">01:00</div>
@@ -56,7 +56,6 @@ function sync() {
 
 startBtn.addEventListener('click', () => {
     if (gameContainer.requestFullscreen) gameContainer.requestFullscreen();
-    else if (gameContainer.webkitRequestFullscreen) gameContainer.webkitRequestFullscreen();
     document.getElementById('overlay').style.display = 'none';
     state.running = true; sync(); ball.spawn(); requestAnimationFrame(loop);
 });
@@ -74,7 +73,7 @@ window.addEventListener('touchend', e => { for (let t of e.changedTouches) if (t
 
 const bind = (id, s) => {
     const b = document.getElementById(id);
-    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -13; p1.air=true; }} else activeSkill = s; });
+    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -12; p1.air=true; }} else activeSkill = s; });
     b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
@@ -84,7 +83,7 @@ class Actor {
     reset() { this.x = (this.side === 'left') ? W * 0.2 : W * 0.8; this.y = G_Y - this.r; this.dx = this.dy = 0; this.air = false; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.6; else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.r) this.dy += 0.55; else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, Math.min(W-this.r, this.x));
         else this.x = Math.min(NET.x - limit, Math.max(this.r, this.x));
@@ -93,30 +92,45 @@ class Actor {
 }
 
 const ball = {
-    r: 14, dx: 0, dy: 0, x: 0, y: 0,
-    spawn() { this.y = H * 0.4; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; },
+    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTime: 0,
+    spawn() { this.y = H * 0.4; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; this.groundTime = 0; },
     update() {
-        this.dy += 0.45; // Natural Gravity for arcing
-        this.dx *= 0.995; // Air Drag
+        this.dy += 0.55; 
+        this.dx *= 0.992;
         this.x += this.dx; this.y += this.dy;
 
-        // Ground Logic
-        if(this.y > G_Y - this.r) {
+        // VISIBILITY FIX: Clamp top position so it never leaves screen
+        if (this.y < this.r + 10) { this.y = this.r + 10; this.dy = Math.max(this.dy, 1); }
+
+        // Ground Logic with Settle Timer
+        if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
-            this.dy *= -0.4; // Small bounce decay
-            this.dx *= 0.95;
-            if(Math.abs(this.dy) < 0.5 && Math.abs(this.dx) < 0.5) {
+            this.dy *= -0.3; // Very dead bounce
+            this.dx *= 0.94; // Higher friction
+            
+            // Increment time on ground
+            if (Math.abs(this.dy) < 1) {
+                this.groundTime++;
+            } else {
+                this.groundTime = 0; // Reset if it bounces back up
+            }
+
+            // Must stay on ground for ~1.5 seconds (90 frames)
+            if(this.groundTime > 90) {
                 const win = this.x > NET.x ? 'c' : 'p';
                 state.scores[win]++; state.lastWinner = win;
                 p1.reset(); cpu.reset(); this.spawn();
             }
+        } else {
+            this.groundTime = 0; // Ball is in the air
         }
-        // Net Bounce (The ball never passes through)
+
+        // Net
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 1) : NET.x + (this.r + NET.w/2 + 1);
+            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
         }
-        // Out of Bounds behind
-        if(this.x < -100 || this.x > W + 100) {
+        // Bounds
+        if(this.x < -150 || this.x > W + 150) {
             const win = this.x > W ? 'c' : 'p';
             state.scores[win]++; state.lastWinner = win;
             p1.reset(); cpu.reset(); this.spawn();
@@ -134,14 +148,13 @@ function loop() {
     ctx.fillStyle = "#fff"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     p1.dx = input.x * 7;
 
-    // Smart AI logic to avoid repetition
+    // Smart AI
     if (ball.x < NET.x) {
-        let aiBrain = Math.sin(Date.now() / 600) * 15;
-        let targetX = ball.x + aiBrain;
-        cpu.dx = (cpu.x < targetX - 5) ? 6 : (cpu.x > targetX + 5) ? -6 : 0;
-        if(!cpu.air && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -12;
+        let aiTarget = ball.x + (Math.sin(Date.now() / 700) * 25);
+        cpu.dx = (cpu.x < aiTarget - 5) ? 5.8 : (cpu.x > aiTarget + 5) ? -5.8 : 0;
+        if(!cpu.air && ball.y < G_Y - 130 && Math.random() > 0.98) cpu.dy = -11;
     } else {
-        let home = W * 0.2; cpu.dx = (cpu.x < home) ? 4 : -4;
+        let home = W * 0.18; cpu.dx = (cpu.x < home) ? 4 : -4;
     }
 
     [p1, cpu].forEach(p => {
@@ -152,13 +165,13 @@ function loop() {
             ball.x = p.x + nx * (minDist + 1); ball.y = p.y + ny * (minDist + 1);
             const dir = (p.side === 'right') ? -1 : 1;
             
-            // Limit vertical force to ensure ball curves down quickly
-            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 120 ? 'spike' : 'lob');
-            if (p === cpu && Math.random() > 0.85) skill = null;
-
-            if(skill === 'spike') { ball.dx = dir * 13; ball.dy = 2; }
-            else if(skill === 'lob') { ball.dx = dir * 6; ball.dy = -12; }
-            else { ball.dx = (nx * 4) + (p.dx * 0.4); ball.dy = (ny * 4) - 2; }
+            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 140 ? 'spike' : 'lob');
+            if(skill === 'spike') { ball.dx = dir * 13; ball.dy = 1.5; }
+            else if(skill === 'lob') { ball.dx = dir * 7; ball.dy = -11; }
+            else { ball.dx = (nx * 4.5) + (p.dx * 0.4); ball.dy = (ny * 4.5) - 2.5; }
+            
+            // Limit vertical speed on impact to prevent hiding
+            ball.dy = Math.max(ball.dy, -15);
         }
     });
 
