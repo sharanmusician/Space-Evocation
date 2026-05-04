@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Real Physics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro Volley - Weight & Bounce</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
@@ -13,14 +13,14 @@
         canvas { width: 100%; height: 100%; display: block; }
         
         #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 10; pointer-events: none; }
-        .score { color: white; font-size: 1.2rem; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .score { color: white; font-size: 1.2rem; font-weight: bold; }
         #timer { color: var(--gold); font-size: 1.8rem; font-weight: 900; }
         
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; text-align: center; }
-        .btn-start { padding: 18px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.4rem; font-weight: bold; cursor: pointer; color: #000; box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4); }
+        .btn-start { padding: 18px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.4rem; font-weight: bold; cursor: pointer; color: #000; }
 
         #slider-zone { position: absolute; bottom: 40px; left: 30px; width: 220px; height: 80px; display: flex; align-items: center; }
-        #slider-track { width: 100%; height: 14px; background: var(--white); border-radius: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+        #slider-track { width: 100%; height: 14px; background: var(--white); border-radius: 20px; position: relative; }
         #slider-handle { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(255,255,255,0.25); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; backdrop-filter: blur(5px); }
         
         #action-zone { position: absolute; bottom: 30px; right: 30px; width: 220px; height: 180px; pointer-events: none; }
@@ -38,9 +38,8 @@
 
 <div id="game-container">
     <div id="overlay">
-        <h1 style="font-size: 3rem; margin-bottom: 20px;">PRO VOLLEY</h1>
-        <button class="btn-start" onclick="begin()">START GAME</button>
-        <p style="margin-top: 15px; opacity: 0.6;">Tap to play Full Screen</p>
+        <h1>PRO VOLLEY</h1>
+        <button class="btn-start" onclick="begin()">START</button>
     </div>
     <div id="hud">
         <div class="score">CPU: <span id="c-s">0</span></div>
@@ -61,7 +60,6 @@
 <script>
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
-const container = document.getElementById('game-container');
 const handle = document.getElementById('slider-handle');
 
 let W, H, G_Y, NET;
@@ -79,18 +77,14 @@ function sync() {
 }
 
 function begin() {
-    if (container.requestFullscreen) container.requestFullscreen();
-    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-    
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
-    state.time = 60;
     sync();
     ball.spawn();
     requestAnimationFrame(loop);
 }
 
-// Controls
+// Controls Logic
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
@@ -110,80 +104,89 @@ const bind = (id, s) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
         e.preventDefault();
-        if(s==='jump'){ if(!p1.air){ p1.dy = -16; p1.air=true; }} 
+        if(s==='jump'){ if(!p1.air){ p1.dy = -18; p1.air=true; }} 
         else activeSkill = s;
-        b.style.background = "rgba(255,255,255,0.4)";
     });
-    b.addEventListener('touchend', () => { 
-        if(s !== 'jump') activeSkill = null; 
-        b.style.background = "rgba(255,255,255,0.1)"; 
-    });
+    b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
 
 class Actor {
     constructor(side, color) { this.side = side; this.color = color; this.r = 32; }
     reset() {
-        this.x = (this.side === 'left') ? W * 0.2 : W * 0.8;
+        this.x = (this.side === 'left') ? W * 0.25 : W * 0.75;
         this.y = G_Y - this.r;
         this.dx = this.dy = 0; this.air = false;
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.75;
+        if(this.y < G_Y - this.r) this.dy += 0.85; // Heavy gravity for player
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         
-        this.x = Math.max(this.r, Math.min(W - this.r, this.x));
+        // Solid net boundary for players
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, this.x);
         else this.x = Math.min(NET.x - limit, this.x);
+        
+        // Screen bounds (Players don't go out of screen)
+        this.x = Math.max(this.r, Math.min(W - this.r, this.x));
     }
     draw() {
         ctx.fillStyle = this.color;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 4; ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 4; ctx.stroke();
     }
 }
 
 const ball = {
     r: 16, dx: 0, dy: 0, x: 0, y: 0, angle: 0,
     spawn() { 
-        this.y = H * 0.3; this.dx = 0; this.dy = 0; 
-        this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; 
+        this.y = H * 0.2; this.dx = 0; this.dy = 0; 
+        this.x = (state.lastWinner === 'p') ? W * 0.7 : W * 0.3; 
     },
     update() {
-        this.dy += 0.4; // Gravity
-        this.dx *= 0.992; // Air resistance
-        this.x += this.dx; this.y += this.dy;
-        this.angle += this.dx * 0.1; // Rolling rotation
+        const GRAVITY = 0.65; // High gravity for weight
+        const BOUNCE_LOSS = 0.6; // Loses 40% height each bounce
+        const FRICTION = 0.98; // Rolling friction
 
-        // Wall & Ceiling
-        if(this.x < this.r) { this.x = this.r; this.dx *= -0.6; }
-        if(this.x > W - this.r) { this.x = W - this.r; this.dx *= -0.6; }
-        if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
+        this.dy += GRAVITY;
+        this.x += this.dx;
+        this.y += this.dy;
+        this.angle += this.dx * 0.1;
 
-        // Net Physics (Solid)
-        if(this.y + this.r > NET.y) {
-            if(Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-                if(this.y < NET.y) { // Top of net
-                    this.y = NET.y - this.r; this.dy *= -0.8;
-                } else { // Sides of net
-                    this.dx *= -0.7;
-                    this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2) : NET.x + (this.r + NET.w/2);
-                }
+        // Ground Collision with Energy Loss
+        if(this.y > G_Y - this.r) {
+            this.y = G_Y - this.r;
+            
+            // If the bounce is very small, stop bouncing and roll
+            if (Math.abs(this.dy) > 2) {
+                this.dy *= -BOUNCE_LOSS;
+            } else {
+                this.dy = 0;
+            }
+            this.dx *= FRICTION; // Slow down rolling
+            
+            // Scoring condition: Ball is rolling slowly on the floor
+            if(Math.abs(this.dy) < 0.1 && Math.abs(this.dx) < 1) {
+                const winner = this.x > NET.x ? 'c' : 'p';
+                state.scores[winner]++;
+                state.lastWinner = winner;
+                p1.reset(); cpu.reset(); this.spawn();
             }
         }
 
-        // Floor / Scoring
-        if(this.y > G_Y - this.r) {
-            this.y = G_Y - this.r;
-            this.dy *= -0.55;
-            this.dx *= 0.95; // Friction
-            if(Math.abs(this.dy) < 1) {
-                state.scores[this.x > NET.x ? 'c' : 'p']++;
-                state.lastWinner = this.x > NET.x ? 'c' : 'p';
-                p1.reset(); cpu.reset(); this.spawn();
-            }
+        // Net Collision
+        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+            this.dx *= -0.7;
+            this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 1) : NET.x + (this.r + NET.w/2 + 1);
+        }
+
+        // Screen Out (Scoring for flying out back)
+        if(this.x < -this.r*2 || this.x > W + this.r*2) {
+            const winner = this.x > W ? 'c' : 'p';
+            state.scores[winner]++;
+            state.lastWinner = winner;
+            p1.reset(); cpu.reset(); this.spawn();
         }
     },
     draw() {
@@ -192,10 +195,9 @@ const ball = {
         ctx.rotate(this.angle);
         ctx.fillStyle = "#fff200";
         ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.fill();
-        // Drawing seams for rolling effect
-        ctx.strokeStyle = "#d4ac0d"; ctx.lineWidth = 2;
+        // Drawing a line on the ball to see rotation
+        ctx.strokeStyle = "#d4ac0d"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(-this.r, 0); ctx.lineTo(this.r, 0); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, -this.r); ctx.lineTo(0, this.r); ctx.stroke();
         ctx.restore();
     }
 };
@@ -205,17 +207,15 @@ const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#fff');
 function loop() {
     if(!state.running) return;
     ctx.clearRect(0,0,W,H);
-    
-    // Environment
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
     p1.dx = input.x * 9;
     
-    // AI
-    let target = (ball.x < NET.x) ? ball.x : W * 0.15;
-    cpu.dx = (cpu.x < target - 5) ? 6.5 : (cpu.x > target + 5) ? -6.5 : 0;
-    if(ball.x < NET.x && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -15;
+    // AI follows ball
+    let target = (ball.x < NET.x) ? ball.x : W * 0.2;
+    cpu.dx = (cpu.x < target - 5) ? 7 : (cpu.x > target + 5) ? -7 : 0;
+    if(ball.x < NET.x && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -17;
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
@@ -225,26 +225,25 @@ function loop() {
 
         if(dist < minDist) {
             let nx = dx / dist, ny = dy / dist;
-            ball.x = p.x + nx * minDist;
-            ball.y = p.y + ny * minDist;
+            ball.x = p.x + nx * (minDist + 1);
+            ball.y = p.y + ny * (minDist + 1);
 
             const dir = (p.side === 'right') ? -1 : 1;
-            let skill = (p === p1) ? activeSkill : (Math.random() > 0.92 ? 'spike' : null);
+            let skill = (p === p1) ? activeSkill : (Math.random() > 0.93 ? 'spike' : null);
 
             if(skill === 'spike') {
-                ball.dx = dir * 22; ball.dy = 3;
+                ball.dx = dir * 26; ball.dy = 4;
             } else if(skill === 'lob') {
-                ball.dx = dir * 8; ball.dy = -19;
+                ball.dx = dir * 10; ball.dy = -24;
             } else {
-                // REALISTIC SLOW TOUCH
-                ball.dx = (nx * 5) + (p.dx * 0.4);
-                ball.dy = (ny * 5) - 3;
+                // Weak Touch: Adds player speed to the bounce
+                ball.dx = (nx * 6) + (p.dx * 0.5);
+                ball.dy = (ny * 6) - 5;
             }
         }
     });
 
     ball.update(); ball.draw();
-    
     document.getElementById('u-s').innerText = state.scores.p;
     document.getElementById('c-s').innerText = state.scores.c;
     requestAnimationFrame(loop);
@@ -254,11 +253,7 @@ setInterval(() => {
     if(!state.running) return;
     state.time--;
     document.getElementById('timer').innerText = `00:${state.time < 10 ? '0' + state.time : state.time}`;
-    if(state.time <= 0) {
-        state.running = false;
-        document.getElementById('overlay').style.display = 'flex';
-        document.querySelector('#overlay h1').innerText = "GAME OVER";
-    }
+    if(state.time <= 0) state.running = false;
 }, 1000);
 
 window.addEventListener('resize', sync);
