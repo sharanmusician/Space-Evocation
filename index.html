@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Tactical AI</title>
+    <title>Elite Volley: Pro Placement</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --bg: #080808; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -27,7 +27,7 @@
 </head>
 <body>
 <div id="game-container">
-    <div id="overlay"><button id="start-btn">START MATCH</button></div>
+    <div id="overlay"><button id="start-btn">KICKOFF</button></div>
     <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -68,7 +68,6 @@ function updateKnobUI(val) {
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
-// TOUCH SYSTEM
 window.addEventListener('touchstart', e => {
     const rJ = joyZone.getBoundingClientRect();
     const btns = { spike: document.getElementById('spike').getBoundingClientRect(), lob: document.getElementById('lob').getBoundingClientRect(), jump: document.getElementById('jump').getBoundingClientRect() };
@@ -102,7 +101,9 @@ window.addEventListener('touchend', e => {
         if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); }
         ['spike', 'lob', 'jump'].forEach(k => {
             const b = document.getElementById(k).getBoundingClientRect();
-            if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
+            if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.bottom - 60) { // Specific jump button check
+                inputs[k] = false; document.getElementById(k).classList.remove('active');
+            } else {
                 inputs[k] = false; document.getElementById(k).classList.remove('active');
             }
         });
@@ -111,11 +112,15 @@ window.addEventListener('touchend', e => {
 
 class Athlete {
     constructor(side, color) { this.side = side; this.color = color; this.h = 40; this.cpuSkill = null; }
-    reset() { this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
+    reset() { 
+        // BACK-COURT SPAWNING
+        this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; 
+        this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; 
+    }
     update() {
         this.dx = (this === p1) ? inputs.moveX * 9.5 : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.5; // Slightly lighter gravity
+        if(this.y < G_Y - this.h) this.dy += 1.5;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const limit = NET.x + (this.side === 'right' ? 18 : -18);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
@@ -143,7 +148,7 @@ const ball = {
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.25; // SLOWER BALL MOVEMENT (Reduced gravity)
+        this.dy += 0.22; // SLOW FLOAT PHYSICS
         this.x += this.dx; this.y += this.dy;
         if (this.y < 25) { this.y = 25; this.dy = Math.abs(this.dy) * 0.2; } 
         if(this.y >= G_Y - this.r) {
@@ -151,7 +156,7 @@ const ball = {
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx = -this.dx * 0.1; // NET COMPLETELY SLOWS BALL
+            this.dx = -this.dx * 0.1;
             this.dy *= 0.3;
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
@@ -168,29 +173,28 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 1);
     ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // STRATEGIC AI OVERHAUL
+    // SMART AI TIMING
     let ballDist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        // Only rush forward if the ball is high and close to net
-        if (ball.x > NET.x - 100 && ball.y < G_Y - 150) {
-            cpu.cpuDX = ballDist > 0 ? 8 : -8; // Aggressive rush
-        } else {
-            // Stay in position and track ball speed
-            cpu.cpuDX = ballDist > 10 ? 6.5 : ballDist < -10 ? -6.5 : 0;
+        cpu.cpuDX = ballDist > 12 ? 7 : ballDist < -12 ? -7 : 0;
+        
+        // JUMP LOGIC: Only jump if close horizontally AND ball is falling within reach
+        if (Math.abs(ballDist) < 50 && ball.dy > 0 && ball.y > G_Y - 180 && ball.y < G_Y - 80) {
+            if (!cpu.air) { 
+                cpu.dy = -17; 
+                cpu.air = true; 
+            }
         }
 
         if (Math.abs(ballDist) < 60) {
-            if (!cpu.air && ball.y < G_Y - 70) { 
-                cpu.dy = -17; cpu.air = true; 
-            }
-            // Randomized hits based on position
             let rnd = Math.random();
-            if (cpu.x > NET.x - 120 && ball.y < cpu.y) cpu.cpuSkill = (rnd > 0.6) ? 'spike' : 'lob';
-            else cpu.cpuSkill = (rnd > 0.4) ? 'lob' : null;
+            if (cpu.air && ball.y < cpu.y) cpu.cpuSkill = (rnd > 0.5) ? 'spike' : 'lob';
+            else cpu.cpuSkill = (rnd > 0.8) ? 'lob' : null;
+        } else {
+            cpu.cpuSkill = null;
         }
     } else {
-        // Retreat to defensive center
-        let homeX = W * 0.2;
+        let homeX = W * 0.15; // Return to far back
         cpu.cpuDX = (cpu.x < homeX - 10) ? 5 : (cpu.x > homeX + 10) ? -5 : 0;
         cpu.cpuSkill = null;
     }
@@ -202,12 +206,11 @@ function loop() {
         
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 18;
-            // TRUE DIRECTIONAL PHYSICS
             const hitDir = (ball.x < p.x) ? -1 : 1; 
             
-            if(act === 'spike') { ball.dx = hitDir * 10.5; ball.dy = 5; }
-            else if(act === 'lob') { ball.dx = hitDir * 4; ball.dy = -15; }
-            else { ball.dx = hitDir * 3.5; ball.dy = -4.5; }
+            if(act === 'spike') { ball.dx = hitDir * 11; ball.dy = 5.5; }
+            else if(act === 'lob') { ball.dx = hitDir * 4.2; ball.dy = -15.5; }
+            else { ball.dx = hitDir * 3.8; ball.dy = -4.8; }
             
             inputs.buffer = 0;
         }
