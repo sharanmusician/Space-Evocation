@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro-Speed v5</title>
+    <title>Elite Volley: Skeletal Bend v6</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -11,7 +11,7 @@
         #game-view { position: absolute; inset: 0; background: linear-gradient(180deg, #141e30, #243b55); }
         canvas { width: 100%; height: 100%; display: block; }
         #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; gap: 80px; pointer-events: none; z-index: 10; }
-        .score { color: white; font-size: 38px; font-weight: 900; font-family: sans-serif; text-shadow: 0 4px 10px #000; }
+        .score { color: white; font-size: 38px; font-weight: 900; font-family: sans-serif; }
         #joy-zone { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 100px; z-index: 20; }
         #knob { position: absolute; width: 70px; height: 70px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         #act-zone { position: absolute; bottom: 30px; right: 20px; width: 280px; height: 200px; z-index: 20; }
@@ -24,7 +24,7 @@
 </head>
 <body>
 <div id="game-view">
-    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">CALIBRATED BALL SPEED</p></div>
+    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">SKELETAL BENDING & SOLID HITBOXES</p></div>
     <div id="hud"><div class="score" id="s-c">0</div><div class="score" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -92,33 +92,56 @@ const bindBtn = (id, key) => {
 bindBtn('spike', 'spike'); bindBtn('lob', 'lob'); bindBtn('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 75; }
-    reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 75; this.bend = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.bend = 0; }
     update() {
         this.x += this.dx; this.y += this.dy;
         if(this.y < G_Y - this.h) this.dy += 0.8; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        
+        // Skeletal Bend Logic
+        let activeSkill = (this === p1) ? (inputs.spike || inputs.lob) : (this.skill);
+        if (activeSkill && ball.y > this.y + 20) {
+            this.bend = Math.min(25, ball.y - (this.y + 20)); // Bends torso toward ball
+        } else {
+            this.bend *= 0.8;
+        }
+
         const limit = NET.x + (this.side === 'right' ? 30 : -30);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
         this.anim += Math.abs(this.dx) * 0.15;
     }
     draw() {
-        ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
+        ctx.save(); 
+        ctx.translate(this.x, this.y + this.bend); // Lower body if bending
+        if(this.side === 'right') ctx.scale(-1, 1);
         ctx.strokeStyle = "white"; ctx.lineWidth = 4;
+        
         let activeSkill = (this === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : this.skill;
+
+        // Legs
         if(this.air) {
-            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75 - this.bend); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35 - this.bend); ctx.stroke();
         } else {
             let s = Math.sin(this.anim) * 12;
-            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(s, 60); ctx.lineTo(s, 75); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-s, 60); ctx.lineTo(-s, 75); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(s, 60 - this.bend); ctx.lineTo(s, 75 - this.bend); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-s, 60 - this.bend); ctx.lineTo(-s, 75 - this.bend); ctx.stroke();
         }
-        ctx.save(); if(this.air && activeSkill === 'spike') ctx.rotate(-0.3);
+
+        // Torso/Head
+        ctx.save();
+        if(activeSkill) {
+            let angle = (ball.y > this.y) ? 0.4 : -0.3;
+            ctx.rotate(angle); // Lean toward/away from ball
+        }
         ctx.fillStyle = this.color; ctx.fillRect(-10, 8, 20, 35);
         ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
-        if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke(); }
-        else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke(); }
+
+        // Arms (Reach for ball)
+        if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, (ball.y < this.y) ? -40 : 20); ctx.stroke(); }
+        else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 45); ctx.lineTo(50, 40); ctx.stroke(); }
         else { ctx.beginPath(); ctx.moveTo(8, 15); ctx.lineTo(20, 45); ctx.stroke(); }
+        
         ctx.restore(); ctx.restore();
     }
 }
@@ -128,7 +151,7 @@ const ball = {
     spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.2 : W*0.8; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
-        this.dy += 0.45; this.dx *= 0.998; // High speed retention but lower initial force
+        this.dy += 0.45; this.dx *= 0.998;
         this.x += this.dx; this.y += this.dy;
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
         if(this.y >= G_Y - this.r) {
@@ -154,7 +177,7 @@ function loop() {
 
     p1.dx = inputs.moveX * 8.5;
 
-    // AI TUNING
+    // AI logic
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
         cpu.dx = dist > 5 ? 6.8 : dist < -5 ? -6.8 : 0;
@@ -164,28 +187,35 @@ function loop() {
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        let bDx = ball.x - p.x, bDy = ball.y - (p.y + 10), d = Math.sqrt(bDx*bDx + bDy*bDy);
-        if(d < 65 && ball.lock === 0) {
-            ball.lock = 20; 
+        
+        // ENHANCED COLLISION RECTANGLE (Higher and deeper to prevent phasing)
+        let hitBox = {
+            x: p.x - 35,
+            y: p.y - 10,
+            w: 70,
+            h: 100 + p.bend
+        };
+
+        if(ball.x + ball.r > hitBox.x && ball.x - ball.r < hitBox.x + hitBox.w &&
+           ball.y + ball.r > hitBox.y && ball.y - ball.r < hitBox.y + hitBox.h && ball.lock === 0) {
+            
+            ball.lock = 22; 
             const side = (p.side === 'right') ? -1 : 1;
             let currentSkill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : p.skill;
             
             if(currentSkill === 'spike') { 
-                // REDUCED SPEED STRIKE (Previously 25)
                 ball.dx = side * 17; 
-                ball.dy = (ball.y < p.y) ? 10 : 3; 
+                ball.dy = (ball.y < p.y + 20) ? 10 : 3; 
             }
             else if(currentSkill === 'lob') { 
-                // REDUCED SPEED LOB (Previously 11)
-                ball.dx = side * 7; 
-                ball.dy = -19; 
+                ball.dx = side * 7.5; 
+                ball.dy = (ball.y > G_Y - 50) ? -22 : -18; // Extra boost if hitting from floor
             }
             else { 
-                // PASSIVE DEFENSE (Very soft)
                 ball.dx = side * 4 + (p.dx * 0.2); 
-                ball.dy = -8; 
+                ball.dy = -8.5; 
             }
-            ball.x = p.x + (side * 70);
+            ball.x = p.x + (side * 75); // Push ball clear of body
         }
     });
 
