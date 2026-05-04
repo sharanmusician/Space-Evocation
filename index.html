@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ergo-Balanced Volley Pro</title>
+    <title>Pro Volley - Smooth Edition</title>
     <style>
         :root { --gold: rgba(241, 196, 15, 0.5); --red: rgba(255, 71, 87, 0.4); --green: rgba(46, 204, 113, 0.4); --white: rgba(255, 255, 255, 0.15); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; font-family: sans-serif; }
         
-        #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #162a7a, #344ea1); }
+        #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #1e3c72, #2a5298); }
         canvas { width: 100%; height: 100%; display: block; }
         
-        /* HUD */
         #hud { position: absolute; top: 15px; width: 100%; display: flex; justify-content: center; gap: 50px; z-index: 10; pointer-events: none; opacity: 0.8; }
         .score { color: white; font-size: 1.2rem; font-weight: bold; }
         #timer { color: #f1c40f; font-size: 1.8rem; font-weight: 900; }
@@ -20,18 +19,17 @@
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
         .btn-start { padding: 15px 50px; background: #f1c40f; border: none; border-radius: 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; }
 
-        /* Raised Linear Slider */
         #slider-zone { position: absolute; bottom: 40px; left: 30px; width: 200px; height: 60px; display: flex; align-items: center; }
         #slider-track { width: 100%; height: 12px; background: var(--white); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); position: relative; }
         #slider-handle { position: absolute; top: 50%; left: 50%; width: 65px; height: 65px; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.4); backdrop-filter: blur(4px); }
         
-        /* Glass Action Zone */
         #action-zone { position: absolute; bottom: 30px; right: 30px; width: 220px; height: 180px; pointer-events: none; }
         .act-btn { 
             position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); 
             display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; 
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(3px); pointer-events: auto; transition: background 0.1s;
+            background: rgba(255,255,255,0.05); backdrop-filter: blur(3px); pointer-events: auto; transition: transform 0.1s;
         }
+        .act-btn:active { transform: scale(1.1); background: rgba(255,255,255,0.2); }
         #btn-spike { width: 70px; height: 70px; bottom: 90px; right: 10px; border-color: var(--red); }
         #btn-lob { width: 70px; height: 70px; bottom: 90px; right: 100px; border-color: var(--green); }
         #btn-jump { width: 180px; height: 60px; bottom: 10px; right: 10px; border-radius: 30px; border-color: var(--gold); font-size: 14px; }
@@ -41,7 +39,7 @@
 
 <div id="game-container">
     <div id="overlay">
-        <h1>PRO VOLLEY</h1>
+        <h1>VOLLEY BALL</h1>
         <button class="btn-start" onclick="begin()">PLAY</button>
     </div>
     <div id="hud">
@@ -52,9 +50,7 @@
     <canvas id="stage"></canvas>
     
     <div id="slider-zone">
-        <div id="slider-track">
-            <div id="slider-handle"></div>
-        </div>
+        <div id="slider-track"><div id="slider-handle"></div></div>
     </div>
     
     <div id="action-zone">
@@ -85,8 +81,6 @@ function sync() {
 }
 
 function begin() {
-    const f = container.requestFullscreen || container.webkitRequestFullscreen;
-    if (f) f.call(container).catch(() => {});
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
     state.time = 60;
@@ -95,7 +89,7 @@ function begin() {
     requestAnimationFrame(loop);
 }
 
-// Slider Logic
+// Control Handlers
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
@@ -111,32 +105,27 @@ window.addEventListener('touchend', e => {
     for (let t of e.changedTouches) if (t.identifier === input.id) { input.id = null; input.x = 0; handle.style.left = "50%"; }
 });
 
-// Button Logic
 const bind = (id, s) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
         e.preventDefault();
-        if(s==='jump'){ if(!p1.air){ p1.dy = -17; p1.air=true; }} 
+        if(s==='jump'){ if(!p1.air){ p1.dy = -15; p1.air=true; }} 
         else activeSkill = s;
-        b.style.background = "rgba(255,255,255,0.3)";
     });
-    b.addEventListener('touchend', () => { 
-        if(s !== 'jump') activeSkill = null; 
-        b.style.background = "rgba(255,255,255,0.05)"; 
-    });
+    b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
 
 class Actor {
-    constructor(side, color) { this.side = side; this.color = color; this.r = 32; }
+    constructor(side, color) { this.side = side; this.color = color; this.r = 30; }
     reset() {
-        this.x = (this.side === 'left') ? W * 0.15 : W * 0.85;
+        this.x = (this.side === 'left') ? W * 0.2 : W * 0.8;
         this.y = G_Y - this.r;
         this.dx = this.dy = 0; this.air = false;
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.85;
+        if(this.y < G_Y - this.r) this.dy += 0.7; // Gravity
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         this.x = Math.max(this.r, Math.min(W - this.r, this.x));
         const m = this.r + NET.w/2;
@@ -145,34 +134,33 @@ class Actor {
     }
     draw() {
         ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 3; ctx.stroke();
     }
 }
 
 const ball = {
-    r: 15, dx: 0, dy: 0, x: 0, y: 0,
+    r: 14, dx: 0, dy: 0, x: 0, y: 0,
     spawn() { 
-        this.y = H * 0.3; 
-        this.dx = 0;
-        this.dy = 0; 
-        this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; 
+        this.y = H * 0.2; this.dx = 0; this.dy = 0; 
+        this.x = (state.lastWinner === 'p') ? W * 0.7 : W * 0.3; 
     },
     update() {
-        this.dy += 0.45; 
+        // Freely moving physics
+        this.dy += 0.35; // Lower gravity for "floaty" feel
+        this.dx *= 0.99; // Air resistance
+        this.dy *= 0.99; 
+        
         this.x += this.dx; this.y += this.dy;
         
-        // Floor/Ceiling
-        if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
-        if(this.y > G_Y - this.r) { this.y = G_Y - this.r; this.dy *= -0.6; this.dx *= 0.8; }
-        
-        // Net Collision
-        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.8; 
-            this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
+        // Bounce off floor softly
+        if(this.y > G_Y - this.r) {
+            this.y = G_Y - this.r;
+            this.dy *= -0.5; // Soft bounce
+            this.dx *= 0.8;
         }
         
-        // Out of Bounds / Scoring
-        if(this.x < -50 || this.x > W + 50) {
+        // Scoring
+        if(this.x < 0 || this.x > W) {
             state.scores[this.x > W ? 'c' : 'p']++;
             state.lastWinner = this.x > W ? 'c' : 'p';
             p1.reset(); cpu.reset(); this.spawn();
@@ -180,25 +168,23 @@ const ball = {
     }
 };
 
-const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#2c3e50');
+const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#ffffff');
 
 function loop() {
     if(!state.running) return;
     ctx.clearRect(0,0,W,H);
     
-    // Environment
-    ctx.fillStyle = "rgba(40, 167, 69, 0.3)"; ctx.fillRect(0, G_Y, W, 50);
-    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
+    // Net and Floor
+    ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(0, G_Y, W, 50);
+    ctx.fillStyle = "#fff"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    // Player Movement
-    p1.dx = input.x * 10;
+    p1.dx = input.x * 8;
     
-    // Basic AI
-    let target = (ball.x < NET.x) ? ball.x : W * 0.15;
-    cpu.dx = (cpu.x < target - 5) ? 7 : (cpu.x > target + 5) ? -7 : 0;
-    if(ball.x < NET.x && !cpu.air && ball.y < G_Y - 100 && Math.random() > 0.98) { cpu.dy = -16; cpu.air = true; }
+    // AI Logic
+    let target = (ball.x < NET.x) ? ball.x : W * 0.2;
+    cpu.dx = (cpu.x < target - 5) ? 6 : (cpu.x > target + 5) ? -6 : 0;
+    if(ball.x < NET.x && ball.y < G_Y - 120 && Math.random() > 0.98) cpu.dy = -14;
 
-    // Unified Collision System
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         
@@ -208,33 +194,34 @@ function loop() {
         let minDist = p.r + ball.r;
 
         if(dist < minDist) {
-            // 1. SOLID COLLISION (No overlapping)
+            // Instant overlap fix
             let nx = dx / dist;
             let ny = dy / dist;
-            let overlap = minDist - dist;
-            ball.x += nx * (overlap + 1);
-            ball.y += ny * (overlap + 1);
+            ball.x = p.x + nx * minDist;
+            ball.y = p.y + ny * minDist;
 
-            // 2. HIT LOGIC
             const dir = (p.side === 'right') ? -1 : 1;
-            let skill = (p === p1) ? activeSkill : (Math.random() > 0.85 ? 'spike' : (Math.random() > 0.7 ? 'lob' : null));
+            
+            // Priority Action Check
+            let skill = (p === p1) ? activeSkill : (Math.random() > 0.9 ? 'spike' : null);
 
             if(skill === 'spike') {
-                ball.dx = dir * 25;
-                ball.dy = 4; // Flat drive
+                ball.dx = dir * 18; // Fast
+                ball.dy = 2; 
             } else if(skill === 'lob') {
-                ball.dx = dir * 10;
-                ball.dy = -22; // High arc
+                ball.dx = dir * 7;
+                ball.dy = -18; // High
             } else {
-                // Default hit based on impact angle
-                ball.dx = nx * 14;
-                ball.dy = ny * 14 - 4;
+                // SLOW "TOUCH" PHYSICS
+                // If no button is pressed, ball just nudges away slowly
+                ball.dx = (nx * 4) + (p.dx * 0.5);
+                ball.dy = (ny * 4) - 2;
             }
         }
     });
 
     ball.update();
-    ctx.fillStyle = "#fff200"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
     
     document.getElementById('u-s').innerText = state.scores.p;
     document.getElementById('c-s').innerText = state.scores.c;
@@ -248,7 +235,6 @@ setInterval(() => {
     if(state.time <= 0) {
         state.running = false;
         document.getElementById('overlay').style.display = 'flex';
-        document.querySelector('#overlay h1').innerText = state.scores.p > state.scores.c ? "YOU WIN!" : "AI WINS!";
     }
 }, 1000);
 
