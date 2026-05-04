@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: AI Brain 2.0</title>
+    <title>Elite Volley: Forward Motion</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -15,11 +15,10 @@
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 600; backdrop-filter: blur(5px); }
         #timer { color: #fff; font-size: 24px; font-weight: 800; width: 90px; text-align: center; }
         
-        /* Joystick - Elevated */
-        #joy-zone { position: absolute; bottom: 55px; left: 30px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
-        #knob { position: absolute; width: 34px; height: 34px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        /* Joystick - Moved Right & Elevated */
+        #joy-zone { position: absolute; bottom: 55px; left: 60px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
+        #knob { position: absolute; width: 34px; height: 34px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 10px rgba(255,255,255,0.3); }
         
-        /* Action Buttons */
         #act-zone { position: absolute; bottom: 30px; right: 30px; width: 200px; height: 100px; z-index: 20; opacity: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 45px 45px; gap: 8px; }
         .btn { background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; border-radius: 8px; text-transform: uppercase; backdrop-filter: blur(5px); }
         .btn.active { background: #fff; color: #000; transform: scale(0.95); }
@@ -75,9 +74,12 @@ function updateKnobUI(val) {
 
 window.addEventListener('touchstart', e => {
     const btnIds = ['lift', 'lob', 'spike', 'jump'];
-    const rJ = joyZone.getBoundingClientRect();
     for (let t of e.changedTouches) {
-        if (t.clientX > rJ.left && t.clientX < rJ.right && t.clientY > rJ.top && t.clientY < rJ.bottom) inputs.joyID = t.identifier;
+        // High-sensitivity: Any touch on the left half of the screen acts as joystick
+        if (t.clientX < W / 2) {
+            inputs.joyID = t.identifier;
+            handleJoy(t);
+        }
         btnIds.forEach(id => {
             const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
@@ -90,14 +92,17 @@ window.addEventListener('touchstart', e => {
     }
 }, {passive: false});
 
+function handleJoy(t) {
+    const rJ = joyZone.getBoundingClientRect();
+    const centerX = rJ.left + rJ.width / 2;
+    inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - centerX) / (rJ.width / 2 - 17)));
+    updateKnobUI(inputs.moveX);
+}
+
 window.addEventListener('touchmove', e => {
     if (!state.active) return;
-    const rJ = joyZone.getBoundingClientRect();
     for (let t of e.touches) {
-        if (t.identifier === inputs.joyID) {
-            inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 17)));
-            updateKnobUI(inputs.moveX);
-        }
+        if (t.identifier === inputs.joyID) handleJoy(t);
     }
 }, {passive: false});
 
@@ -154,8 +159,7 @@ const ball = {
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx = -this.dx * 0.15; // Net friction
-            this.dy *= 0.4;
+            this.dx = -this.dx * 0.2; this.dy *= 0.4;
             this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
@@ -171,25 +175,19 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // ADVANCED AI BRAIN
+    // AI CORE
     let futureX = ball.x + (ball.dx * 12);
     let ballDist = futureX - cpu.x;
-    let nearNet = Math.abs(ball.x - NET.x) < 50;
+    let nearNet = Math.abs(ball.x - NET.x) < 55;
 
     if (ball.x < NET.x) {
         cpu.cpuDX = ballDist > 8 ? 7.2 : ballDist < -8 ? -7.2 : 0;
-        
-        // Dynamic Jumping Logic
         if (Math.abs(ball.x - cpu.x) < 40 && ball.dy > 0 && ball.y > G_Y - 170 && !cpu.air) { 
             cpu.dy = -17; cpu.air = true; 
         }
-
-        // Randomised Net Recovery
-        if (nearNet && ball.y > G_Y - 100) {
-            let roll = Math.random();
-            if(roll > 0.7) cpu.cpuSkill = 'lift';
-            else if(roll > 0.4) cpu.cpuSkill = 'lob';
-            else cpu.cpuSkill = 'spike';
+        if (nearNet && ball.y > G_Y - 120) {
+            let r = Math.random();
+            cpu.cpuSkill = r > 0.6 ? 'lift' : (r > 0.3 ? 'lob' : 'spike');
         } else if (Math.abs(ball.x - cpu.x) < 55) {
             cpu.cpuSkill = (ball.y < cpu.y) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
         }
@@ -205,19 +203,20 @@ function loop() {
         let hb = { x1: p.x - 35, x2: p.x + 35, y1: p.y - 30, y2: p.y + 60 };
         
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
-            ball.lock = 20;
-            let hitDir = (ball.x < p.x) ? -1 : 1; 
+            ball.lock = 22;
+            // HARD FORWARD PHYSICS: Ensure ball never goes backwards
+            let hitDir = (p.side === 'right') ? -1 : 1; 
 
             if(act === 'lift') { 
-                ball.dx = hitDir * 0.35; 
+                ball.dx = hitDir * 0.25; // Practically vertical
                 ball.dy = -12.5; 
             } else if(act === 'lob') { 
-                ball.dx = hitDir * 6.2; 
-                ball.dy = -14.8; 
+                ball.dx = hitDir * 6.5; 
+                ball.dy = -15.5; 
             } else if(act === 'spike') { 
-                ball.dx = hitDir * 11.5; ball.dy = 5.5; 
+                ball.dx = hitDir * 12; ball.dy = 6; 
             } else { 
-                ball.dx = hitDir * 4.2; ball.dy = -5.5; 
+                ball.dx = hitDir * 4.5; ball.dy = -6; 
             }
             inputs.buffer = 0;
         }
