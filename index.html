@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Full Body Reaction</title>
+    <title>Elite Volley: No-Ghosting Edition</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -24,7 +24,7 @@
 </head>
 <body>
 <div id="game-view">
-    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">FULL BODY HIT-ZONE ENABLED</p></div>
+    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">ANTI-GHOSTING & COLLISION SWEEP</p></div>
     <div id="hud"><div class="score" id="s-c">0</div><div class="score" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -38,7 +38,7 @@
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false };
-const inputs = { joyId: null, moveX: 0, spike: false, lob: false };
+const inputs = { joyId: null, moveX: 0, spike: false, lob: false, lastBtnTime: 0 };
 
 function start() {
     document.getElementById('overlay').style.display = 'none';
@@ -77,6 +77,7 @@ const bindBtn = (id, key) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
         e.preventDefault();
+        inputs.lastBtnTime = Date.now(); // Record hit timing for buffer
         if(key === 'jump') { if(!p1.air) { p1.dy = -15; p1.air = true; } }
         else inputs[key] = true;
     }, {passive: false});
@@ -98,32 +99,22 @@ class Athlete {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
         ctx.strokeStyle = "white"; ctx.lineWidth = 4;
         let activeSkill = (this === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : this.skill;
-
-        // Visual Bending for action
-        if(activeSkill && Math.abs(ball.x - this.x) < 100) {
-            ctx.rotate(ball.y > this.y ? 0.3 : -0.2);
-        }
-
-        // Body Structure
         ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(0, 75); ctx.stroke();
         ctx.fillStyle = this.color; ctx.fillRect(-12, 10, 24, 35);
         ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
-        
-        // Arms respond to active buttons
-        ctx.strokeStyle = "white";
         if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(40, -15); ctx.stroke(); }
         else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(40, 50); ctx.stroke(); }
         else { ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 50); ctx.stroke(); }
-        
         ctx.restore();
     }
 }
 
 const ball = {
-    r: 16, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
+    r: 16, dx: 0, dy: 0, x: 0, y: 0, lastX: 0, lastY: 0, lock: 0,
     spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.2 : W*0.8; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
+        this.lastX = this.x; this.lastY = this.y;
         this.dy += 0.45; this.dx *= 0.998;
         this.x += this.dx; this.y += this.dy;
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
@@ -132,10 +123,9 @@ const ball = {
             if(Math.abs(this.dy) > 3) this.dy *= -0.65;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
-        // Static Net Collision
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2 : Math.abs(this.dx) + 2;
-            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 5) : NET.x + (NET.w/2 + this.r + 5);
+            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 6) : NET.x + (NET.w/2 + this.r + 6);
         }
     },
     draw() { ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); ctx.stroke(); }
@@ -150,8 +140,8 @@ function loop() {
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
     p1.dx = inputs.moveX * 8.5;
-
-    // AI Logic
+    
+    // AI Position
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
         cpu.dx = dist > 5 ? 6.8 : dist < -5 ? -6.8 : 0;
@@ -162,43 +152,44 @@ function loop() {
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         
-        // --- FULL BODY ACTION DETECTION ---
         let activeSkill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : p.skill;
         
-        // Define a Vertical Hit Box representing the WHOLE body (Head to Toe)
-        // x centered on p.x, y starting from head down to ground level
-        let hitBox = {
-            left: p.x - 35,
-            right: p.x + 35,
-            top: p.y - 15,
-            bottom: p.y + p.h + 10
-        };
+        // --- CONTINUOUS COLLISION SWEEP ---
+        // Check if ball's path crossed the player's vertical "slice"
+        let crossedX = (ball.lastX < p.x && ball.x >= p.x) || (ball.lastX > p.x && ball.x <= p.x);
+        let inYRange = ball.y > p.y - 20 && ball.y < p.y + p.h + 20;
 
-        // If ball touches ANY part of this vertical rectangle
-        if(ball.x + ball.r > hitBox.left && ball.x - ball.r < hitBox.right &&
-           ball.y + ball.r > hitBox.top && ball.y - ball.r < hitBox.bottom && ball.lock === 0) {
-            
-            ball.lock = 25; 
+        // Standard Circle-to-AABB collision check
+        let dx = ball.x - p.x;
+        let dy = ball.y - (p.y + 35);
+        let distSq = dx*dx + dy*dy;
+
+        if((distSq < 3200 || (crossedX && inYRange)) && ball.lock === 0) {
+            ball.lock = 20;
             const side = (p.side === 'right') ? -1 : 1;
             
+            // Check Input Buffer: If button was pressed in the last 150ms, count it as a skill hit
+            let bufferedHit = (Date.now() - inputs.lastBtnTime < 150);
+            if(p === p1 && bufferedHit && !activeSkill) {
+                // If button was just tapped but already released, figure out which one it was or default to spike
+                activeSkill = 'spike'; 
+            }
+
             if(activeSkill === 'spike') { 
-                // Any part of body spikes it
-                ball.dx = side * 17; 
-                ball.dy = (ball.y < p.y + 20) ? 10 : 3; 
+                ball.dx = side * 18; 
+                ball.dy = (ball.y < p.y + 20) ? 9 : 3; 
             }
             else if(activeSkill === 'lob') { 
-                // Any part of body lobs it
-                ball.dx = side * 7.5; 
-                ball.dy = (ball.y > G_Y - 50) ? -22 : -18; 
+                ball.dx = side * 8; 
+                ball.dy = (ball.y > G_Y - 50) ? -23 : -19; 
             }
             else { 
-                // Passive defense (weak bounce) if no button pressed
-                ball.dx = side * 4 + (p.dx * 0.2); 
-                ball.dy = -8.5; 
+                // Passive wall bounce
+                ball.dx = side * 5 + (p.dx * 0.2); 
+                ball.dy = -7; 
             }
-            
-            // Immediately push ball out of player volume to prevent "overlapping"
-            ball.x = p.x + (side * 70);
+            // Reposition to prevent ghosting
+            ball.x = p.x + (side * 60);
         }
     });
 
