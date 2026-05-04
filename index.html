@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Solid AI</title>
+    <title>Pro Volley - Skill Control</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -45,7 +45,7 @@
 
 <script>
 const canvas = document.getElementById('stage'), ctx = canvas.getContext('2d');
-const handle = document.getElementById('slider-handle'), startBtn = document.getElementById('startBtn'), gameContainer = document.getElementById('game-container');
+const handle = document.getElementById('slider-handle'), startBtn = document.getElementById('startBtn');
 let W, H, G_Y, NET, input = { x: 0, id: null }, activeSkill = null, state = { scores: { p: 0, c: 0 }, time: 60, running: false, lastWinner: null };
 
 function sync() {
@@ -55,26 +55,25 @@ function sync() {
 }
 
 startBtn.addEventListener('click', () => {
-    if (gameContainer.requestFullscreen) gameContainer.requestFullscreen();
     document.getElementById('overlay').style.display = 'none';
     state.running = true; sync(); ball.spawn(); requestAnimationFrame(loop);
 });
 
-// Movement Controls
+// Controls
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
-    for (let t of e.changedTouches) { if (t.identifier === input.id) {
+    for (let t of e.changedTouches) if (t.identifier === input.id) {
         const r = zone.getBoundingClientRect();
         input.x = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / (r.width/2 - 30)));
         handle.style.left = (50 + input.x * 40) + "%";
-    }}
+    }
 }, {passive: false});
 window.addEventListener('touchend', e => { for (let t of e.changedTouches) if (t.identifier === input.id) { input.id = null; input.x = 0; handle.style.left = "50%"; }});
 
 const bind = (id, s) => {
     const b = document.getElementById(id);
-    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -11; p1.air=true; }} else activeSkill = s; });
+    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -11.5; p1.air=true; }} else activeSkill = s; });
     b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
@@ -84,7 +83,7 @@ class Actor {
     reset() { this.x = (this.side === 'left') ? W * 0.2 : W * 0.8; this.y = G_Y - this.r; this.dx = this.dy = 0; this.air = false; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.5; 
+        if(this.y < G_Y - this.r) this.dy += 0.55; // Solid gravity
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, Math.min(W-this.r, this.x));
@@ -94,39 +93,25 @@ class Actor {
 }
 
 const ball = {
-    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounceDecay: 0.72,
-    spawn() { this.y = H * 0.35; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; this.groundTimer = 0; },
+    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounce: 0.7,
+    spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; },
     update() {
-        this.dy += 0.44; // Ball Weight
-        this.dx *= 0.986; // Air Resistance
-        this.x += this.dx; this.y += this.dy;
-
-        // Ground Bounce
+        this.dy += 0.45; this.dx *= 0.988; this.x += this.dx; this.y += this.dy;
+        if(this.y < this.r) { this.y = this.r; this.dy = 1.5; }
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
-            if (Math.abs(this.dy) > 1.8) {
-                this.dy *= -this.bounceDecay;
-                this.dx *= 0.9;
-                this.groundTimer = 0;
-            } else {
-                this.dy = 0; this.dx *= 0.85; this.groundTimer++;
-                if(this.groundTimer > 100) { 
+            if(Math.abs(this.dy) > 2) { this.dy *= -this.bounce; this.dx *= 0.9; this.groundTimer = 0; }
+            else { this.dy = 0; this.dx *= 0.8; this.groundTimer++; 
+                if(this.groundTimer > 100) {
                     const win = this.x > NET.x ? 'c' : 'p';
                     state.scores[win]++; state.lastWinner = win;
                     p1.reset(); cpu.reset(); this.spawn();
                 }
             }
-        } else { this.groundTimer = 0; }
-
-        if(this.y < this.r) { this.y = this.r; this.dy = 1.5; }
+        } else this.groundTimer = 0;
         
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.5; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
-        }
-        if(this.x < -100 || this.x > W + 100) {
-            const win = this.x > W ? 'c' : 'p';
-            state.scores[win]++; state.lastWinner = win;
-            p1.reset(); cpu.reset(); this.spawn();
+            this.dx *= -0.5; this.x = (this.x < NET.x) ? NET.x - 25 : NET.x + 25;
         }
     },
     draw() { ctx.fillStyle = "#fff200"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
@@ -142,43 +127,36 @@ function loop() {
     
     p1.dx = input.x * 6.5;
 
-    // AI logic
-    let distToBall = ball.x - cpu.x;
-    if (ball.x < NET.x + 100) {
-        cpu.dx = (distToBall > 5) ? 5.5 : (distToBall < -5) ? -5.5 : 0;
-        if(!cpu.air && ball.y > G_Y - 120 && Math.abs(distToBall) < 40) cpu.dy = -10.5;
+    // AI Logic - No Floating
+    let dist = ball.x - cpu.x;
+    if (ball.x < NET.x + 50) {
+        cpu.dx = (dist > 5) ? 5.5 : (dist < -5) ? -5.5 : 0;
+        // AI only jumps if ball is at a specific "smashable" height
+        if(!cpu.air && ball.y < G_Y - 140 && Math.abs(dist) < 30) cpu.dy = -11;
     } else {
         cpu.dx = (cpu.x < W * 0.15) ? 4 : -4;
     }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
+        let dx = ball.x - p.x, dy = ball.y - p.y, d = Math.sqrt(dx*dx + dy*dy);
         
-        // HIT DETECTION: Radius based (solid collision)
-        if(dist < p.r + ball.r) {
+        if(d < p.r + ball.r) {
             const dir = (p.side === 'right') ? -1 : 1;
             
-            // Skill Logic (Deterministic)
-            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 140 ? 'spike' : 'lob');
-            
-            if(skill === 'spike') { 
-                ball.dx = dir * 16; 
-                ball.dy = 5; // Direct strike downwards
-            } else if(skill === 'lob') { 
-                ball.dx = dir * 8; 
-                ball.dy = -14; // Service/Upward set
-            } else { 
-                // Default bump
-                ball.dx = dir * 6 + (p.dx * 0.5); 
-                ball.dy = -8; 
+            // Player Skill Logic
+            if (p === p1) {
+                if (activeSkill === 'spike') { ball.dx = dir * 17; ball.dy = 6; }
+                else if (activeSkill === 'lob') { ball.dx = dir * 8.5; ball.dy = -15; }
+                else { // NORMAL DEFEND (Bump)
+                    ball.dx = dir * 5.5 + (p.dx * 0.4); ball.dy = -9;
+                }
+            } else {
+                // AI Simple Decision
+                if (Math.abs(NET.x - p.x) < 120 && ball.y < G_Y - 100) { ball.dx = dir * 16; ball.dy = 4; }
+                else { ball.dx = dir * 8; ball.dy = -11; }
             }
-            
-            // Push ball out of player so they don't get stuck
-            ball.x = p.x + (dir * (p.r + ball.r + 2));
-            
-            // SOLID PLAYER FIX: Reset player velocity so the ball doesn't push them
-            p.dx = (p === p1) ? input.x * 6.5 : cpu.dx;
+            ball.x = p.x + (dir * (p.r + ball.r + 2)); // Prevent sticking
         }
     });
 
