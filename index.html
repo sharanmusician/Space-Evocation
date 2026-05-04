@@ -3,68 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro-Control Master</title>
+    <title>Elite Volley: Pro-Physics Edition</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        
         html, body { width: 100vw; height: 100vh; background: #000; overflow: hidden; position: fixed; top: 0; left: 0; }
-        #game-view { position: absolute; inset: 0; background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%); display: flex; flex-direction: column; }
+        #game-view { position: absolute; inset: 0; background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%); }
         canvas { width: 100%; height: 100%; display: block; }
-
         #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; gap: 80px; pointer-events: none; z-index: 10; }
-        .score { color: white; font-size: 38px; font-weight: 900; font-family: 'Verdana', sans-serif; }
-
-        /* Multi-Touch Zones */
-        #joy-zone { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 100px; z-index: 20; border-radius: 20px; }
-        #knob { position: absolute; top: 50%; left: 50%; width: 75px; height: 75px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-
+        .score { color: white; font-size: 38px; font-weight: 900; font-family: sans-serif; }
+        #joy-zone { position: absolute; bottom: 40px; left: 20px; width: 180px; height: 100px; z-index: 20; }
+        #knob { position: absolute; width: 70px; height: 70px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         #act-zone { position: absolute; bottom: 30px; right: 20px; width: 280px; height: 200px; z-index: 20; }
         .btn { position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; }
         #spike { width: 85px; height: 85px; bottom: 100px; right: 10px; border-color: var(--red); color: var(--red); }
         #lob { width: 85px; height: 85px; bottom: 100px; right: 105px; border-color: #2ecc71; color: #2ecc71; }
         #jump { width: 180px; height: 70px; bottom: 10px; right: 10px; border-radius: 35px; border-color: var(--blue); color: var(--blue); }
-
         #overlay { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; cursor: pointer; }
     </style>
 </head>
 <body>
-
 <div id="game-view">
-    <div id="overlay" onclick="start()">
-        <h1 style="letter-spacing: 12px; font-size: 2rem; margin-bottom: 10px;">ELITE VOLLEY</h1>
-        <p style="color: var(--gold); font-size: 14px;">PRO AIR-CONTROL ENABLED</p>
-    </div>
-    
-    <div id="hud">
-        <div class="score" id="s-c">0</div>
-        <div class="score" id="s-u">0</div>
-    </div>
-
+    <div id="overlay" onclick="start()"><h1>ELITE VOLLEY</h1><p style="color: var(--gold);">PHYSICS & AI OVERHAUL</p></div>
+    <div id="hud"><div class="score" id="s-c">0</div><div class="score" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
-
-    <div id="joy-zone"></div>
-    <div id="knob"></div>
-
+    <div id="joy-zone"></div><div id="knob"></div>
     <div id="act-zone">
         <div class="btn" id="spike">STRIKE</div>
         <div class="btn" id="lob">LOB</div>
         <div class="btn" id="jump">JUMP</div>
     </div>
 </div>
-
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false };
 
-// MULTI-TOUCH INPUT STATE
-const inputs = {
-    joyId: null,
-    moveX: 0,
-    spike: false,
-    lob: false
-};
+const inputs = { joyId: null, moveX: 0, spike: false, lob: false };
 
 function start() {
     document.getElementById('overlay').style.display = 'none';
@@ -76,19 +51,13 @@ function start() {
 }
 
 function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-    G_Y = H - 60; 
-    NET = { x: W/2, y: G_Y - 140, w: 8, h: 140 }; 
+    W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+    G_Y = H - 60; NET = { x: W/2, y: G_Y - 140, w: 10, h: 140 };
+    knob.style.left = "110px"; knob.style.top = (H - 90) + "px";
     if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
-// JOYSTICK ENGINE
-joyZone.addEventListener('touchstart', e => {
-    e.preventDefault();
-    if (inputs.joyId === null) inputs.joyId = e.changedTouches[0].identifier;
-}, {passive: false});
-
+joyZone.addEventListener('touchstart', e => { e.preventDefault(); if (inputs.joyId === null) inputs.joyId = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
     for (let t of e.changedTouches) {
         if (t.identifier === inputs.joyId) {
@@ -99,20 +68,10 @@ window.addEventListener('touchmove', e => {
         }
     }
 }, {passive: false});
-
 window.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) {
-        if (t.identifier === inputs.joyId) {
-            inputs.joyId = null; inputs.moveX = 0;
-            // Manual UI Reset
-            const r = joyZone.getBoundingClientRect();
-            knob.style.left = (r.left + r.width/2) + "px";
-            knob.style.top = (r.top + r.height/2) + "px";
-        }
-    }
+    for (let t of e.changedTouches) if (t.identifier === inputs.joyId) { inputs.joyId = null; inputs.moveX = 0; resize(); }
 });
 
-// BUTTONS
 const bindBtn = (id, key) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
@@ -125,43 +84,30 @@ const bindBtn = (id, key) => {
 bindBtn('spike', 'spike'); bindBtn('lob', 'lob'); bindBtn('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 75; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 75; this.aiStyle = 'normal'; }
     reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
     update() {
-        // CONTINUOUS DIRECTIONAL CONTROL (Ground or Air)
-        this.x += this.dx;
-
-        this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 0.8; 
-        else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-
-        // BOUNDARIES
-        const limit = NET.x + (this.side === 'right' ? 25 : -25);
+        this.x += this.dx; this.y += this.dy;
+        if(this.y < G_Y - this.h) this.dy += 0.8; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        const limit = NET.x + (this.side === 'right' ? 30 : -30);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
         this.anim += Math.abs(this.dx) * 0.15;
     }
     draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        if(this.side === 'right') ctx.scale(-1, 1);
+        ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
         ctx.strokeStyle = "white"; ctx.lineWidth = 4;
-
         let activeSkill = (this === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : this.skill;
-
         if(this.air) {
-            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke(); // Front
-            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke(); // Back
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke();
         } else {
             let s = Math.sin(this.anim) * 12;
             ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(s, 60); ctx.lineTo(s, 75); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(-s, 60); ctx.lineTo(-s, 75); ctx.stroke();
         }
-
-        ctx.save();
-        if(this.air && activeSkill === 'spike') ctx.rotate(-0.3);
+        ctx.save(); if(this.air && activeSkill === 'spike') ctx.rotate(-0.3);
         ctx.fillStyle = this.color; ctx.fillRect(-10, 8, 20, 35);
         ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
-
         ctx.strokeStyle = "white";
         if(activeSkill === 'spike') { ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke(); }
         else if(activeSkill === 'lob') { ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke(); }
@@ -171,18 +117,21 @@ class Athlete {
 }
 
 const ball = {
-    r: 16, dx: 0, dy: 0, x: 0, y: 0,
-    spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = W * 0.25; },
+    r: 16, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
+    spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.2 : W*0.8; this.lock = 0; },
     update() {
+        if(this.lock > 0) this.lock--;
         this.dy += 0.45; this.dx *= 0.995; this.x += this.dx; this.y += this.dy;
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
             if(Math.abs(this.dy) > 3) this.dy *= -0.65;
-            else { state[this.x > NET.x ? 'c' : 'u']++; p1.reset(); cpu.reset(); this.spawn(); }
+            else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
+        // CLEANER NET COLLISION
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.7; this.x = (this.x < NET.x) ? NET.x - 15 : NET.x + 15;
+            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2 : Math.abs(this.dx) + 2;
+            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
     draw() { ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
@@ -196,39 +145,42 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    // Apply moveX to both Air and Ground
     p1.dx = inputs.moveX * 8.5;
 
-    // AI
+    // VARIED AI LOGIC
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = dist > 5 ? 7 : dist < -5 ? -7 : 0;
-        if(!cpu.air && ball.y < G_Y - 120 && Math.abs(dist) < 60) { cpu.dy = -14; cpu.air = true; }
-        cpu.skill = (Math.abs(NET.x - cpu.x) < 140) ? 'spike' : 'lob';
-    } else { cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; cpu.skill = null; }
+        cpu.dx = dist > 5 ? 7.2 : dist < -5 ? -7.2 : 0;
+        if(!cpu.air && ball.y < G_Y - 130 && Math.abs(dist) < 70) { cpu.dy = -14.5; cpu.air = true; }
+        
+        // Randomize CPU offensive choices
+        if(Date.now() % 3000 < 1500) cpu.skill = 'spike';
+        else cpu.skill = 'lob';
+    } else { 
+        // Defensive positioning based on personality
+        cpu.dx = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; 
+    }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let bDx = ball.x - p.x, bDy = ball.y - (p.y + 10), d = Math.sqrt(bDx*bDx + bDy*bDy);
-        if(d < 65) {
+        if(d < 65 && ball.lock === 0) {
+            ball.lock = 15; // Prevent jitter/net bugging
             const side = (p.side === 'right') ? -1 : 1;
             let currentSkill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : null) : p.skill;
             
-            // PHYSICS BRANCHING
             if(currentSkill === 'spike') { 
-                ball.dx = side * 22; 
-                ball.dy = (ball.y < p.y) ? 12 : 2; 
+                ball.dx = side * 24; 
+                ball.dy = (ball.y < p.y) ? 14 : 4; 
             }
             else if(currentSkill === 'lob') { 
-                ball.dx = side * 8; 
-                ball.dy = -18; 
+                ball.dx = side * 10; ball.dy = -19; 
             }
             else { 
-                // DEFEND ONLY (Passive Bounce)
-                ball.dx = side * 5 + (p.dx * 0.3); 
-                ball.dy = -9; 
+                ball.dx = side * 6 + (p.dx * 0.3); ball.dy = -10; 
             }
-            ball.x = p.x + (side * 60);
+            // Clearance Pulse: Push ball away from player body
+            ball.x = p.x + (side * 70);
         }
     });
 
@@ -237,7 +189,6 @@ function loop() {
     document.getElementById('s-c').innerText = state.c;
     requestAnimationFrame(loop);
 }
-
 window.addEventListener('resize', resize);
 </script>
 </body>
