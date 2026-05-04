@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Realistic Bounce</title>
+    <title>Pro Volley - Natural Physics</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -60,7 +60,7 @@ startBtn.addEventListener('click', () => {
     state.running = true; sync(); ball.spawn(); requestAnimationFrame(loop);
 });
 
-// Controls logic
+// Controls
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
@@ -74,7 +74,7 @@ window.addEventListener('touchend', e => { for (let t of e.changedTouches) if (t
 
 const bind = (id, s) => {
     const b = document.getElementById(id);
-    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -11.5; p1.air=true; }} else activeSkill = s; });
+    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -11; p1.air=true; }} else activeSkill = s; });
     b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
@@ -84,7 +84,8 @@ class Actor {
     reset() { this.x = (this.side === 'left') ? W * 0.2 : W * 0.8; this.y = G_Y - this.r; this.dx = this.dy = 0; this.air = false; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.48; else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.r) this.dy += 0.52; // Natural gravity for players
+        else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, Math.min(W-this.r, this.x));
         else this.x = Math.min(NET.x - limit, Math.max(this.r, this.x));
@@ -93,41 +94,43 @@ class Actor {
 }
 
 const ball = {
-    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounceFactor: 0.7, // 70% energy retention
+    r: 14, dx: 0, dy: 0, x: 0, y: 0, groundTimer: 0, bounceDecay: 0.75,
     spawn() { this.y = H * 0.35; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; this.groundTimer = 0; },
     update() {
-        this.dy += 0.42; 
-        this.dx *= 0.99; 
+        // NATURAL BALL PHYSICS
+        this.dy += 0.45; // Constant weight
+        this.dx *= 0.985; // Air damping (slows high hits naturally)
+        this.dy *= 0.995; // Vertical air resistance
+        
         this.x += this.dx; this.y += this.dy;
 
-        if(this.y < this.r + 5) { this.y = this.r + 5; this.dy = Math.abs(this.dy) * 0.5; }
-
-        // REALISTIC BOUNCE LOGIC
+        // Bounce Logic
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
-            
-            // If the ball has significant speed, bounce it back up
-            if (Math.abs(this.dy) > 1.5) {
-                this.dy *= -this.bounceFactor; // Flip direction and lose some energy
-                this.dx *= 0.9;               // Lose horizontal speed on impact
-                this.groundTimer = 0;         // Reset settle timer because it's still live
+            if (Math.abs(this.dy) > 1.8) {
+                this.dy *= -this.bounceDecay; // Realistic bounce height decay
+                this.dx *= 0.92;
+                this.groundTimer = 0;
             } else {
-                // Ball is rolling/settling
                 this.dy = 0;
-                this.dx *= 0.85; 
+                this.dx *= 0.88;
                 this.groundTimer++;
-                
-                if(this.groundTimer > 100) { // Point scored only after settling
+                if(this.groundTimer > 120) { 
                     const win = this.x > NET.x ? 'c' : 'p';
                     state.scores[win]++; state.lastWinner = win;
                     p1.reset(); cpu.reset(); this.spawn();
                 }
             }
-        }
+        } else { this.groundTimer = 0; }
 
+        // Visibility Safety
+        if(this.y < this.r) { this.y = this.r; this.dy = Math.abs(this.dy) * 0.4; }
+        
+        // Net
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.5; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
         }
+        
         if(this.x < -100 || this.x > W + 100) {
             const win = this.x > W ? 'c' : 'p';
             state.scores[win]++; state.lastWinner = win;
@@ -147,30 +150,42 @@ function loop() {
     
     p1.dx = input.x * 6.8;
 
-    // AI logic
+    // AI logic (Aggressive Chasing)
     let distToBall = ball.x - cpu.x;
-    if (ball.x < NET.x + 80) {
-        cpu.dx = (distToBall > 5) ? 5.8 : (distToBall < -5) ? -5.8 : 0;
-        if(!cpu.air && ball.y > G_Y - 100 && Math.abs(distToBall) < 40) cpu.dy = -10.5;
+    if (ball.x < NET.x + 100) {
+        cpu.dx = (distToBall > 6) ? 6 : (distToBall < -6) ? -6 : 0;
+        if(!cpu.air && ball.y > G_Y - 120 && Math.abs(distToBall) < 45) cpu.dy = -10.5;
     } else {
         let home = W * 0.15;
-        cpu.dx = (cpu.x < home) ? 3.5 : -3.5;
+        cpu.dx = (cpu.x < home) ? 4 : -4;
     }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy), minDist = p.r + ball.r;
+        
         if(dist < minDist) {
+            // Player/AI don't move when hitting (no recoil)
             let nx = dx / dist, ny = dy / dist;
             ball.x = p.x + nx * (minDist + 1); ball.y = p.y + ny * (minDist + 1);
             const dir = (p.side === 'right') ? -1 : 1;
             
-            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 150 ? 'spike' : 'lob');
-            if(skill === 'spike') { ball.dx = dir * 13; ball.dy = 2; }
-            else if(skill === 'lob') { ball.dx = dir * 7.5; ball.dy = -10; }
-            else { ball.dx = (nx * 4.5) + (p.dx * 0.5); ball.dy = (ny * 4.5) - 3.5; }
+            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 140 ? 'spike' : 'lob');
             
-            if (ball.dy < -13) ball.dy = -13;
+            if(skill === 'spike') { 
+                ball.dx = dir * 14.5; 
+                ball.dy = 2.2; 
+            } else if(skill === 'lob') { 
+                ball.dx = dir * 8; 
+                ball.dy = -11.5; 
+            } else { 
+                // Natural bump based on contact point
+                ball.dx = (nx * 5) + (p.dx * 0.5); 
+                ball.dy = (ny * 5) - 4; 
+            }
+            
+            // Hard cap to vertical fly speed to prevent off-screen loss
+            if (ball.dy < -14.5) ball.dy = -14.5;
         }
     });
 
