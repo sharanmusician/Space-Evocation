@@ -3,25 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley - Fixed Fullscreen</title>
+    <title>Pro Volley - Natural Curve</title>
     <style>
         :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         body, html { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
         #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #1e3c72, #2a5298); overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; }
-        
         #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 10; pointer-events: none; }
         .score { color: white; font-size: 1.2rem; font-weight: bold; }
         #timer { color: var(--gold); font-size: 1.8rem; font-weight: 900; }
-        
         #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
-        .btn-start { padding: 20px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #000; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5); }
-
+        .btn-start { padding: 20px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold; cursor: pointer; color: #000; }
         #slider-zone { position: absolute; bottom: 40px; left: 30px; width: 220px; height: 80px; display: flex; align-items: center; }
         #slider-track { width: 100%; height: 14px; background: var(--white); border-radius: 20px; position: relative; }
         #slider-handle { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(255,255,255,0.3); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; backdrop-filter: blur(5px); }
-        
         #action-zone { position: absolute; bottom: 30px; right: 30px; width: 220px; height: 180px; pointer-events: none; }
         .act-btn { position: absolute; border-radius: 50%; border: 3px solid rgba(255,255,255,0.4); color: white; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; background: rgba(255,255,255,0.1); backdrop-filter: blur(5px); pointer-events: auto; }
         #btn-spike { width: 75px; height: 75px; bottom: 95px; right: 10px; border-color: var(--red); }
@@ -32,17 +28,13 @@
 <body>
 
 <div id="game-container">
-    <div id="overlay">
-        <h1 style="margin-bottom:20px">PRO VOLLEYBALL</h1>
-        <button class="btn-start" id="startBtn">START GAME</button>
-    </div>
+    <div id="overlay"><h1>PRO VOLLEYBALL</h1><button class="btn-start" id="startBtn">START</button></div>
     <div id="hud">
         <div class="score">CPU: <span id="c-s">0</span></div>
         <div id="timer">01:00</div>
         <div class="score">YOU: <span id="u-s">0</span></div>
     </div>
     <canvas id="stage"></canvas>
-    
     <div id="slider-zone"><div id="slider-track"><div id="slider-handle"></div></div></div>
     <div id="action-zone">
         <div class="act-btn" id="btn-spike">SPIKE</div>
@@ -53,122 +45,84 @@
 
 <script>
 const canvas = document.getElementById('stage'), ctx = canvas.getContext('2d');
-const handle = document.getElementById('slider-handle');
-const startBtn = document.getElementById('startBtn');
-const gameContainer = document.getElementById('game-container');
-
-let W, H, G_Y, NET, input = { x: 0, id: null }, activeSkill = null;
-let state = { scores: { p: 0, c: 0 }, time: 60, running: false, lastWinner: null };
+const handle = document.getElementById('slider-handle'), startBtn = document.getElementById('startBtn'), gameContainer = document.getElementById('game-container');
+let W, H, G_Y, NET, input = { x: 0, id: null }, activeSkill = null, state = { scores: { p: 0, c: 0 }, time: 60, running: false, lastWinner: null };
 
 function sync() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-    G_Y = H - 60;
-    NET = { x: W/2, y: H - 180, w: 12, h: 120 };
-    if(p1) p1.reset();
-    if(cpu) cpu.reset();
+    W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+    G_Y = H - 60; NET = { x: W/2, y: H - 160, w: 10, h: 100 };
+    if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
-// THE FULLSCREEN TRIGGER
 startBtn.addEventListener('click', () => {
-    // Attempt fullscreen immediately on click
     if (gameContainer.requestFullscreen) gameContainer.requestFullscreen();
     else if (gameContainer.webkitRequestFullscreen) gameContainer.webkitRequestFullscreen();
-    else if (gameContainer.msRequestFullscreen) gameContainer.msRequestFullscreen();
-
     document.getElementById('overlay').style.display = 'none';
-    state.running = true;
-    sync();
-    ball.spawn();
-    requestAnimationFrame(loop);
+    state.running = true; sync(); ball.spawn(); requestAnimationFrame(loop);
 });
 
-// Slider Input
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
-    for (let t of e.changedTouches) {
-        if (t.identifier === input.id) {
-            const r = zone.getBoundingClientRect();
-            input.x = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / (r.width/2 - 30)));
-            handle.style.left = (50 + input.x * 40) + "%";
-        }
-    }
+    for (let t of e.changedTouches) { if (t.identifier === input.id) {
+        const r = zone.getBoundingClientRect();
+        input.x = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / (r.width/2 - 30)));
+        handle.style.left = (50 + input.x * 40) + "%";
+    }}
 }, {passive: false});
-window.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) if (t.identifier === input.id) { input.id = null; input.x = 0; handle.style.left = "50%"; }
-});
+window.addEventListener('touchend', e => { for (let t of e.changedTouches) if (t.identifier === input.id) { input.id = null; input.x = 0; handle.style.left = "50%"; }});
 
 const bind = (id, s) => {
     const b = document.getElementById(id);
-    b.addEventListener('touchstart', e => {
-        e.preventDefault();
-        if(s==='jump'){ if(!p1.air){ p1.dy = -15; p1.air=true; }} 
-        else activeSkill = s;
-    });
+    b.addEventListener('touchstart', e => { e.preventDefault(); if(s==='jump'){ if(!p1.air){ p1.dy = -13; p1.air=true; }} else activeSkill = s; });
     b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
 
 class Actor {
-    constructor(side, color) { this.side = side; this.color = color; this.r = 30; }
-    reset() {
-        this.x = (this.side === 'left') ? W * 0.2 : W * 0.8;
-        this.y = G_Y - this.r;
-        this.dx = this.dy = 0; this.air = false;
-    }
+    constructor(side, color) { this.side = side; this.color = color; this.r = 28; }
+    reset() { this.x = (this.side === 'left') ? W * 0.2 : W * 0.8; this.y = G_Y - this.r; this.dx = this.dy = 0; this.air = false; }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.7; // Gravity
-        else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.r) this.dy += 0.6; else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
         const limit = NET.w/2 + this.r;
         if(this.side === 'right') this.x = Math.max(NET.x + limit, Math.min(W-this.r, this.x));
         else this.x = Math.min(NET.x - limit, Math.max(this.r, this.x));
     }
-    draw() {
-        ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-    }
+    draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
 }
 
 const ball = {
-    r: 15, dx: 0, dy: 0, x: 0, y: 0,
-    spawn() { 
-        this.y = H * 0.3; this.dx = 0; this.dy = 0; 
-        this.x = (state.lastWinner === 'p') ? W * 0.7 : W * 0.3; 
-    },
+    r: 14, dx: 0, dy: 0, x: 0, y: 0,
+    spawn() { this.y = H * 0.4; this.dx = 0; this.dy = 0; this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; },
     update() {
-        this.dy += 0.55; // Weighty gravity
-        this.dx *= 0.99; // Drag
+        this.dy += 0.45; // Natural Gravity for arcing
+        this.dx *= 0.995; // Air Drag
         this.x += this.dx; this.y += this.dy;
 
-        // Ground Bounce
+        // Ground Logic
         if(this.y > G_Y - this.r) {
             this.y = G_Y - this.r;
-            this.dy *= -0.5; // Bounce height decreases
+            this.dy *= -0.4; // Small bounce decay
             this.dx *= 0.95;
-            if(Math.abs(this.dy) < 1 && Math.abs(this.dx) < 1) {
+            if(Math.abs(this.dy) < 0.5 && Math.abs(this.dx) < 0.5) {
                 const win = this.x > NET.x ? 'c' : 'p';
                 state.scores[win]++; state.lastWinner = win;
                 p1.reset(); cpu.reset(); this.spawn();
             }
         }
-        // Net
+        // Net Bounce (The ball never passes through)
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.6;
-            this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 2) : NET.x + (this.r + NET.w/2 + 2);
+            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2 + 1) : NET.x + (this.r + NET.w/2 + 1);
         }
-        // Boundaries
+        // Out of Bounds behind
         if(this.x < -100 || this.x > W + 100) {
             const win = this.x > W ? 'c' : 'p';
             state.scores[win]++; state.lastWinner = win;
             p1.reset(); cpu.reset(); this.spawn();
         }
     },
-    draw() {
-        ctx.fillStyle = "#fff200";
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-    }
+    draw() { ctx.fillStyle = "#fff200"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
 };
 
 const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#fff');
@@ -176,47 +130,35 @@ const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#fff');
 function loop() {
     if(!state.running) return;
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 60);
+    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "#fff"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
+    p1.dx = input.x * 7;
 
-    p1.dx = input.x * 8;
-
-    // IMPROVED AI: Non-repetitive moves
+    // Smart AI logic to avoid repetition
     if (ball.x < NET.x) {
-        // AI chooses a spot slightly offset from ball center
-        let offset = Math.sin(Date.now() / 500) * 40; 
-        let targetX = ball.x + offset;
-        cpu.dx = (cpu.x < targetX - 5) ? 6.5 : (cpu.x > targetX + 5) ? -6.5 : 0;
-        
-        // Random jump if ball is high
-        if(!cpu.air && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -15;
+        let aiBrain = Math.sin(Date.now() / 600) * 15;
+        let targetX = ball.x + aiBrain;
+        cpu.dx = (cpu.x < targetX - 5) ? 6 : (cpu.x > targetX + 5) ? -6 : 0;
+        if(!cpu.air && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -12;
     } else {
-        // Retreat slightly when ball is on your side
-        let home = W * 0.15;
-        cpu.dx = (cpu.x < home) ? 4 : -4;
+        let home = W * 0.2; cpu.dx = (cpu.x < home) ? 4 : -4;
     }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy), minDist = p.r + ball.r;
-        
         if(dist < minDist) {
             let nx = dx / dist, ny = dy / dist;
-            ball.x = p.x + nx * (minDist + 1);
-            ball.y = p.y + ny * (minDist + 1);
+            ball.x = p.x + nx * (minDist + 1); ball.y = p.y + ny * (minDist + 1);
             const dir = (p.side === 'right') ? -1 : 1;
+            
+            // Limit vertical force to ensure ball curves down quickly
+            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 120 ? 'spike' : 'lob');
+            if (p === cpu && Math.random() > 0.85) skill = null;
 
-            // AI Decision: Spike if close to net, Lob if far back
-            let skill = (p === p1) ? activeSkill : (Math.abs(NET.x - p.x) < 130 ? 'spike' : 'lob');
-            if (p === cpu && Math.random() > 0.8) skill = null; // Sometimes just a soft hit
-
-            if(skill === 'spike') { ball.dx = dir * 17; ball.dy = 4; }
-            else if(skill === 'lob') { ball.dx = dir * 9; ball.dy = -18; }
-            else { 
-                // Weak Touch
-                ball.dx = (nx * 5) + (p.dx * 0.4); 
-                ball.dy = (ny * 5) - 3; 
-            }
+            if(skill === 'spike') { ball.dx = dir * 13; ball.dy = 2; }
+            else if(skill === 'lob') { ball.dx = dir * 6; ball.dy = -12; }
+            else { ball.dx = (nx * 4) + (p.dx * 0.4); ball.dy = (ny * 4) - 2; }
         }
     });
 
@@ -226,13 +168,8 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-setInterval(() => {
-    if(state.running) state.time--;
-    document.getElementById('timer').innerText = `00:${state.time < 10 ? '0' + state.time : state.time}`;
-}, 1000);
-
-window.addEventListener('resize', sync);
-sync();
+setInterval(() => { if(state.running) state.time--; document.getElementById('timer').innerText = `00:${state.time < 10 ? '0' + state.time : state.time}`; }, 1000);
+window.addEventListener('resize', sync); sync();
 </script>
 </body>
 </html>
