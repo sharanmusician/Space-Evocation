@@ -2,56 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Volley - Smooth Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Pro Volley - Real Physics</title>
     <style>
-        :root { --gold: rgba(241, 196, 15, 0.5); --red: rgba(255, 71, 87, 0.4); --green: rgba(46, 204, 113, 0.4); --white: rgba(255, 255, 255, 0.15); }
+        :root { --gold: #f1c40f; --red: #ff4757; --green: #2ecc71; --white: rgba(255, 255, 255, 0.2); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
-        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
         
-        #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #1e3c72, #2a5298); }
+        #game-container { position: relative; width: 100vw; height: 100vh; background: linear-gradient(to bottom, #1e3c72, #2a5298); overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; }
         
-        #hud { position: absolute; top: 15px; width: 100%; display: flex; justify-content: center; gap: 50px; z-index: 10; pointer-events: none; opacity: 0.8; }
-        .score { color: white; font-size: 1.2rem; font-weight: bold; }
-        #timer { color: #f1c40f; font-size: 1.8rem; font-weight: 900; }
+        #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; gap: 40px; z-index: 10; pointer-events: none; }
+        .score { color: white; font-size: 1.2rem; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        #timer { color: var(--gold); font-size: 1.8rem; font-weight: 900; }
         
-        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; }
-        .btn-start { padding: 15px 50px; background: #f1c40f; border: none; border-radius: 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; text-align: center; }
+        .btn-start { padding: 18px 60px; background: var(--gold); border: none; border-radius: 50px; font-size: 1.4rem; font-weight: bold; cursor: pointer; color: #000; box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4); }
 
-        #slider-zone { position: absolute; bottom: 40px; left: 30px; width: 200px; height: 60px; display: flex; align-items: center; }
-        #slider-track { width: 100%; height: 12px; background: var(--white); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); position: relative; }
-        #slider-handle { position: absolute; top: 50%; left: 50%; width: 65px; height: 65px; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.4); backdrop-filter: blur(4px); }
+        #slider-zone { position: absolute; bottom: 40px; left: 30px; width: 220px; height: 80px; display: flex; align-items: center; }
+        #slider-track { width: 100%; height: 14px; background: var(--white); border-radius: 20px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+        #slider-handle { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(255,255,255,0.25); border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; backdrop-filter: blur(5px); }
         
         #action-zone { position: absolute; bottom: 30px; right: 30px; width: 220px; height: 180px; pointer-events: none; }
         .act-btn { 
-            position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); 
-            display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; 
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(3px); pointer-events: auto; transition: transform 0.1s;
+            position: absolute; border-radius: 50%; border: 3px solid rgba(255,255,255,0.4); color: white; 
+            display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; 
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(5px); pointer-events: auto; 
         }
-        .act-btn:active { transform: scale(1.1); background: rgba(255,255,255,0.2); }
-        #btn-spike { width: 70px; height: 70px; bottom: 90px; right: 10px; border-color: var(--red); }
-        #btn-lob { width: 70px; height: 70px; bottom: 90px; right: 100px; border-color: var(--green); }
-        #btn-jump { width: 180px; height: 60px; bottom: 10px; right: 10px; border-radius: 30px; border-color: var(--gold); font-size: 14px; }
+        #btn-spike { width: 75px; height: 75px; bottom: 95px; right: 10px; border-color: var(--red); }
+        #btn-lob { width: 75px; height: 75px; bottom: 95px; right: 105px; border-color: var(--green); }
+        #btn-jump { width: 190px; height: 65px; bottom: 10px; right: 10px; border-radius: 35px; border-color: var(--gold); font-size: 15px; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="overlay">
-        <h1>VOLLEY BALL</h1>
-        <button class="btn-start" onclick="begin()">PLAY</button>
+        <h1 style="font-size: 3rem; margin-bottom: 20px;">PRO VOLLEY</h1>
+        <button class="btn-start" onclick="begin()">START GAME</button>
+        <p style="margin-top: 15px; opacity: 0.6;">Tap to play Full Screen</p>
     </div>
     <div id="hud">
-        <div class="score">AI: <span id="c-s">0</span></div>
+        <div class="score">CPU: <span id="c-s">0</span></div>
         <div id="timer">01:00</div>
         <div class="score">YOU: <span id="u-s">0</span></div>
     </div>
     <canvas id="stage"></canvas>
     
-    <div id="slider-zone">
-        <div id="slider-track"><div id="slider-handle"></div></div>
-    </div>
+    <div id="slider-zone"><div id="slider-track"><div id="slider-handle"></div></div></div>
     
     <div id="action-zone">
         <div class="act-btn" id="btn-spike">SPIKE</div>
@@ -74,13 +72,16 @@ let state = { scores: { p: 0, c: 0 }, time: 60, running: false, lastWinner: null
 function sync() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
-    G_Y = H - 50;
-    NET = { x: W/2, y: H - 160, w: 10, h: 110 };
+    G_Y = H - 60;
+    NET = { x: W/2, y: H - 180, w: 12, h: 120 };
     if(p1) p1.reset();
     if(cpu) cpu.reset();
 }
 
 function begin() {
+    if (container.requestFullscreen) container.requestFullscreen();
+    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+    
     document.getElementById('overlay').style.display = 'none';
     state.running = true;
     state.time = 60;
@@ -89,7 +90,7 @@ function begin() {
     requestAnimationFrame(loop);
 }
 
-// Control Handlers
+// Controls
 const zone = document.getElementById('slider-zone');
 zone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; }, {passive: false});
 window.addEventListener('touchmove', e => {
@@ -109,15 +110,19 @@ const bind = (id, s) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
         e.preventDefault();
-        if(s==='jump'){ if(!p1.air){ p1.dy = -15; p1.air=true; }} 
+        if(s==='jump'){ if(!p1.air){ p1.dy = -16; p1.air=true; }} 
         else activeSkill = s;
+        b.style.background = "rgba(255,255,255,0.4)";
     });
-    b.addEventListener('touchend', () => { if(s !== 'jump') activeSkill = null; });
+    b.addEventListener('touchend', () => { 
+        if(s !== 'jump') activeSkill = null; 
+        b.style.background = "rgba(255,255,255,0.1)"; 
+    });
 };
 bind('btn-spike','spike'); bind('btn-lob','lob'); bind('btn-jump','jump');
 
 class Actor {
-    constructor(side, color) { this.side = side; this.color = color; this.r = 30; }
+    constructor(side, color) { this.side = side; this.color = color; this.r = 32; }
     reset() {
         this.x = (this.side === 'left') ? W * 0.2 : W * 0.8;
         this.y = G_Y - this.r;
@@ -125,103 +130,120 @@ class Actor {
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.r) this.dy += 0.7; // Gravity
+        if(this.y < G_Y - this.r) this.dy += 0.75;
         else { this.y = G_Y - this.r; this.dy = 0; this.air = false; }
+        
         this.x = Math.max(this.r, Math.min(W - this.r, this.x));
-        const m = this.r + NET.w/2;
-        if(this.side === 'right') this.x = Math.max(NET.x + m, this.x);
-        else this.x = Math.min(NET.x - m, this.x);
+        const limit = NET.w/2 + this.r;
+        if(this.side === 'right') this.x = Math.max(NET.x + limit, this.x);
+        else this.x = Math.min(NET.x - limit, this.x);
     }
     draw() {
-        ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 4; ctx.stroke();
     }
 }
 
 const ball = {
-    r: 14, dx: 0, dy: 0, x: 0, y: 0,
+    r: 16, dx: 0, dy: 0, x: 0, y: 0, angle: 0,
     spawn() { 
-        this.y = H * 0.2; this.dx = 0; this.dy = 0; 
-        this.x = (state.lastWinner === 'p') ? W * 0.7 : W * 0.3; 
+        this.y = H * 0.3; this.dx = 0; this.dy = 0; 
+        this.x = (state.lastWinner === 'p') ? W * 0.75 : W * 0.25; 
     },
     update() {
-        // Freely moving physics
-        this.dy += 0.35; // Lower gravity for "floaty" feel
-        this.dx *= 0.99; // Air resistance
-        this.dy *= 0.99; 
-        
+        this.dy += 0.4; // Gravity
+        this.dx *= 0.992; // Air resistance
         this.x += this.dx; this.y += this.dy;
-        
-        // Bounce off floor softly
+        this.angle += this.dx * 0.1; // Rolling rotation
+
+        // Wall & Ceiling
+        if(this.x < this.r) { this.x = this.r; this.dx *= -0.6; }
+        if(this.x > W - this.r) { this.x = W - this.r; this.dx *= -0.6; }
+        if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
+
+        // Net Physics (Solid)
+        if(this.y + this.r > NET.y) {
+            if(Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+                if(this.y < NET.y) { // Top of net
+                    this.y = NET.y - this.r; this.dy *= -0.8;
+                } else { // Sides of net
+                    this.dx *= -0.7;
+                    this.x = (this.x < NET.x) ? NET.x - (this.r + NET.w/2) : NET.x + (this.r + NET.w/2);
+                }
+            }
+        }
+
+        // Floor / Scoring
         if(this.y > G_Y - this.r) {
             this.y = G_Y - this.r;
-            this.dy *= -0.5; // Soft bounce
-            this.dx *= 0.8;
+            this.dy *= -0.55;
+            this.dx *= 0.95; // Friction
+            if(Math.abs(this.dy) < 1) {
+                state.scores[this.x > NET.x ? 'c' : 'p']++;
+                state.lastWinner = this.x > NET.x ? 'c' : 'p';
+                p1.reset(); cpu.reset(); this.spawn();
+            }
         }
-        
-        // Scoring
-        if(this.x < 0 || this.x > W) {
-            state.scores[this.x > W ? 'c' : 'p']++;
-            state.lastWinner = this.x > W ? 'c' : 'p';
-            p1.reset(); cpu.reset(); this.spawn();
-        }
+    },
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.fillStyle = "#fff200";
+        ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI*2); ctx.fill();
+        // Drawing seams for rolling effect
+        ctx.strokeStyle = "#d4ac0d"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-this.r, 0); ctx.lineTo(this.r, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -this.r); ctx.lineTo(0, this.r); ctx.stroke();
+        ctx.restore();
     }
 };
 
-const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#ffffff');
+const p1 = new Actor('right', '#ff4757'), cpu = new Actor('left', '#fff');
 
 function loop() {
     if(!state.running) return;
     ctx.clearRect(0,0,W,H);
     
-    // Net and Floor
-    ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(0, G_Y, W, 50);
-    ctx.fillStyle = "#fff"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
+    // Environment
+    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 60);
+    ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
-    p1.dx = input.x * 8;
+    p1.dx = input.x * 9;
     
-    // AI Logic
-    let target = (ball.x < NET.x) ? ball.x : W * 0.2;
-    cpu.dx = (cpu.x < target - 5) ? 6 : (cpu.x > target + 5) ? -6 : 0;
-    if(ball.x < NET.x && ball.y < G_Y - 120 && Math.random() > 0.98) cpu.dy = -14;
+    // AI
+    let target = (ball.x < NET.x) ? ball.x : W * 0.15;
+    cpu.dx = (cpu.x < target - 5) ? 6.5 : (cpu.x > target + 5) ? -6.5 : 0;
+    if(ball.x < NET.x && ball.y < G_Y - 140 && Math.random() > 0.98) cpu.dy = -15;
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        
-        let dx = ball.x - p.x;
-        let dy = ball.y - p.y;
+        let dx = ball.x - p.x, dy = ball.y - p.y;
         let dist = Math.sqrt(dx*dx + dy*dy);
         let minDist = p.r + ball.r;
 
         if(dist < minDist) {
-            // Instant overlap fix
-            let nx = dx / dist;
-            let ny = dy / dist;
+            let nx = dx / dist, ny = dy / dist;
             ball.x = p.x + nx * minDist;
             ball.y = p.y + ny * minDist;
 
             const dir = (p.side === 'right') ? -1 : 1;
-            
-            // Priority Action Check
-            let skill = (p === p1) ? activeSkill : (Math.random() > 0.9 ? 'spike' : null);
+            let skill = (p === p1) ? activeSkill : (Math.random() > 0.92 ? 'spike' : null);
 
             if(skill === 'spike') {
-                ball.dx = dir * 18; // Fast
-                ball.dy = 2; 
+                ball.dx = dir * 22; ball.dy = 3;
             } else if(skill === 'lob') {
-                ball.dx = dir * 7;
-                ball.dy = -18; // High
+                ball.dx = dir * 8; ball.dy = -19;
             } else {
-                // SLOW "TOUCH" PHYSICS
-                // If no button is pressed, ball just nudges away slowly
-                ball.dx = (nx * 4) + (p.dx * 0.5);
-                ball.dy = (ny * 4) - 2;
+                // REALISTIC SLOW TOUCH
+                ball.dx = (nx * 5) + (p.dx * 0.4);
+                ball.dy = (ny * 5) - 3;
             }
         }
     });
 
-    ball.update();
-    ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+    ball.update(); ball.draw();
     
     document.getElementById('u-s').innerText = state.scores.p;
     document.getElementById('c-s').innerText = state.scores.c;
@@ -235,10 +257,11 @@ setInterval(() => {
     if(state.time <= 0) {
         state.running = false;
         document.getElementById('overlay').style.display = 'flex';
+        document.querySelector('#overlay h1').innerText = "GAME OVER";
     }
 }, 1000);
 
-window.onresize = sync;
+window.addEventListener('resize', sync);
 sync();
 </script>
 </body>
