@@ -3,53 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro Edition</title>
+    <title>Elite Volley: Heavyweight Pro</title>
     <style>
-        :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; --glass: rgba(255, 255, 255, 0.1); }
+        :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; --glass: rgba(255, 255, 255, 0.15); }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         
         html, body { 
             width: 100vw; height: 100vh; height: -webkit-fill-available;
-            background: #000; overflow: hidden; position: fixed; top: 0; left: 0; 
+            background: #050505; overflow: hidden; position: fixed; top: 0; left: 0; 
         }
         
         #game-container { 
             position: absolute; inset: 0; 
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            background: radial-gradient(circle at center, #1e3c72 0%, #000 100%);
             display: flex; align-items: center; justify-content: center;
         }
 
         canvas { width: 100%; height: 100%; display: block; }
         
         #hud { 
-            position: absolute; top: env(safe-area-inset-top, 20px); 
-            width: 100%; display: flex; justify-content: center; gap: 100px; 
-            pointer-events: none; z-index: 10; 
+            position: absolute; top: 30px; 
+            width: 100%; display: flex; justify-content: center; align-items: center; gap: 40px; 
+            pointer-events: none; z-index: 10; font-family: 'Courier New', Courier, monospace;
         }
-        .score { color: white; font-size: 32px; font-weight: 800; font-family: 'Segoe UI', sans-serif; opacity: 0.8; }
+        .score-box { background: var(--glass); padding: 10px 20px; border-radius: 8px; border-bottom: 3px solid #fff; }
+        .score { color: white; font-size: 28px; font-weight: 900; }
+        #timer { color: var(--gold); font-size: 36px; font-weight: 900; text-shadow: 0 0 10px var(--gold); }
         
-        /* Professional Minimalist Controls */
-        #joy-zone { position: absolute; bottom: 40px; left: 30px; width: 120px; height: 120px; z-index: 20; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; }
+        #joy-zone { position: absolute; bottom: 50px; left: 40px; width: 160px; height: 4px; background: rgba(255,255,255,0.3); z-index: 20; border-radius: 2px; }
         #knob { 
-            position: absolute; width: 50px; height: 50px; 
-            background: var(--glass); border: 1px solid #fff; 
-            border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; 
+            position: absolute; width: 45px; height: 45px; 
+            background: #fff; border-radius: 4px; 
+            transform: translate(-50%, -50%); pointer-events: none; 
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
         }
         
         #act-zone { position: absolute; bottom: 30px; right: 20px; width: 240px; height: 160px; z-index: 20; }
         .btn { 
-            position: absolute; border-radius: 50%; 
-            background: var(--glass); backdrop-filter: blur(8px); 
+            position: absolute; border-radius: 12px; 
+            background: var(--glass); backdrop-filter: blur(10px); 
             color: white; display: flex; align-items: center; justify-content: center; 
-            font-weight: 700; border: 1px solid rgba(255,255,255,0.2);
-            font-size: 11px; letter-spacing: 1px;
-            transition: background 0.1s;
+            font-weight: 700; border: 1.5px solid rgba(255,255,255,0.3);
+            font-size: 12px;
         }
-        .btn:active { background: rgba(255,255,255,0.3); }
         
-        #spike { width: 70px; height: 70px; bottom: 85px; right: 10px; }
-        #lob { width: 70px; height: 70px; bottom: 85px; right: 90px; }
-        #jump { width: 150px; height: 55px; bottom: 10px; right: 10px; border-radius: 30px; }
+        #spike { width: 75px; height: 75px; bottom: 85px; right: 10px; }
+        #lob { width: 75px; height: 75px; bottom: 85px; right: 95px; }
+        #jump { width: 160px; height: 60px; bottom: 10px; right: 10px; }
         
         #overlay { 
             position: absolute; inset: 0; background: #000; 
@@ -61,22 +61,22 @@
 <body>
 <div id="game-container">
     <div id="overlay" onclick="enterFullscreen()">
-        <h2 style="letter-spacing: 8px; font-family: sans-serif;">PRO VOLLEY</h2>
-        <p style="color: #888; margin-top: 10px; font-size: 12px;">TAP TO INITIALIZE</p>
+        <h1 style="letter-spacing: 12px; font-family: sans-serif; font-weight: 200;">MATCH START</h1>
+        <p style="color: var(--gold); margin-top: 15px; font-size: 12px;">WEIGHTED PHYSICS ACTIVE</p>
     </div>
     
     <div id="hud">
-        <div class="score" id="s-c">0</div>
-        <div class="score" id="s-u">0</div>
+        <div class="score-box"><div class="score" id="s-c">0</div></div>
+        <div id="timer">01:00</div>
+        <div class="score-box"><div class="score" id="s-u">0</div></div>
     </div>
     
     <canvas id="canvas"></canvas>
-    
     <div id="joy-zone"></div>
     <div id="knob"></div>
     
     <div id="act-zone">
-        <div class="btn" id="spike">SPIKE</div>
+        <div class="btn" id="spike">STRIKE</div>
         <div class="btn" id="lob">LOB</div>
         <div class="btn" id="jump">JUMP</div>
     </div>
@@ -85,40 +85,43 @@
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
-let W, H, G_Y, NET, state = { u: 0, c: 0, active: false };
+let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60 };
 const inputs = { joyId: null, moveX: 0, spike: false, lob: false, buffer: 0 };
 
 async function enterFullscreen() {
     const el = document.documentElement;
-    try {
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-    } catch (err) {}
+    try { if (el.requestFullscreen) await el.requestFullscreen(); } catch (err) {}
     start();
 }
 
 function start() {
     document.getElementById('overlay').style.display = 'none';
-    state.active = true;
-    resize();
-    ball.spawn();
-    requestAnimationFrame(loop);
+    state.active = true; resize(); ball.spawn(); startTimer(); requestAnimationFrame(loop);
+}
+
+function startTimer() {
+    const tInterval = setInterval(() => {
+        if (state.time > 0) {
+            state.time--;
+            let m = Math.floor(state.time / 60), s = state.time % 60;
+            document.getElementById('timer').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        } else {
+            clearInterval(tInterval); state.active = false;
+            location.reload();
+        }
+    }, 1000);
 }
 
 function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-    G_Y = H - 50;
-    // Net made smaller as requested
-    NET = { x: W/2, y: G_Y - 95, w: 8, h: 95 };
+    W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+    G_Y = H - 50; NET = { x: W/2, y: G_Y - 90, w: 6, h: 90 };
     updateKnobUI(0);
-    if(p1) p1.reset();
-    if(cpu) cpu.reset();
+    if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
 function updateKnobUI(val) {
     const r = joyZone.getBoundingClientRect();
-    knob.style.left = (r.left + r.width/2 + val * 35) + "px";
+    knob.style.left = (r.left + r.width/2 + val * (r.width/2)) + "px";
     knob.style.top = (r.top + r.height/2) + "px";
 }
 
@@ -126,7 +129,7 @@ joyZone.addEventListener('touchstart', e => { e.preventDefault(); inputs.joyId =
 window.addEventListener('touchmove', e => {
     for (let t of e.changedTouches) if (t.identifier === inputs.joyId) {
         const r = joyZone.getBoundingClientRect();
-        inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / 40));
+        inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (r.left + r.width/2)) / (r.width/2)));
         updateKnobUI(inputs.moveX);
     }
 }, {passive: false});
@@ -137,97 +140,67 @@ window.addEventListener('touchend', e => {
 const bindBtn = (id, key) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => {
-        e.preventDefault();
-        inputs[key] = true;
-        inputs.buffer = 12;
-        if(key === 'jump' && !p1.air) { p1.dy = -14; p1.air = true; }
+        e.preventDefault(); inputs[key] = true; inputs.buffer = 12;
+        if(key === 'jump' && !p1.air) { p1.dy = -17; p1.air = true; } // Faster jump to counter gravity
     }, {passive: false});
     b.addEventListener('touchend', () => { if(key !== 'jump') inputs[key] = false; });
 };
 bindBtn('spike', 'spike'); bindBtn('lob', 'lob'); bindBtn('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { 
-        this.side = side; 
-        this.color = color; 
-        this.h = 55; // Smaller players
-    }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 50; }
     reset() { 
         this.x = (this.side === 'right') ? W * 0.75 : W * 0.25; 
-        this.y = G_Y - this.h; 
-        this.dx = this.dy = 0; 
-        this.air = false; 
-        this.anim = 0; 
+        this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; 
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        // Gravity applies to entire body y
+        // HEAVIER GRAVITY: Increased from 0.75 to 1.2
         if(this.y < G_Y - this.h) {
-            this.dy += 0.8;
+            this.dy += 1.2; 
         } else {
-            this.y = G_Y - this.h;
-            this.dy = 0;
-            this.air = false;
+            this.y = G_Y - this.h; this.dy = 0; this.air = false;
         }
-        const limit = NET.x + (this.side === 'right' ? 25 : -25);
+        const limit = NET.x + (this.side === 'right' ? 22 : -22);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-25, this.x)) : Math.min(limit, Math.max(25, this.x));
         this.anim += Math.abs(this.dx) * 0.25;
     }
     draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y); // Translate entire player (Prevents leg stretching)
-        if(this.side === 'right') ctx.scale(-1, 1);
-        
-        ctx.strokeStyle = "rgba(255,255,255,0.8)"; 
-        ctx.lineWidth = 3;
-        
-        // LEGS (Rigid relative to Torso)
-        let walk = Math.sin(this.anim) * 8;
-        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(walk, 55); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(-walk, 55); ctx.stroke();
-
-        // Body
+        ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
+        ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3;
+        let walk = Math.sin(this.anim) * 7;
+        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(walk, 50); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(-walk, 50); ctx.stroke();
         ctx.fillStyle = this.color;
+        ctx.beginPath(); ctx.roundRect(-8, 8, 16, 26, 4); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI*2); ctx.fill();
+        let skill = (this === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : this.skill;
         ctx.beginPath();
-        ctx.roundRect(-10, 8, 20, 28, 4);
-        ctx.fill();
-        
-        // Head
-        ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
-        
-        // Arm
-        let act = (this === p1) ? (inputs.spike || inputs.lob || inputs.buffer > 0) : this.skill;
-        ctx.beginPath(); ctx.moveTo(8, 12); 
-        ctx.lineTo(30, (act && (inputs.spike || this.skill==='spike')) ? -15 : 35); 
+        if(skill === 'spike') { ctx.moveTo(8, 10); ctx.lineTo(30, -15); }
+        else if(skill === 'lob') { ctx.moveTo(8, 15); ctx.lineTo(35, 45); }
+        else { ctx.moveTo(4, 15); ctx.lineTo(4, 40); }
         ctx.stroke();
-        
         ctx.restore();
     }
 }
 
 const ball = {
-    r: 12, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
+    r: 10, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
     spawn() { this.y = H * 0.2; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update() {
         if(this.lock > 0) this.lock--;
         this.dy += 0.45; this.x += this.dx; this.y += this.dy;
-        
-        if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
             if(Math.abs(this.dy) > 3) this.dy *= -0.6;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
         }
-        // Net Collision
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 3 : Math.abs(this.dx) + 3;
-            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 3) : NET.x + (NET.w/2 + this.r + 3);
+            this.dx = (this.x < NET.x) ? -Math.abs(this.dx) - 2.5 : Math.abs(this.dx) + 2.5;
+            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 2) : NET.x + (NET.w/2 + this.r + 2);
         }
     },
-    draw() { 
-        ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); 
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
-    }
+    draw() { ctx.fillStyle = "var(--gold)"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
 };
 
 const p1 = new Athlete('right', '#ff4757'), cpu = new Athlete('left', '#2e86de');
@@ -236,56 +209,34 @@ function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
     if(inputs.buffer > 0) inputs.buffer--;
-
-    // Court Floor
-    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 50);
-    ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
-
+    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
+    ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     p1.dx = inputs.moveX * 8.5;
-    
-    // AI 
     let d = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = d > 5 ? 7 : d < -5 ? -7 : 0;
-        if(!cpu.air && ball.y < G_Y - 100 && Math.abs(d) < 80) { cpu.dy = -13; cpu.air = true; }
-        cpu.skill = (Math.abs(NET.x - cpu.x) < 150) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
+        cpu.dx = d > 5 ? 7.5 : d < -5 ? -7.5 : 0;
+        if(!cpu.air && ball.y < G_Y - 90 && Math.abs(d) < 70) { cpu.dy = -17; cpu.air = true; }
+        cpu.skill = (Math.abs(NET.x - cpu.x) < 140) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
     } else { cpu.dx = (cpu.x < W * 0.2) ? 4 : -4; cpu.skill = null; }
-
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        
-        let skill = (p === p1) ? (inputs.spike ? 'spike' : inputs.lob ? 'lob' : (inputs.buffer > 0 ? 'spike' : null)) : p.skill;
-        
-        // Accurate Hitbox
-        let hb = { x1: p.x - 45, x2: p.x + 45, y1: p.y - 25, y2: p.y + 75 };
-
+        let action = (p === p1) ? (inputs.spike ? 'spike' : (inputs.lob || inputs.buffer > 0 ? 'lob' : null)) : p.skill;
+        let hb = { x1: p.x - 40, x2: p.x + 40, y1: p.y - 20, y2: p.y + 70 };
         if(ball.x > hb.x1 && ball.x < hb.x2 && ball.y > hb.y1 && ball.y < hb.y2 && ball.lock === 0) {
             ball.lock = 12;
-            const dir = (p.side === 'right') ? -1 : 1;
-            
-            if(skill === 'spike') {
-                ball.dx = dir * 18;
-                ball.dy = (ball.y < p.y + 15) ? 10 : 4;
-            } else if(skill === 'lob') {
-                ball.dx = dir * 8;
-                ball.dy = (ball.y > G_Y - 50) ? -23 : -18;
-            } else {
-                ball.dx = dir * 6 + (p.dx * 0.3);
-                ball.dy = -8;
-            }
-            ball.x = p.x + (dir * 50);
-            inputs.buffer = 0;
+            const side = (p.side === 'right') ? -1 : 1;
+            if(action === 'spike') { ball.dx = side * 18; ball.dy = (ball.y < p.y + 15) ? 10 : 4; }
+            else if(action === 'lob') { ball.dx = side * 7.5; ball.dy = -23; }
+            else { ball.dx = side * 6; ball.dy = -8; }
+            ball.x = p.x + (side * 45); inputs.buffer = 0;
         }
     });
-
     ball.update(); ball.draw();
     document.getElementById('s-u').innerText = state.u;
     document.getElementById('s-c').innerText = state.c;
     requestAnimationFrame(loop);
 }
-
 window.addEventListener('resize', resize);
-document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 </script>
 </body>
 </html>
