@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro Circuit</title>
+    <title>Elite Volley: Pro-Circuit v2</title>
     <style>
         :root { --gold: #ffd700; --red: #ff4757; --blue: #2e86de; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -82,12 +82,12 @@ function start() {
 function resize() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
-    G_Y = H - 60; // Lowered stage
-    NET = { x: W/2, y: G_Y - 140, w: 8, h: 140 }; // Scaled net
+    G_Y = H - 60; 
+    NET = { x: W/2, y: G_Y - 140, w: 8, h: 140 }; 
     if(p1) p1.reset(); if(cpu) cpu.reset();
 }
 
-// Input Handlers
+// Controls
 const lZone = document.getElementById('left-ctrl');
 lZone.addEventListener('touchstart', e => { e.preventDefault(); input.id = e.changedTouches[0].identifier; });
 window.addEventListener('touchmove', e => {
@@ -103,7 +103,14 @@ const bind = (id, act) => {
     const b = document.getElementById(id);
     b.addEventListener('touchstart', e => { 
         e.preventDefault(); 
-        if(act === 'jump') { if(!p1.air) { p1.dy = -15; p1.air = true; } }
+        if(act === 'jump') { 
+            if(!p1.air) { 
+                p1.dy = -15; 
+                p1.air = true;
+                // CAPTURE MOMENTUM: Allow diagonal jumping
+                p1.jumpDx = input.x * 8;
+            } 
+        }
         else p1.skill = act;
     });
     b.addEventListener('touchend', () => p1.skill = null);
@@ -111,31 +118,44 @@ const bind = (id, act) => {
 bind('spike', 'spike'); bind('lob', 'lob'); bind('jump', 'jump');
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 75; } // Smaller character scale
-    reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 75; this.jumpDx = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.jumpDx = 0; }
     update() {
-        this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 0.8; 
-        else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        // Horizontal logic
+        if(this.air) {
+            this.x += this.jumpDx; // Maintain horizontal momentum in air
+        } else {
+            this.x += this.dx;
+        }
+
+        // Vertical logic
+        this.y += this.dy;
+        if(this.y < G_Y - this.h) {
+            this.dy += 0.8; 
+        } else { 
+            this.y = G_Y - this.h; 
+            this.dy = 0; 
+            this.air = false; 
+            this.jumpDx = 0; 
+        }
+
+        // Boundary logic
         const limit = NET.x + (this.side === 'right' ? 25 : -25);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-30, this.x)) : Math.min(limit, Math.max(30, this.x));
-        this.anim += Math.abs(this.dx) * 0.12;
+        this.anim += Math.abs(this.air ? this.jumpDx : this.dx) * 0.12;
     }
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
         if(this.side === 'right') ctx.scale(-1, 1);
-
         ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.lineCap = "round";
 
-        // PRO JUMP CURVE
         let spineArch = 0;
         if(this.air) {
             spineArch = (this.dy < 0) ? -0.25 : 0.05;
-            // Leg Bend Logic
             ctx.beginPath(); // Front leg
             ctx.moveTo(0, 40); ctx.lineTo(10, 50); ctx.lineTo(8, 75); ctx.stroke();
-            ctx.beginPath(); // Back leg curved back
+            ctx.beginPath(); // Back leg curved back (The requested volleyball bend)
             ctx.moveTo(0, 40); ctx.lineTo(-15, 50); ctx.lineTo(-30, 35); ctx.stroke();
         } else {
             let s = Math.sin(this.anim) * 12;
@@ -146,16 +166,16 @@ class Athlete {
         ctx.save();
         ctx.rotate(spineArch);
         ctx.fillStyle = this.color; 
-        ctx.fillRect(-10, 8, 20, 35); // Core
-        ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill(); // Head
+        ctx.fillRect(-10, 8, 20, 35);
+        ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
 
         ctx.strokeStyle = "white";
         if(this.skill === 'spike') {
-            ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke(); // Reach
+            ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(35, -40); ctx.stroke();
         } else if(this.skill === 'lob') {
-            ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke(); // Underhand
+            ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(35, 25); ctx.lineTo(45, 20); ctx.stroke();
         } else {
-            ctx.beginPath(); ctx.moveTo(8, 15); ctx.lineTo(20, 45); ctx.stroke(); // Idle
+            ctx.beginPath(); ctx.moveTo(8, 15); ctx.lineTo(20, 45); ctx.stroke();
         }
         ctx.restore(); ctx.restore();
     }
@@ -166,10 +186,7 @@ const ball = {
     spawn() { this.y = H * 0.25; this.dx = 0; this.dy = 0; this.x = W * 0.25; },
     update() {
         this.dy += 0.45; this.dx *= 0.995; this.x += this.dx; this.y += this.dy;
-        
-        // NO-HIDE GUARD
         if(this.y < this.r) { this.y = this.r; this.dy *= -0.5; }
-
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r;
             if(Math.abs(this.dy) > 3) this.dy *= -0.65;
@@ -191,38 +208,45 @@ function loop() {
     if(!state.active) return;
     ctx.clearRect(0,0,W,H);
     
-    // Pro Court
     ctx.fillStyle = "rgba(255,255,255,0.04)"; ctx.fillRect(0, G_Y, W, 60);
     ctx.fillStyle = "white"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
 
     p1.dx = input.x * 8;
 
-    // AI logic
+    // AI FIX: Predicting landing and staying anchored to floor
     let dist = ball.x - cpu.x;
     if (ball.x < NET.x) {
-        cpu.dx = dist > 5 ? 7 : dist < -5 ? -7 : 0;
-        if(!cpu.air && ball.y < G_Y - 120 && Math.abs(dist) < 60) cpu.dy = -14;
+        let moveSpeed = dist > 5 ? 7 : dist < -5 ? -7 : 0;
+        if(cpu.air) {
+            // CPU Diagonal Jump momentum
+        } else {
+            cpu.dx = moveSpeed;
+            if(ball.y < G_Y - 120 && Math.abs(dist) < 60) {
+                cpu.dy = -14;
+                cpu.air = true;
+                cpu.jumpDx = moveSpeed;
+            }
+        }
         cpu.skill = (Math.abs(NET.x - cpu.x) < 140) ? 'spike' : 'lob';
-    } else { cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; cpu.skill = null; }
+    } else { 
+        if(!cpu.air) cpu.dx = (cpu.x < W * 0.15) ? 4 : -4; 
+        cpu.skill = null; 
+    }
 
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let bDx = ball.x - p.x, bDy = ball.y - (p.y + 10), d = Math.sqrt(bDx*bDx + bDy*bDy);
         if(d < 65) {
             const side = (p.side === 'right') ? -1 : 1;
-            
             if(p.skill === 'spike') { 
                 ball.dx = side * 22; 
-                // Strike Ballistics: Calculate if ball goes down or straight based on Y hit-point
                 ball.dy = (ball.y < p.y) ? 12 : 2; 
             }
             else if(p.skill === 'lob') { 
-                ball.dx = side * 8; 
-                ball.dy = -18; // Pure Lob arc
+                ball.dx = side * 8; ball.dy = -18; 
             }
             else { 
-                ball.dx = side * 7 + (p.dx * 0.4); 
-                ball.dy = -10; 
+                ball.dx = side * 7 + (p.dx * 0.4); ball.dy = -10; 
             }
             ball.x = p.x + (side * 60);
         }
