@@ -3,102 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley Pro: Head Ball Physics</title>
+    <title>Elite Volley: Head Ball Pro</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.1); --border: rgba(255, 255, 255, 0.2); --accent: #00f2ff; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        body { background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; position: fixed; width: 100%; height: 100%; }
+        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; position: fixed; font-family: 'Inter', sans-serif; }
         
-        #hud { position: absolute; top: 40px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; pointer-events: none; }
-        .score-card { background: var(--glass); border: 1.5px solid var(--border); padding: 10px 25px; border-radius: 12px; backdrop-filter: blur(10px); font-size: 28px; font-weight: 900; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        #timer { font-size: 24px; color: var(--accent); min-width: 80px; text-align: center; }
+        #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; pointer-events: none; }
+        .score { background: var(--glass); border: 1px solid var(--border); padding: 8px 20px; border-radius: 10px; backdrop-filter: blur(10px); font-size: 24px; font-weight: 900; color: #fff; }
+        #timer { font-size: 22px; color: var(--accent); font-weight: 800; min-width: 80px; text-align: center; }
 
         canvas { display: block; width: 100vw; height: 100vh; }
 
-        #controls { position: absolute; bottom: 40px; width: 100%; padding: 0 40px; display: flex; justify-content: space-between; align-items: flex-end; }
-        .joystick-area { width: 150px; height: 60px; background: var(--glass); border-radius: 30px; border: 1px solid var(--border); position: relative; }
-        #knob { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; }
+        #joy-zone { position: absolute; bottom: 50px; left: 50px; width: 150px; height: 60px; background: var(--glass); border-radius: 30px; border: 1px solid var(--border); pointer-events: auto; }
+        #knob { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); }
         
-        .action-grid { display: grid; grid-template-columns: repeat(3, 70px); gap: 10px; }
-        .btn { background: var(--glass); border: 1px solid var(--border); height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.8); transition: 0.1s; }
-        .btn:active { background: #fff; color: #000; transform: scale(0.95); }
-        #btn-jump { grid-column: span 3; background: rgba(0, 242, 255, 0.2); border-color: var(--accent); color: var(--accent); }
+        #act-zone { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(3, 75px); gap: 10px; pointer-events: auto; }
+        .btn { background: var(--glass); border: 1px solid var(--border); height: 55px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 11px; text-transform: uppercase; pointer-events: auto; }
+        .btn:active { background: #fff; color: #000; }
+        #jump-btn { grid-column: span 3; border-color: var(--accent); color: var(--accent); }
+
+        #overlay { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .start-btn { padding: 20px 50px; background: #fff; color: #000; border-radius: 5px; font-weight: 900; letter-spacing: 2px; }
     </style>
 </head>
 <body>
 
-<div id="hud">
-    <div class="score-card" id="cpu-score">0</div>
-    <div id="timer">01:00</div>
-    <div class="score-card" id="user-score">0</div>
+<div id="overlay">
+    <h1 style="color:white; margin-bottom: 20px;">PRO VOLLEY 2026</h1>
+    <div class="start-btn" onclick="startBall()">KICKOFF</div>
 </div>
 
-<canvas id="game"></canvas>
+<div id="hud">
+    <div class="score" id="s-c">0</div>
+    <div id="timer">01:00</div>
+    <div class="score" id="s-u">0</div>
+</div>
 
-<div id="controls">
-    <div class="joystick-area" id="joy"><div id="knob"></div></div>
-    <div class="action-grid">
-        <div class="btn" data-type="lift">Lift</div>
-        <div class="btn" data-type="lob">Lob</div>
-        <div class="btn" data-type="spike">Strike</div>
-        <div class="btn" id="btn-jump" data-type="jump">Jump</div>
+<canvas id="canvas"></canvas>
+
+<div id="ui-layer">
+    <div id="joy-zone"><div id="knob"></div></div>
+    <div id="act-zone">
+        <div class="btn" id="btn-lift">Lift</div>
+        <div class="btn" id="btn-lob">Lob</div>
+        <div class="btn" id="btn-strike">Strike</div>
+        <div class="btn" id="jump-btn">JUMP</div>
     </div>
 </div>
 
 <script>
-const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
-const knob = document.getElementById('knob'), joy = document.getElementById('joy');
+const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
 let W, H, G_Y, NET;
-let state = { u: 0, c: 0, time: 60, active: true };
-let input = { x: 0, buffer: '', timer: 0, joyID: null };
-
-// Strategy Bag (Anti-Repetition)
-let strategyBag = [1, 2, 3, 4, 5];
-function getTacticalRoll() {
-    if (strategyBag.length === 0) strategyBag = [1, 2, 3, 4, 5];
-    const idx = Math.floor(Math.random() * strategyBag.length);
-    return strategyBag.splice(idx, 1)[0];
-}
+let state = { u: 0, c: 0, time: 60, active: false };
+let input = { x: 0, buffer: '', bTimer: 0, joyID: null };
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
     G_Y = H - 60; NET = { x: W/2, y: G_Y - 90, w: 8, h: 90 };
 }
 
-class Entity {
+function startBall() {
+    document.getElementById('overlay').style.display = 'none';
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    state.active = true;
+    resize();
+    ball.spawn();
+    setInterval(() => { if(state.time > 0) state.time--; }, 1000);
+    requestAnimationFrame(loop);
+}
+
+class Athlete {
     constructor(side, color) {
         this.side = side; this.color = color;
-        this.w = 40; this.h = 45;
-        this.reset();
+        this.w = 35; this.h = 42; this.reset();
     }
     reset() {
-        this.x = (this.side === 'left') ? W*0.15 : W*0.85;
-        this.y = G_Y - this.h; this.dx = this.dy = 0;
-        this.air = false; this.recovery = 0; this.lastRoll = 0;
+        this.x = (this.side === 'left') ? W * 0.15 : W * 0.85;
+        this.y = G_Y - this.h; this.dx = 0; this.dy = 0; this.air = false;
+        this.combo = 0; this.skill = null;
     }
     update() {
         this.x += this.dx; this.y += this.dy;
-        if (this.y < G_Y - this.h) this.dy += 1.4; 
+        if (this.y < G_Y - this.h) this.dy += 1.5;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         
-        let bounds = (this.side === 'left') ? [20, NET.x - 25] : [NET.x + 25, W - 20];
-        this.x = Math.max(bounds[0], Math.min(bounds[1], this.x));
+        let min = (this.side === 'left') ? 20 : NET.x + 25;
+        let max = (this.side === 'left') ? NET.x - 25 : W - 20;
+        this.x = Math.max(min, Math.min(max, this.x));
     }
     draw() {
         ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.roundRect(this.x - 15, this.y, 30, 40, 8); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(this.x - 15, this.y, 30, 40, 5); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y - 5, 12, 0, Math.PI*2); ctx.fill();
     }
 }
 
 const ball = {
     x: 0, y: 0, dx: 0, dy: 0, r: 10, lock: 0,
-    spawn() { this.x = W/2; this.y = H*0.2; this.dx = (state.u > state.c) ? -3 : 3; this.dy = 0; },
+    spawn() { this.x = W * 0.7; this.y = H * 0.3; this.dx = -4; this.dy = 0; this.lock = 0; },
     update() {
         if (this.lock > 0) this.lock--;
-        // Sub-stepping for collision precision
+        // Physics Sub-stepping (Anti-Ghosting)
         for (let i = 0; i < 6; i++) {
-            this.x += this.dx/6; this.y += this.dy/6;
+            this.x += this.dx / 6; this.y += this.dy / 6;
             if (this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
                 this.dx *= -0.6; this.x = (this.x < NET.x) ? NET.x - 15 : NET.x + 15;
             }
@@ -108,94 +119,80 @@ const ball = {
             if (Math.abs(this.dy) > 2) this.dy *= -0.5;
             else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); }
         }
-        if (this.x < 0 || this.x > W) this.spawn();
     }
 };
 
-const p1 = new Entity('right', '#4a90e2'), cpu = new Entity('left', '#ff4d4d');
+const p1 = new Athlete('right', '#4a90e2'), cpu = new Athlete('left', '#ff3b3b');
 
-function aiBrain() {
-    if (ball.x > NET.x) { // Ball is on Player's side
-        cpu.dx = (W * 0.12 - cpu.x) * 0.1;
-        cpu.recovery = 0; return;
+function aiLogic() {
+    if (ball.x > NET.x) { // Ball is on user side
+        cpu.dx = (W * 0.15 - cpu.x) * 0.1;
+        cpu.combo = 0; return;
     }
 
-    // High Speed and Net Recovery Logic
-    const ballBackwards = (ball.dx < 0.5 && ball.x > NET.x - 100);
-    
-    if (ballBackwards || cpu.recovery > 0) {
+    // Pro-Recovery Logic (Stuck on Net)
+    const stuck = (ball.x > NET.x - 100 && ball.dx < 1);
+    if (stuck || cpu.combo > 0) {
         cpu.dx = (ball.x - cpu.x) * 0.8;
-        if (cpu.recovery === 0) cpu.recovery = 1;
-        if (cpu.recovery === 1) {
+        if (cpu.combo === 0) cpu.combo = 1;
+        if (cpu.combo === 1) {
             cpu.skill = 'lift';
-            if (ball.lock > 0) cpu.recovery = 2;
+            if (ball.lock > 0) cpu.combo = 2;
         } else {
             if (!cpu.air) { cpu.dy = -18; cpu.air = true; }
             cpu.skill = 'spike';
-            if (ball.dx > 5) cpu.recovery = 0;
+            if (ball.dx > 5) cpu.combo = 0;
         }
     } else {
-        // Predictive Movement
-        let predX = ball.x + (ball.dx * 15);
-        cpu.dx = (predX - cpu.x) * 0.2;
-        
-        if (Math.abs(ball.x - cpu.x) < 150 && ball.lock === 0) {
-            if (cpu.lastRoll === 0) cpu.lastRoll = getTacticalRoll();
-            const moves = { 1: 'lob', 2: 'lob', 3: 'lift', 4: 'spike', 5: 'lob' };
-            cpu.skill = moves[cpu.lastRoll];
-            if (cpu.skill === 'spike' && !cpu.air && ball.y < G_Y - 40) { cpu.dy = -17; cpu.air = true; }
-        }
+        // Normal Tactical Play
+        cpu.dx = (ball.x - cpu.x) * 0.4;
+        let dice = Math.floor(Date.now() / 1500) % 5;
+        cpu.skill = ['lob', 'lift', 'spike', 'lob', 'lift'][dice];
+        if (cpu.skill === 'spike' && !cpu.air && ball.y < G_Y - 50) { cpu.dy = -17; cpu.air = true; }
     }
 }
 
-function handleHits(p) {
-    let act = (p === p1) ? (input.timer > 0 ? input.buffer : null) : p.skill;
+function handleHit(p) {
+    let act = (p === p1) ? (input.bTimer > 0 ? input.buffer : null) : p.skill;
     if (!act) return;
 
-    let range = (Math.abs(ball.dx) > 12) ? 75 : 60;
-    if (Math.abs(ball.x - p.x) < range && Math.abs(ball.y - p.y) < 85 && ball.lock === 0) {
-        ball.lock = 20; 
-        if (p === cpu) cpu.lastRoll = 0; // Reset roll for next hit
-        let dir = (p.side === 'right') ? -1 : 1;
-        
-        if (act === 'spike') { ball.dx = dir * 25; ball.dy = 7; }
-        else if (act === 'lift') { ball.dx = dir * 0.5; ball.dy = -17; }
-        else { ball.dx = dir * 10; ball.dy = -21; }
-        
-        if (p === p1) input.timer = 0;
+    let hitZone = (Math.abs(ball.dx) > 15) ? 75 : 60;
+    if (Math.abs(ball.x - p.x) < hitZone && Math.abs(ball.y - p.y) < 85 && ball.lock === 0) {
+        ball.lock = 20; let dir = (p.side === 'right') ? -1 : 1;
+        if (act === 'spike') { ball.dx = dir * 26; ball.dy = 7; }
+        else if (act === 'lift') { ball.dx = dir * 0.5; ball.dy = -18; }
+        else { ball.dx = dir * 10; ball.dy = -22; }
+        if (p === p1) input.bTimer = 0;
     }
 }
 
 function loop() {
+    if (!state.active) return;
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
-    ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
-
-    aiBrain();
-    [p1, cpu].forEach(p => { p.update(); p.draw(); handleHits(p); });
+    ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(NET.x-4, NET.y, 8, 90);
+    
+    aiLogic();
+    [p1, cpu].forEach(p => { p.update(); p.draw(); handleHit(p); });
     ball.update();
-    
-    ctx.fillStyle = "#fff"; ctx.shadowBlur = 15; ctx.shadowColor = "#fff";
-    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
 
-    if (input.timer > 0) input.timer--;
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 10, 0, Math.PI*2); ctx.fill();
     
-    document.getElementById('cpu-score').innerText = state.c;
-    document.getElementById('user-score').innerText = state.u;
+    if (input.bTimer > 0) input.bTimer--;
+    document.getElementById('s-c').innerText = state.c;
+    document.getElementById('s-u').innerText = state.u;
+    document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`;
     requestAnimationFrame(loop);
 }
 
-// Controls
+// Ergonomic Inputs
 window.addEventListener('touchstart', e => {
     for (let t of e.changedTouches) {
-        if (t.clientX < W/2) input.joyID = t.identifier;
-        document.querySelectorAll('.btn').forEach(b => {
-            const r = b.getBoundingClientRect();
+        if (t.clientX < W / 2) input.joyID = t.identifier;
+        ['btn-lift', 'btn-lob', 'btn-strike', 'jump-btn'].forEach(id => {
+            const r = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
-                let type = b.getAttribute('data-type');
-                if (type === 'jump') { if(!p1.air) { p1.dy = -17.5; p1.air = true; } }
-                else { input.buffer = type; input.timer = 25; }
+                if (id === 'jump-btn') { if(!p1.air) { p1.dy = -18; p1.air = true; } }
+                else { input.buffer = id.split('-')[1]; input.bTimer = 30; }
             }
         });
     }
@@ -204,9 +201,9 @@ window.addEventListener('touchstart', e => {
 window.addEventListener('touchmove', e => {
     for (let t of e.touches) {
         if (t.identifier === input.joyID) {
-            const r = joy.getBoundingClientRect();
-            let dx = (t.clientX - (r.left + r.width/2)) / (r.width/2);
-            input.x = Math.max(-1, Math.min(1, dx));
+            let r = joyZone.getBoundingClientRect();
+            let val = (t.clientX - (r.left + r.width/2)) / (r.width/2);
+            input.x = Math.max(-1, Math.min(1, val));
             knob.style.left = (50 + input.x * 40) + "%";
             p1.dx = input.x * 9;
         }
@@ -214,16 +211,9 @@ window.addEventListener('touchmove', e => {
 });
 
 window.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) {
-        if (t.identifier === input.joyID) { 
-            input.x = 0; p1.dx = 0; knob.style.left = "50%";
-        }
-    }
+    for (let t of e.changedTouches) { if (t.identifier === input.joyID) { p1.dx = 0; knob.style.left = "50%"; } }
 });
 
-setInterval(() => { if(state.time > 0) state.time--; document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; }, 1000);
-
-resize(); ball.spawn(); loop();
 window.addEventListener('resize', resize);
 </script>
 </body>
