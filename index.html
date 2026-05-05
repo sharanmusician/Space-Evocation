@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Champion Protocol</title>
+    <title>Elite Volley: Ultra Pro Edition</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -28,7 +28,7 @@
 <body>
 <div id="game-container">
     <div id="start-screen" class="screen">
-        <h1 class="status-text">CHAMPION VOLLEY</h1>
+        <h1 class="status-text">ELITE VOLLEY</h1>
         <button class="action-btn" id="start-btn">KICKOFF</button>
     </div>
     <div id="end-screen" class="screen">
@@ -56,7 +56,7 @@ const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 function goFullscreen() {
     const el = document.documentElement;
     const rfs = el.requestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-    if (rfs) rfs.call(el).catch(err => {});
+    if (rfs) rfs.call(el).catch(err => console.log("Fullscreen blocked"));
 }
 
 document.getElementById('start-btn').addEventListener('click', () => {
@@ -91,7 +91,7 @@ function endMatch() {
     state.active = false;
     clearInterval(state.timerInt);
     const title = document.getElementById('result-title');
-    title.innerText = (state.u > state.c) ? "PRO CHAMPION" : (state.u < state.c) ? "DEFEATED" : "DRAW";
+    title.innerText = (state.u > state.c) ? "MATCH DOMINATED" : (state.u < state.c) ? "DEFEAT" : "STALEMATE";
     document.getElementById('result-score').innerText = `YOU ${state.u} - ${state.c} CPU`;
     document.getElementById('end-screen').style.display = 'flex';
 }
@@ -115,7 +115,7 @@ window.addEventListener('touchstart', e => {
             const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
                 if (id === 'jump' && !p1.air) { p1.dy = -17.5; p1.air = true; }
-                else { inputs.buffer = 30; inputs.type = id; }
+                else { inputs.buffer = 25; inputs.type = id; }
                 document.getElementById(id).classList.add('active');
             }
         });
@@ -143,7 +143,7 @@ class Athlete {
     constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; }
     reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; }
     update() {
-        this.dx = (this === p1) ? inputs.moveX * 8.5 : this.cpuDX;
+        this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
         if(this.y < G_Y - this.h) this.dy += 1.55; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
@@ -159,9 +159,13 @@ class Athlete {
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
         let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : this.cpuSkill;
         ctx.beginPath();
-        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) { ctx.moveTo(0, 10); ctx.lineTo(20, -20); }
-        else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0)) { ctx.moveTo(0, 10); ctx.lineTo(18, 25); }
-        else { ctx.moveTo(0, 10); ctx.lineTo(walk, 25); }
+        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) {
+            ctx.moveTo(0, 10); ctx.lineTo(20, -20); 
+        } else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0)) {
+            ctx.moveTo(0, 10); ctx.lineTo(18, 25);
+        } else {
+            ctx.moveTo(0, 10); ctx.lineTo(walk, 25);
+        }
         ctx.stroke();
         ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
         ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
@@ -199,57 +203,59 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // NATIONAL CHAMPION MULTI-STAGE TACTICS
-    let landingX = ball.x + (ball.dx * 18);
-    let cpuTarget = landingX;
+    // NATIONAL CHAMPION AI TRAINING
+    let predictX = ball.x + (ball.dx * 18); // Earlier prediction
+    let cpuDist = predictX - cpu.x;
     
     if (ball.x < NET.x + 40) {
-        cpu.cpuDX = (cpuTarget - cpu.x) > 5 ? 8 : (cpuTarget - cpu.x) < -5 ? -8 : 0;
+        cpu.cpuDX = cpuDist > 5 ? 8.5 : cpuDist < -5 ? -8.5 : 0;
         
-        // Dynamic Button Logic
+        // Anti-Dodge Positioning: Force move under ball
         if (Math.abs(ball.x - cpu.x) < 40) {
-            if (ball.y > G_Y - 110 && !cpu.air) {
-                // Tactic 1: Set up for a Smash
+            // Net Defense: If ball stuck at net, Lift and Smash
+            if (Math.abs(ball.x - NET.x) < 30 && ball.y > G_Y - 100) {
                 cpu.cpuSkill = 'lift';
-                setTimeout(() => { if(!cpu.air && state.active) { cpu.dy = -17.5; cpu.air = true; } }, 120);
-            } else if (cpu.air || ball.y < cpu.y - 15) {
-                // Tactic 2: Professional Spike
-                cpu.cpuSkill = 'spike';
-            } else if (cpu.x > NET.x - 100) {
-                // Tactic 3: Net Defense Lob
-                cpu.cpuSkill = 'lob';
+                if(!cpu.air) { cpu.dy = -17; cpu.air = true; }
+            } else if (ball.y < cpu.y - 10) { 
+                cpu.cpuSkill = 'spike'; 
+                if (!cpu.air && ball.y < G_Y - 150) { cpu.dy = -18; cpu.air = true; }
             } else {
                 cpu.cpuSkill = 'spike';
             }
         }
     } else {
-        cpu.cpuDX = (cpu.x < W*0.2) ? 6 : (cpu.x > W*0.25) ? -6 : 0;
+        // Return to optimal receiving position
+        cpu.cpuDX = (cpu.x < W*0.18) ? 6 : (cpu.x > W*0.22) ? -6 : 0;
         cpu.cpuSkill = null;
     }
     
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
-        let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
+        let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : cpu.cpuSkill;
         
-        // INTERCEPTOR SNAP HITBOX
-        let hX = 55, hY_T = (act === 'spike') ? 130 : 65, hY_B = 40;
+        // INTERCEPTOR HITBOX: Works in Air and Overhead
+        let xRange = 55;
+        let yRangeTop = (act === 'spike') ? 120 : 60; // Extended Reach
+        let yRangeBot = 40;
         
-        if(Math.abs(ball.x - p.x) < hX && ball.y < p.y + hY_B && ball.y > p.y - hY_T && ball.lock === 0) {
-            ball.lock = 18;
-            p.actionAnim = 12;
-            p.lastAction = act;
-            let dir = (p.side === 'right') ? -1 : 1;
-            
-            if(act === 'spike') { 
-                ball.dx = dir * 18.5; ball.dy = 4; ball.y = p.y - 25; 
-            } else if(act === 'lift') { 
-                ball.dx = dir * 0.3; ball.dy = -14.5; 
-            } else if(act === 'lob') { 
-                ball.dx = dir * 7.8; ball.dy = -17.5; 
-            } else { 
-                ball.dx = dir * 5.8; ball.dy = -8.5; 
+        if(Math.abs(ball.x - p.x) < xRange && ball.y < p.y + yRangeBot && ball.y > p.y - yRangeTop && ball.lock === 0) {
+            // Act only if button was pressed (human) or logic determined (AI)
+            if (act) {
+                ball.lock = 18;
+                p.actionAnim = 12;
+                p.lastAction = act;
+                let dir = (p.side === 'right') ? -1 : 1;
+                
+                if(act === 'spike') { 
+                    ball.dx = dir * 19; ball.dy = 4; 
+                    ball.y = p.y - 25; // Snap ball to hitting hand
+                } else if(act === 'lift') { 
+                    ball.dx = dir * 0.3; ball.dy = -14.5; 
+                } else if(act === 'lob') { 
+                    ball.dx = dir * 7.8; ball.dy = -18; 
+                }
+                if(p === p1) inputs.buffer = 0;
             }
-            if(p === p1) inputs.buffer = 0;
         }
     });
     
