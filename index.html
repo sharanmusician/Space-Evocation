@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball: Pro Edition</title>
+    <title>Skelly Ball: Strategic</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -80,7 +80,7 @@ window.addEventListener('touchstart', e => {
         ['lift', 'lob', 'spike', 'jump'].forEach(id => {
             const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                if (id === 'jump' && !p1.air) { p1.dy = -17.5; p1.air = true; }
+                if (id === 'jump' && !p1.air) { p1.dy = -15.5; p1.air = true; }
                 else { inputs.buffer = 25; inputs.type = id; }
                 document.getElementById(id).classList.add('active');
             }
@@ -93,12 +93,12 @@ window.addEventListener('touchmove', e => { for (let t of e.touches) if (t.ident
 window.addEventListener('touchend', e => { for (let t of e.changedTouches) { if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); } ['lift', 'lob', 'spike', 'jump'].forEach(k => document.getElementById(k).classList.remove('active')); } });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.targetX = 0; this.strikeReady = false; }
-    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; this.targetX = W * 0.1; this.strikeReady = false; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.targetX = 0; this.comboPhase = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; this.targetX = W * 0.1; this.comboPhase = 0; }
     update(stepSize = 1) {
-        this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
+        this.dx = (this === p1) ? inputs.moveX * 7.5 : this.cpuDX;
         this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
-        if(this.y < G_Y - this.h) this.dy += 1.55 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.h) this.dy += 1.35 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
         this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2; if(this.actionAnim > 0) this.actionAnim--;
@@ -122,11 +122,10 @@ const ball = {
     update(stepSize = 1) {
         if(this.lock > 0) this.lock--; this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            let prevDx = this.dx;
             this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
-            if (prevDx > 0 && this.dx <= 0) { cpu.strikeReady = true; cpu.targetX = this.x + 10; }
         }
-        this.dy += 0.22 * stepSize; if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
+        this.dy += 0.18 * stepSize;
+        if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
     draw() { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
@@ -136,7 +135,7 @@ const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
 
 function projectLandingX() {
     let tx = ball.x, ty = ball.y, tdx = ball.dx, tdy = ball.dy;
-    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += 0.22; if (tx < 20 || tx > W-20) tdx *= -1; }
+    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += 0.18; if (tx < 20 || tx > W-20) tdx *= -1; }
     return tx;
 }
 
@@ -144,40 +143,36 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // --- SKELLY AI TACTICAL ---
-    if (ball.x < NET.x + 40) {
+    // --- SKELLY AI STRATEGY ---
+    if (ball.x < NET.x + 50) {
         let landingX = projectLandingX();
         
-        // COMBO LOGIC: If ball just hit net or landing in front, prepare Strike
-        if (cpu.strikeReady || landingX > W * 0.3) {
+        // KILL ZONE (Front)
+        if (landingX > W * 0.32) {
             cpu.targetX = Math.min(landingX, NET.x - 30);
-            
-            // Phase 1: The Lift
-            if (Math.abs(ball.x - cpu.x) < 50 && ball.y > G_Y - 80) {
+            if (cpu.comboPhase === 0 && Math.abs(ball.x - cpu.x) < 45 && ball.y > G_Y - 80) {
                 cpu.cpuSkill = 'lift';
-                cpu.strikeReady = true; // Engage Strike Phase
+                cpu.comboPhase = 1; 
             }
-            
-            // Phase 2: The Jump and Strike (Only when ball is rising or at peak)
-            if (cpu.strikeReady && ball.dy < 1 && ball.y < G_Y - 120) {
-                if (!cpu.air) { cpu.dy = -18.5; cpu.air = true; }
-                cpu.cpuSkill = 'spike'; 
-                if (ball.lock > 0) cpu.strikeReady = false; // Reset after hit
+            if (cpu.comboPhase === 1 && ball.dy < 0.5 && ball.y < G_Y - 130) {
+                if (!cpu.air) { cpu.dy = -15.5; cpu.air = true; }
+                cpu.cpuSkill = 'spike';
+                if (ball.lock > 0) cpu.comboPhase = 0;
             }
         } 
-        // BACK COURT: Strict Lob (No Uplift)
+        // LOB ZONE (Back & Mid)
         else {
-            cpu.targetX = Math.max(landingX, 35);
+            cpu.targetX = landingX;
+            cpu.comboPhase = 0;
             cpu.cpuSkill = 'lob';
-            cpu.strikeReady = false;
         }
 
         let diff = cpu.targetX - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 13 : 0;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 11.5 : 0;
     } else {
-        cpu.strikeReady = false;
-        let diff = (W * 0.1) - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 8 : 0;
+        cpu.comboPhase = 0;
+        let diff = (W * 0.12) - cpu.x;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 7.5 : 0;
         cpu.cpuSkill = null;
     }
     
@@ -190,9 +185,19 @@ function loop() {
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 28.5; ball.dy = 8.5; ball.y = p.y - 30; }
-                    else if(act === 'lift') { ball.dx = dir * 1.5; ball.dy = -19; }
-                    else if(act === 'lob') { ball.dx = dir * (p.x < W * 0.15 ? 15.5 : 11.5); ball.dy = -24; }
+                    if(act === 'spike') { ball.dx = dir * 25; ball.dy = 7.5; ball.y = p.y - 30; }
+                    else if(act === 'lift') { ball.dx = dir * 1.2; ball.dy = -17; }
+                    else if(act === 'lob') { 
+                        // STRATEGIC LOB VARIATION
+                        let rand = Math.random();
+                        let targetPower;
+                        if (rand < 0.33) targetPower = 15.5; // Back Side
+                        else if (rand < 0.66) targetPower = 12; // Mid Court
+                        else targetPower = 8.5; // Drop Shot (Front)
+                        
+                        ball.dx = dir * targetPower; 
+                        ball.dy = -22.5; 
+                    }
                     if(p === p1) inputs.buffer = 0;
                 }
             }
