@@ -44,14 +44,39 @@ const knob = document.getElementById('knob'), joyZone = document.getElementById(
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
+// Enter Full Screen Logic
+function enterFullScreen() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+    }
+    // Mobile orientation lock
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(e => console.log("Orientation lock ignored"));
+    }
+}
+
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
     G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 6, h: 80 };
     p1.reset(); cpu.reset();
 }
 
-document.getElementById('start-btn').addEventListener('click', () => { document.getElementById('start-screen').style.display = 'none'; initMatch(); });
-document.getElementById('rematch-btn').addEventListener('click', () => { document.getElementById('end-screen').style.display = 'none'; initMatch(); });
+document.getElementById('start-btn').addEventListener('click', () => { 
+    enterFullScreen();
+    document.getElementById('start-screen').style.display = 'none'; 
+    initMatch(); 
+});
+
+document.getElementById('rematch-btn').addEventListener('click', () => { 
+    enterFullScreen();
+    document.getElementById('end-screen').style.display = 'none'; 
+    initMatch(); 
+});
 
 function initMatch() {
     state.active = true; state.time = 60; state.u = 0; state.c = 0;
@@ -125,24 +150,21 @@ function loop() {
 
     // HEAD BALL PERFECT AI LOGIC
     if (ball.x < NET.x) {
-        // If ball hit net and returning OR stuck
         const isStuck = (Math.abs(ball.dx) < 1 && ball.x > NET.x - 60);
         
         if (isStuck || cpu.comboStep > 0) {
-            // RECOVERY MODE: LIFT -> JUMP -> STRIKE
-            cpu.cpuDX = (ball.x - cpu.x) * 0.5; // Precision alignment
+            cpu.cpuDX = (ball.x - cpu.x) * 0.5;
             if (cpu.comboStep === 0) cpu.comboStep = 1;
             
-            if (cpu.comboStep === 1) { // STEP 1: LIFT
+            if (cpu.comboStep === 1) {
                 cpu.cpuSkill = 'lift';
                 if (ball.lock > 0) cpu.comboStep = 2;
-            } else if (cpu.comboStep === 2) { // STEP 2: JUMP & STRIKE
+            } else if (cpu.comboStep === 2) {
                 if (!cpu.air) { cpu.dy = -18; cpu.air = true; }
                 cpu.cpuSkill = 'spike';
-                if (ball.dx > 5) cpu.comboStep = 0; // Success
+                if (ball.dx > 5) cpu.comboStep = 0;
             }
         } else {
-            // DICE SELECTION (ONLY IF NOT STUCK)
             if (Math.abs(ball.x - cpu.x) > 100 && ball.lock === 0) {
                 let r; do { r = Math.floor(Math.random() * 5) + 1; } while(r === cpu.lastDice);
                 cpu.lastDice = r;
