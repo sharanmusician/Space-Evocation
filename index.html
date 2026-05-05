@@ -3,58 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball: Fullscreen Pro</title>
+    <title>Skelly Ball: Pro Recovery</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        html, body { 
-            width: 100vw; height: 100vh; background: var(--bg); 
-            overflow: hidden; position: fixed; top: 0; left: 0; 
-            font-family: 'Inter', sans-serif; 
-        }
+        html, body { width: 100vw; height: 100vh; background: var(--bg); overflow: hidden; position: fixed; top: 0; left: 0; font-family: 'Inter', sans-serif; }
         #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
-        
-        #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; }
+        #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; }
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 600; backdrop-filter: blur(5px); }
         #timer { color: #fff; font-size: 24px; font-weight: 800; width: 100px; text-align: center; }
-        
         #joy-zone { position: absolute; bottom: 55px; left: 60px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
         #knob { position: absolute; width: 34px; height: 34px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        
         #act-zone { position: absolute; bottom: 30px; right: 30px; width: 210px; height: 100px; z-index: 20; opacity: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 45px 45px; gap: 8px; }
         .btn { background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; border-radius: 8px; text-transform: uppercase; }
         .btn.active { background: #fff; color: #000; }
         #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
-
-        .screen { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .screen { position: fixed; inset: 0; background: rgba(0,0,0,1); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .status-text { color: #fff; font-size: 42px; font-weight: 900; margin-bottom: 10px; text-align: center; }
         .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; cursor: pointer; }
     </style>
 </head>
 <body>
 <div id="game-container">
-    <div id="start-screen" class="screen">
-        <h1 class="status-text">SKELLY BALL</h1>
-        <button class="action-btn" id="start-btn">PLAY FULLSCREEN</button>
-    </div>
-    <div id="end-screen" class="screen" style="display:none">
-        <h1 class="status-text">MATCH OVER</h1>
-        <p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p>
-        <button class="action-btn" id="rematch-btn">REMATCH</button>
-    </div>
-    <div id="hud">
-        <div class="score-box" id="s-c">0</div>
-        <div id="timer">01:00</div>
-        <div class="score-box" id="s-u">0</div>
-    </div>
+    <div id="start-screen" class="screen"><h1 class="status-text">SKELLY BALL</h1><button class="action-btn" id="start-btn">PLAY NOW</button></div>
+    <div id="end-screen" class="screen" style="display:none"><h1 class="status-text">MATCH OVER</h1><p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p><button class="action-btn" id="rematch-btn">REMATCH</button></div>
+    <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
-    <div id="joy-zone"></div>
-    <div id="knob"></div>
+    <div id="joy-zone"></div><div id="knob"></div>
     <div id="act-zone">
-        <div class="btn" id="lift">Lift</div>
-        <div class="btn" id="lob">Lob</div>
-        <div class="btn" id="spike">Strike</div>
+        <div class="btn" id="lift">Lift</div><div class="btn" id="lob">Lob</div><div class="btn" id="spike">Strike</div>
         <div class="btn" id="jump">JUMP</div>
     </div>
 </div>
@@ -65,48 +43,28 @@ const knob = document.getElementById('knob'), joyZone = document.getElementById(
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
-// FULLSCREEN HANDLER
-function enterFullscreen() {
-    const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    else if (el.msRequestFullscreen) el.msRequestFullscreen();
+function toggleFullscreen() {
+    let docEl = document.documentElement;
+    let rfs = docEl.requestFullscreen || docEl.webkitRequestFullScreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+    if(rfs) rfs.call(docEl);
 }
 
-document.getElementById('start-btn').onclick = () => { 
-    enterFullscreen(); 
-    document.getElementById('start-screen').style.display='none'; 
-    initMatch(); 
-};
-
-document.getElementById('rematch-btn').onclick = () => { 
-    document.getElementById('end-screen').style.display='none'; 
-    initMatch(); 
-};
+document.getElementById('start-btn').onclick = () => { toggleFullscreen(); document.getElementById('start-screen').style.display='none'; initMatch(); };
+document.getElementById('rematch-btn').onclick = () => { document.getElementById('end-screen').style.display='none'; initMatch(); };
 
 function initMatch() {
     state.active = true; state.time = 60; state.u = 0; state.c = 0;
-    document.getElementById('hud').style.opacity = 1; 
-    document.getElementById('joy-zone').style.opacity = 1; 
-    document.getElementById('act-zone').style.opacity = 1;
+    document.getElementById('hud').style.opacity = 1; document.getElementById('joy-zone').style.opacity = 1; document.getElementById('act-zone').style.opacity = 1;
     resize(); ball.spawn();
     if(state.timerInt) clearInterval(state.timerInt);
     state.timerInt = setInterval(() => {
-        if(state.time > 0 && state.active) { 
-            state.time--; 
-            document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; 
-        }
+        if(state.time > 0 && state.active) { state.time--; document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; }
         else if(state.time <= 0 && state.active) endMatch();
     }, 1000);
     requestAnimationFrame(loop);
 }
 
-function endMatch() { 
-    state.active = false; 
-    clearInterval(state.timerInt); 
-    document.getElementById('result-score').innerText = `YOU ${state.u} - ${state.c} CPU`; 
-    document.getElementById('end-screen').style.display = 'flex'; 
-}
+function endMatch() { state.active = false; clearInterval(state.timerInt); document.getElementById('result-score').innerText = `YOU ${state.u} - ${state.c} CPU`; document.getElementById('end-screen').style.display = 'flex'; }
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
@@ -114,11 +72,7 @@ function resize() {
     updateKnobUI(0); p1.reset(); cpu.reset();
 }
 
-function updateKnobUI(val) { 
-    const r = joyZone.getBoundingClientRect(); 
-    knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 17)) + "px"; 
-    knob.style.top = (r.top + r.height/2) + "px"; 
-}
+function updateKnobUI(val) { const r = joyZone.getBoundingClientRect(); knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 17)) + "px"; knob.style.top = (r.top + r.height/2) + "px"; }
 
 window.addEventListener('touchstart', e => {
     for (let t of e.changedTouches) {
@@ -126,39 +80,25 @@ window.addEventListener('touchstart', e => {
         ['lift', 'lob', 'spike', 'jump'].forEach(id => {
             const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                if (id === 'jump' && !p1.air) { p1.dy = -11.5; p1.air = true; }
+                if (id === 'jump' && !p1.air) { p1.dy = -13.5; p1.air = true; }
                 else { inputs.buffer = 25; inputs.type = id; }
                 document.getElementById(id).classList.add('active');
             }
         });
     }
-}, {passive: false});
-
-function handleJoy(t) { 
-    const rJ = joyZone.getBoundingClientRect(); 
-    inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 17))); 
-    updateKnobUI(inputs.moveX); 
-}
-
-window.addEventListener('touchmove', e => { 
-    e.preventDefault(); // Stop mobile bounce/scroll
-    for (let t of e.touches) if (t.identifier === inputs.joyID) handleJoy(t); 
-}, {passive: false});
-
-window.addEventListener('touchend', e => { 
-    for (let t of e.changedTouches) { 
-        if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); } 
-        ['lift', 'lob', 'spike', 'jump'].forEach(k => document.getElementById(k).classList.remove('active')); 
-    } 
 });
 
+function handleJoy(t) { const rJ = joyZone.getBoundingClientRect(); inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 17))); updateKnobUI(inputs.moveX); }
+window.addEventListener('touchmove', e => { for (let t of e.touches) if (t.identifier === inputs.joyID) handleJoy(t); });
+window.addEventListener('touchend', e => { for (let t of e.changedTouches) { if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); } ['lift', 'lob', 'spike', 'jump'].forEach(k => document.getElementById(k).classList.remove('active')); } });
+
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; }
-    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.targetX = 0; this.comboPhase = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; this.targetX = W * 0.1; this.comboPhase = 0; }
     update(stepSize = 1) {
-        this.dx = (this === p1) ? inputs.moveX * 6.5 : this.cpuDX;
+        this.dx = (this === p1) ? inputs.moveX * 6.8 : this.cpuDX;
         this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
-        if(this.y < G_Y - this.h) this.dy += 0.9 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        if(this.y < G_Y - this.h) this.dy += 1.1 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
         this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2; if(this.actionAnim > 0) this.actionAnim--;
@@ -169,7 +109,7 @@ class Athlete {
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 38); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
         let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : this.cpuSkill;
-        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(20, -15); ctx.stroke(); } 
+        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(20, -20); ctx.stroke(); } 
         else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0)) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(18, 25); ctx.stroke(); } 
         ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
         ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill(); ctx.restore();
@@ -184,7 +124,7 @@ const ball = {
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
         }
-        this.dy += 0.14 * stepSize;
+        this.dy += 0.15 * stepSize;
         if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
@@ -195,7 +135,7 @@ const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
 
 function projectLandingX() {
     let tx = ball.x, ty = ball.y, tdx = ball.dx, tdy = ball.dy;
-    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += 0.14; if (tx < 20 || tx > W-20) tdx *= -1; }
+    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += 0.15; if (tx < 20 || tx > W-20) tdx *= -1; }
     return tx;
 }
 
@@ -203,39 +143,62 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // AI LOGIC
+    // --- SKELLY AI RECOVERY LOGIC ---
     if (ball.x < NET.x + 50) {
         let landingX = projectLandingX();
-        if (ball.x < cpu.x - 20 && ball.y < G_Y - 80) {
-            cpu.targetX = ball.x; if (!cpu.air) { cpu.dy = -10; cpu.air = true; }
-            cpu.cpuSkill = Math.random() > 0.5 ? 'spike' : 'lob';
-        } else if (landingX > W * 0.32) {
+        
+        // CHECK IF BALL IS BEHIND AI (Emergency Zone)
+        if (ball.x < cpu.x - 20 && ball.y < G_Y - 100) {
+            cpu.targetX = ball.x; // Chase ball backwards
+            if (!cpu.air) { cpu.dy = -13.5; cpu.air = true; } // Emergency Jump
+            cpu.cpuSkill = Math.random() > 0.5 ? 'spike' : 'lob'; // Random Panic Hit
+        } 
+        // STANDARD FRONT COURT TACTICS
+        else if (landingX > W * 0.32) {
             cpu.targetX = Math.min(landingX, NET.x - 30);
-            if (cpu.comboPhase === 0 && Math.abs(ball.x - cpu.x) < 45 && ball.y > G_Y - 60) { cpu.cpuSkill = 'lift'; cpu.comboPhase = 1; }
-            if (cpu.comboPhase === 1 && ball.dy < 0.3 && ball.y < G_Y - 90) { if (!cpu.air) { cpu.dy = -10.5; cpu.air = true; } cpu.cpuSkill = 'spike'; if (ball.lock > 0) cpu.comboPhase = 0; }
-        } else {
+            if (cpu.comboPhase === 0 && Math.abs(ball.x - cpu.x) < 45 && ball.y > G_Y - 80) {
+                cpu.cpuSkill = 'lift'; cpu.comboPhase = 1; 
+            }
+            if (cpu.comboPhase === 1 && ball.dy < 0.4 && ball.y < G_Y - 100) {
+                if (!cpu.air) { cpu.dy = -13.5; cpu.air = true; }
+                cpu.cpuSkill = 'spike';
+                if (ball.lock > 0) cpu.comboPhase = 0;
+            }
+        } 
+        // STANDARD BACK COURT LOB
+        else {
             cpu.targetX = landingX; cpu.comboPhase = 0; cpu.cpuSkill = 'lob';
         }
-        let diff = cpu.targetX - cpu.x; cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 9 : 0;
+        
+        let diff = cpu.targetX - cpu.x;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 10 : 0;
     } else {
-        cpu.comboPhase = 0; let diff = (W * 0.12) - cpu.x; cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 6 : 0; cpu.cpuSkill = null;
+        cpu.comboPhase = 0;
+        let diff = (W * 0.12) - cpu.x;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 6.5 : 0;
+        cpu.cpuSkill = null;
     }
     
-    const subSteps = 10;
+    const subSteps = 12;
     for(let s=0; s<subSteps; s++) {
         p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
         [p1, cpu].forEach(p => {
             let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-            let xr = 60, yrT = (act === 'spike') ? 95 : 60, yrB = 30;
+            
+            // PHYSICAL REACH HITBOX
+            let xr = 65; 
+            let yrT = (act === 'spike') ? 110 : 65; 
+            let yrB = 35;
+
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
-                    ball.lock = 20; p.actionAnim = 15; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 16; ball.dy = 4.5; ball.y = p.y - 25; }
-                    else if(act === 'lift') { ball.dx = dir * 0.8; ball.dy = -13; }
+                    ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
+                    if(act === 'spike') { ball.dx = dir * 18.5; ball.dy = 5.5; ball.y = p.y - 30; }
+                    else if(act === 'lift') { ball.dx = dir * 1.0; ball.dy = -14; }
                     else if(act === 'lob') { 
                         let cycle = Math.floor(Date.now() / 3000) % 3;
-                        let targetPower = (cycle === 0) ? 11 : (cycle === 1) ? 8 : 5.5; 
-                        ball.dx = dir * targetPower; ball.dy = -16.5; 
+                        let targetPower = (cycle === 0) ? 12.5 : (cycle === 1) ? 9.5 : 6.5; 
+                        ball.dx = dir * targetPower; ball.dy = -19; 
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
