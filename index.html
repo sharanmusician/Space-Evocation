@@ -3,201 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pro Volley: Full Correction</title>
+    <title>Elite Volley: Head Ball Pro AI</title>
     <style>
-        :root { --glass: rgba(255, 255, 255, 0.1); --accent: #00f2ff; }
+        :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; position: fixed; font-family: sans-serif; }
-        
-        /* Fullscreen Overlay */
-        #overlay { position: fixed; inset: 0; background: #111; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .start-btn { padding: 25px 80px; background: var(--accent); color: #000; border-radius: 50px; font-weight: 900; font-size: 20px; border: none; cursor: pointer; box-shadow: 0 0 20px var(--accent); }
-
-        #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 30px; z-index: 10; pointer-events: none; }
-        .score { background: var(--glass); border: 1px solid rgba(255,255,255,0.2); padding: 10px 25px; border-radius: 12px; color: #fff; font-size: 24px; font-weight: bold; }
-
-        canvas { display: block; width: 100vw; height: 100vh; z-index: 1; }
-
-        /* Controls */
-        #ui-layer { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
-        #joy-zone { position: absolute; bottom: 40px; left: 40px; width: 160px; height: 80px; background: var(--glass); border-radius: 40px; border: 1px solid rgba(255,255,255,0.3); pointer-events: auto; }
-        #knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        
-        #act-zone { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; pointer-events: auto; }
-        .btn { background: var(--glass); border: 1px solid rgba(255,255,255,0.3); height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 12px; }
-        #jump-btn { grid-column: span 3; background: rgba(0, 242, 255, 0.2); color: var(--accent); }
+        html, body { width: 100vw; height: 100vh; background: var(--bg); overflow: hidden; position: fixed; top: 0; left: 0; font-family: 'Inter', sans-serif; }
+        #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); }
+        canvas { width: 100%; height: 100%; display: block; }
+        #hud { position: absolute; top: env(safe-area-inset-top, 25px); width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; }
+        .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 600; backdrop-filter: blur(5px); }
+        #timer { color: #fff; font-size: 24px; font-weight: 800; width: 100px; text-align: center; }
+        #joy-zone { position: absolute; bottom: 55px; left: 60px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
+        #knob { position: absolute; width: 34px; height: 34px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 210px; height: 100px; z-index: 20; opacity: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 45px 45px; gap: 8px; }
+        .btn { background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; border-radius: 8px; text-transform: uppercase; }
+        .btn.active { background: #fff; color: #000; }
+        #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
+        .screen { position: fixed; inset: 0; background: rgba(0,0,0,1); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #end-screen { display: none; }
+        .status-text { color: #fff; font-size: 42px; font-weight: 900; margin-bottom: 10px; text-align: center; }
+        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; }
     </style>
 </head>
 <body>
-
-<div id="overlay">
-    <button class="start-btn" id="entry-point">TAP TO PLAY FULLSCREEN</button>
-</div>
-
-<div id="hud">
-    <div class="score" id="s-c">0</div>
-    <div style="color:var(--accent); font-weight: 800;" id="timer">01:00</div>
-    <div class="score" id="s-u">0</div>
-</div>
-
-<canvas id="canvas"></canvas>
-
-<div id="ui-layer">
-    <div id="joy-zone"><div id="knob"></div></div>
+<div id="game-container">
+    <div id="start-screen" class="screen"><h1 class="status-text">PRO VOLLEY</h1><button class="action-btn" id="start-btn">KICKOFF</button></div>
+    <div id="end-screen" class="screen"><h1 id="result-title" class="status-text">MATCH ENDED</h1><p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p><button class="action-btn" id="rematch-btn">REMATCH</button></div>
+    <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
+    <canvas id="canvas"></canvas>
+    <div id="joy-zone"></div><div id="knob"></div>
     <div id="act-zone">
-        <div class="btn" id="lift">LIFT</div>
-        <div class="btn" id="lob">LOB</div>
-        <div class="btn" id="strike">STRIKE</div>
-        <div class="btn" id="jump-btn">JUMP</div>
+        <div class="btn" id="lift">Lift</div><div class="btn" id="lob">Lob</div><div class="btn" id="spike">Strike</div>
+        <div class="btn" id="jump">JUMP</div>
     </div>
 </div>
 
 <script>
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
-let W, H, G_Y, NET;
-let state = { u: 0, c: 0, active: false, time: 60 };
-let input = { x: 0, buffer: '', bTimer: 0, joyID: null };
+let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
+const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 60; NET = { x: W/2, y: G_Y - 100, w: 8, h: 100 };
+    G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 6, h: 80 };
+    p1.reset(); cpu.reset();
 }
 
-// FULLSCREEN CORRECTION
-document.getElementById('entry-point').addEventListener('click', function() {
-    const doc = window.document;
-    const docEl = doc.documentElement;
-    const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
-    if (requestFullScreen) requestFullScreen.call(docEl);
-    
-    document.getElementById('overlay').style.display = 'none';
-    state.active = true;
-    resize();
-    ball.spawn();
-    requestAnimationFrame(loop);
-});
+document.getElementById('start-btn').addEventListener('click', () => { document.getElementById('start-screen').style.display = 'none'; initMatch(); });
+document.getElementById('rematch-btn').addEventListener('click', () => { document.getElementById('end-screen').style.display = 'none'; initMatch(); });
 
-class Athlete {
-    constructor(side, color) {
-        this.side = side; this.color = color;
-        this.w = 40; this.h = 45; this.reset();
-    }
-    reset() {
-        this.x = (this.side === 'left') ? W * 0.15 : W * 0.85;
-        this.y = G_Y - this.h; this.dx = 0; this.dy = 0; this.air = false;
-        this.skill = null; this.combo = 0;
-    }
-    update() {
-        this.x += this.dx; this.y += this.dy;
-        if (this.y < G_Y - this.h) this.dy += 1.5;
-        else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-        
-        let min = (this.side === 'left') ? 25 : NET.x + 30;
-        let max = (this.side === 'left') ? NET.x - 30 : W - 25;
-        this.x = Math.max(min, Math.min(max, this.x));
-    }
-    draw() {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x - 18, this.y, 36, 45);
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(this.x, this.y - 5, 15, 0, Math.PI*2); ctx.fill();
-    }
-}
-
-const ball = {
-    x: 0, y: 0, dx: 0, dy: 0, r: 10, lock: 0,
-    spawn() { this.x = W * 0.7; this.y = H * 0.3; this.dx = -5; this.dy = 0; this.lock = 0; },
-    update() {
-        if (this.lock > 0) this.lock--;
-        for (let i = 0; i < 8; i++) {
-            this.x += this.dx / 8; this.y += this.dy / 8;
-            if (this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-                this.dx *= -0.6; this.x = (this.x < NET.x) ? NET.x - 15 : NET.x + 15;
-            }
-        }
-        this.dy += 0.3;
-        if (this.y >= G_Y - this.r) {
-            if (Math.abs(this.dy) > 2) this.dy *= -0.5;
-            else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); }
-        }
-    }
-};
-
-const p1 = new Athlete('right', '#4a90e2'), cpu = new Athlete('left', '#ff3b3b');
-
-function loop() {
-    if (!state.active) return;
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(NET.x-4, NET.y, 8, 100);
-    
-    // AI Prediction
-    if (ball.x < NET.x) {
-        let isStuck = (ball.x > NET.x - 100 && ball.dx < 1);
-        if (isStuck || cpu.combo > 0) {
-            cpu.dx = (ball.x - cpu.x) * 0.8;
-            if (cpu.combo === 0) cpu.combo = 1;
-            if (cpu.combo === 1) { cpu.skill = 'lift'; if (ball.lock > 0) cpu.combo = 2; }
-            else { if (!cpu.air) cpu.dy = -18, cpu.air = true; cpu.skill = 'strike'; if (ball.dx > 5) cpu.combo = 0; }
-        } else {
-            cpu.dx = (ball.x + (ball.dx * 10) - cpu.x) * 0.2;
-            cpu.skill = ['lob', 'lift', 'strike'][Math.floor(Date.now()/2000)%3];
-        }
-    } else { cpu.dx = (W*0.1 - cpu.x)*0.1; cpu.skill = null; }
-
-    [p1, cpu].forEach(p => {
-        p.update(); p.draw();
-        let act = (p === p1) ? (input.bTimer > 0 ? input.buffer : null) : p.skill;
-        if (act && Math.abs(ball.x - p.x) < 70 && Math.abs(ball.y - p.y) < 90 && ball.lock === 0) {
-            ball.lock = 25; let d = (p.side === 'right') ? -1 : 1;
-            if (act === 'strike') { ball.dx = d * 28; ball.dy = 8; }
-            else if (act === 'lift') { ball.dx = d * 0.5; ball.dy = -19; }
-            else { ball.dx = d * 12; ball.dy = -24; }
-            if (p === p1) input.bTimer = 0;
-        }
-    });
-
-    ball.update();
-    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 11, 0, Math.PI*2); ctx.fill();
-    
-    if (input.bTimer > 0) input.bTimer--;
-    document.getElementById('s-c').innerText = state.c; document.getElementById('s-u').innerText = state.u;
+function initMatch() {
+    state.active = true; state.time = 60; state.u = 0; state.c = 0;
+    document.getElementById('hud').style.opacity = 1;
+    document.getElementById('joy-zone').style.opacity = 1;
+    document.getElementById('act-zone').style.opacity = 1;
+    resize(); ball.spawn();
+    state.timerInt = setInterval(() => { if(state.time > 0) state.time--; else endMatch(); }, 1000);
     requestAnimationFrame(loop);
 }
 
-// MOVEMENT FIX: Continuous touch tracking
+function endMatch() { state.active = false; clearInterval(state.timerInt); document.getElementById('end-screen').style.display = 'flex'; }
+
 window.addEventListener('touchstart', e => {
     for (let t of e.changedTouches) {
-        if (t.clientX < W / 2) input.joyID = t.identifier;
-        ['lift', 'lob', 'strike', 'jump-btn'].forEach(id => {
-            const r = document.getElementById(id).getBoundingClientRect();
-            if (t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
-                if (id === 'jump-btn') { if(!p1.air) { p1.dy = -18; p1.air = true; } }
-                else { input.buffer = id; input.bTimer = 30; }
+        if (t.clientX < W / 2) { inputs.joyID = t.identifier; }
+        ['lift', 'lob', 'spike', 'jump'].forEach(id => {
+            const b = document.getElementById(id).getBoundingClientRect();
+            if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
+                if (id === 'jump' && !p1.air) { p1.dy = -17.5; p1.air = true; }
+                else { inputs.buffer = 25; inputs.type = id; }
             }
         });
     }
 });
 
-window.addEventListener('touchmove', e => {
-    for (let t of e.touches) {
-        if (t.identifier === input.joyID) {
-            let r = joyZone.getBoundingClientRect();
-            let val = (t.clientX - (r.left + r.width/2)) / (r.width/2);
-            input.x = Math.max(-1, Math.min(1, val));
-            knob.style.left = (50 + input.x * 40) + "%";
-            p1.dx = input.x * 10; // Apply move speed
+class Athlete {
+    constructor(side, color) { 
+        this.side = side; this.color = color; this.h = 38; 
+        this.cpuSkill = null; this.cpuDX = 0; this.lastDice = 0; this.comboStep = 0;
+    }
+    reset() { this.x = (this.side === 'right') ? W*0.85 : W*0.15; this.y = G_Y-this.h; this.dx=this.dy=0; this.air=false; this.comboStep=0; }
+    update() {
+        this.dx = (this === p1) ? inputs.moveX * 8.5 : this.cpuDX;
+        this.x += this.dx; this.y += this.dy;
+        if(this.y < G_Y - this.h) this.dy += 1.55; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        const lim = NET.x + (this.side === 'right' ? 22 : -22);
+        this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
+    }
+    draw() {
+        ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
+        ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
+        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+const ball = {
+    r: 8, dx: 0, dy: 0, x: 0, y: 0, lock: 0, hitSide: '',
+    spawn() { this.y = H*0.3; this.dx = 0; this.dy = 0; this.x = W*0.3; this.lock = 0; },
+    update() {
+        if(this.lock > 0) this.lock--;
+        this.x += this.dx; this.y += this.dy;
+        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - 12 : NET.x + 12;
+        }
+        this.dy += 0.25;
+        if(this.y >= G_Y - this.r) { 
+            if(Math.abs(this.dy) > 2) this.dy *= -0.5; 
+            else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); }
         }
     }
-});
+};
 
-window.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) { 
-        if (t.identifier === input.joyID) { p1.dx = 0; knob.style.left = "50%"; input.joyID = null; } 
+const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
+
+function loop() {
+    if(!state.active) return;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(NET.x - 3, NET.y, 6, 80);
+
+    // HEAD BALL PERFECT AI LOGIC
+    if (ball.x < NET.x) {
+        // If ball hit net and returning OR stuck
+        const isStuck = (Math.abs(ball.dx) < 1 && ball.x > NET.x - 60);
+        
+        if (isStuck || cpu.comboStep > 0) {
+            // RECOVERY MODE: LIFT -> JUMP -> STRIKE
+            cpu.cpuDX = (ball.x - cpu.x) * 0.5; // Precision alignment
+            if (cpu.comboStep === 0) cpu.comboStep = 1;
+            
+            if (cpu.comboStep === 1) { // STEP 1: LIFT
+                cpu.cpuSkill = 'lift';
+                if (ball.lock > 0) cpu.comboStep = 2;
+            } else if (cpu.comboStep === 2) { // STEP 2: JUMP & STRIKE
+                if (!cpu.air) { cpu.dy = -18; cpu.air = true; }
+                cpu.cpuSkill = 'spike';
+                if (ball.dx > 5) cpu.comboStep = 0; // Success
+            }
+        } else {
+            // DICE SELECTION (ONLY IF NOT STUCK)
+            if (Math.abs(ball.x - cpu.x) > 100 && ball.lock === 0) {
+                let r; do { r = Math.floor(Math.random() * 5) + 1; } while(r === cpu.lastDice);
+                cpu.lastDice = r;
+            }
+            cpu.cpuDX = (ball.x - cpu.x > 5) ? 9.8 : (ball.x - cpu.x < -5) ? -9.8 : 0;
+            const tactics = {1: 'lob', 2: 'lob', 3: 'lift', 4: 'spike', 5: 'lob'};
+            cpu.cpuSkill = tactics[cpu.lastDice];
+            if (cpu.lastDice === 4 && !cpu.air) { cpu.dy = -17; cpu.air = true; }
+        }
+    } else {
+        cpu.cpuDX = (cpu.x > W*0.1) ? -7 : 0; cpu.cpuSkill = null; cpu.comboStep = 0;
     }
-});
 
-window.addEventListener('resize', resize);
+    [p1, cpu].forEach(p => {
+        p.update(); p.draw();
+        let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
+        if(Math.abs(ball.x - p.x) < 55 && Math.abs(ball.y - p.y) < 70 && ball.lock === 0 && act) {
+            ball.lock = 20; let dir = (p.side === 'right') ? -1 : 1;
+            if(act === 'spike') { ball.dx = dir * 22; ball.dy = 6; }
+            else if(act === 'lift') { ball.dx = dir * 0.5; ball.dy = -16; }
+            else if(act === 'lob') { ball.dx = dir * (p.x < W*0.1 ? 11 : 8); ball.dy = -19; }
+            if(p === p1) inputs.buffer = 0;
+        }
+    });
+
+    ball.update(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 8, 0, Math.PI*2); ctx.fill();
+    document.getElementById('s-u').innerText = state.u; document.getElementById('s-c').innerText = state.c;
+    document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`;
+    requestAnimationFrame(loop);
+}
+window.onload = resize;
 </script>
 </body>
 </html>
