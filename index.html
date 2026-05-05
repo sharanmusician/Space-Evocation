@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Precision Weight</title>
+    <title>Elite Volley: Laser Strike</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -74,10 +74,7 @@ function updateKnobUI(val) {
 window.addEventListener('touchstart', e => {
     const btnIds = ['lift', 'lob', 'spike', 'jump'];
     for (let t of e.changedTouches) {
-        if (t.clientX < W / 2) {
-            inputs.joyID = t.identifier;
-            handleJoy(t);
-        }
+        if (t.clientX < W / 2) { inputs.joyID = t.identifier; handleJoy(t); }
         btnIds.forEach(id => {
             const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
@@ -99,9 +96,7 @@ function handleJoy(t) {
 
 window.addEventListener('touchmove', e => {
     if (!state.active) return;
-    for (let t of e.touches) {
-        if (t.identifier === inputs.joyID) handleJoy(t);
-    }
+    for (let t of e.touches) { if (t.identifier === inputs.joyID) handleJoy(t); }
 }, {passive: false});
 
 window.addEventListener('touchend', e => {
@@ -120,14 +115,11 @@ class Athlete {
         this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; 
     }
     update() {
-        // Reduced Speed for "Slow Player" request
         const maxSpeed = 8.2; 
         this.dx = (this === p1) ? inputs.moveX * maxSpeed : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
-        
         if(this.y < G_Y - this.h) this.dy += 1.55;
         else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-        
         const limit = NET.x + (this.side === 'right' ? 18 : -18);
         this.x = (this.side === 'right') ? Math.max(limit, Math.min(W-20, this.x)) : Math.min(limit, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
@@ -177,7 +169,6 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // AI LOGIC - Synced with player speed
     let futureX = ball.x + (ball.dx * 12);
     let ballDist = futureX - cpu.x;
     let nearNet = Math.abs(ball.x - NET.x) < 55;
@@ -188,15 +179,12 @@ function loop() {
             cpu.dy = -17; cpu.air = true; 
         }
         if (nearNet && ball.y > G_Y - 120) {
-            let r = Math.random();
-            cpu.cpuSkill = r > 0.6 ? 'lift' : (r > 0.3 ? 'lob' : 'spike');
+            let r = Math.random(); cpu.cpuSkill = r > 0.6 ? 'lift' : (r > 0.3 ? 'lob' : 'spike');
         } else if (Math.abs(ball.x - cpu.x) < 55) {
             cpu.cpuSkill = (ball.y < cpu.y) ? (Math.random() > 0.4 ? 'spike' : 'lob') : null;
         }
     } else {
-        let homeX = W * 0.15;
-        cpu.cpuDX = (cpu.x < homeX - 10) ? 5.5 : (cpu.x > homeX + 10) ? -5.5 : 0;
-        cpu.cpuSkill = null;
+        let homeX = W * 0.15; cpu.cpuDX = (cpu.x < homeX - 10) ? 5.5 : (cpu.x > homeX + 10) ? -5.5 : 0; cpu.cpuSkill = null;
     }
     
     [p1, cpu].forEach(p => {
@@ -209,13 +197,13 @@ function loop() {
             let hitDir = (p.side === 'right') ? -1 : 1; 
 
             if(act === 'lift') { 
-                ball.dx = hitDir * 0.25; 
-                ball.dy = -12.5; 
+                ball.dx = hitDir * 0.25; ball.dy = -12.5; 
             } else if(act === 'lob') { 
-                ball.dx = hitDir * 6.5; 
-                ball.dy = -15.5; 
+                ball.dx = hitDir * 6.5; ball.dy = -15.5; 
             } else if(act === 'spike') { 
-                ball.dx = hitDir * 12; ball.dy = 6; 
+                // LASER STRIKE: Straight shot, zero vertical velocity
+                ball.dx = hitDir * 14.5; 
+                ball.dy = 0.5; // Near-zero dip
             } else { 
                 ball.dx = hitDir * 4.5; ball.dy = -6; 
             }
