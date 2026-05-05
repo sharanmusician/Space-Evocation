@@ -198,9 +198,9 @@ function loop() {
                     let distToNet = Math.abs(p.x - NET.x);
 
                     if(act === 'spike') { 
-                        // STRIKE LOGIC: Back court = Straight, Front court = Cut
+                        // STRIKE LOGIC: Back court = Straight Laser, Front court = Cut
                         if (distToNet > 180) {
-                            ball.dx = dir * 24; ball.dy = 1.5; // Fast Straight
+                            ball.dx = dir * 28; ball.dy = 0.2; // Fast & Flat Laser
                         } else {
                             ball.dx = dir * 14; ball.dy = 8.5; // Cut shot (steep)
                         }
@@ -211,14 +211,14 @@ function loop() {
                         if (p === cpu) p.comboPhase = 1; 
                     } 
                     else if(act === 'lob') { 
-                        // RANDOM LOB LOGIC: Front, Mid, Back
+                        // RANDOM LOB LOGIC: Front, Mid, Unreachable Back (3%)
                         let lobType = Math.random();
-                        if (lobType < 0.33) { // Front (Short)
+                        if (lobType < 0.03) { // 3% Chance for Unreachable Deep Back
+                             ball.dx = dir * 13; ball.dy = -11; 
+                        } else if (lobType < 0.51) { // 48% Front (Short)
                              ball.dx = dir * 4.5; ball.dy = -10;
-                        } else if (lobType < 0.66) { // Mid
-                             ball.dx = dir * 8; ball.dy = -9;
-                        } else { // Back (Deep)
-                             ball.dx = dir * 11.5; ball.dy = -8;
+                        } else { // 49% Mid
+                             ball.dx = dir * 8.5; ball.dy = -9;
                         }
                     }
                     if(p === p1) inputs.buffer = 0;
