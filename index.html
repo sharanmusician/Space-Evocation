@@ -43,7 +43,6 @@ const knob = document.getElementById('knob'), joyZone = document.getElementById(
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
-// Physics Constants
 const GRAVITY = 0.24; 
 const JUMP_POWER = -12.5;
 
@@ -128,16 +127,10 @@ const ball = {
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
         }
-        
-        // --- SOFT CEILING LOGIC ---
-        // If ball is near the top (within 60px), apply extra gravity to pull it down fast
         let curGrav = GRAVITY;
         if (this.y < 60) curGrav *= 2.5; 
         this.dy += curGrav * stepSize;
-
-        // Hard cap at the top (can't go above y=10)
         if(this.y < 10) { this.y = 10; this.dy = 1; } 
-
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
     draw() { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
@@ -155,23 +148,32 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
+    // --- SKELLY AI LOGIC ---
     if (ball.x < NET.x + 50) {
         let landingX = projectLandingX();
-        if (ball.x < cpu.x - 20 && ball.y < G_Y - 100) {
-            cpu.targetX = ball.x; 
-            if (!cpu.air) { cpu.dy = JUMP_POWER; cpu.air = true; } 
-            cpu.cpuSkill = Math.random() > 0.5 ? 'spike' : 'lob'; 
+        let nearNet = ball.x > NET.x - 120 && ball.x < NET.x;
+
+        // COMBO LOGIC: If near net, setup for a strike
+        if (nearNet || cpu.comboPhase > 0) {
+            cpu.targetX = ball.x;
+            if (cpu.comboPhase === 0 && Math.abs(ball.x - cpu.x) < 50 && ball.y > G_Y - 80) {
+                cpu.cpuSkill = 'lift';
+                cpu.comboPhase = 1; 
+            } else if (cpu.comboPhase === 1) {
+                // Perfect Strike Timing: Jump when ball is peaking, Strike when in reach
+                if (ball.y < G_Y - 140 && !cpu.air && ball.dy > -2) {
+                    cpu.dy = JUMP_POWER; 
+                    cpu.air = true;
+                }
+                if (cpu.air && ball.y < cpu.y + 20) {
+                    cpu.cpuSkill = 'spike';
+                }
+            }
         } 
-        else if (landingX > W * 0.32) {
-            cpu.targetX = Math.min(landingX, NET.x - 30);
-            if (cpu.comboPhase === 0 && Math.abs(ball.x - cpu.x) < 45 && ball.y > G_Y - 80) {
-                cpu.cpuSkill = 'lift'; cpu.comboPhase = 1; 
-            }
-            if (cpu.comboPhase === 1 && ball.dy < 0.4 && ball.y < G_Y - 100) {
-                if (!cpu.air) { cpu.dy = JUMP_POWER; cpu.air = true; }
-                cpu.cpuSkill = 'spike';
-                if (ball.lock > 0) cpu.comboPhase = 0;
-            }
+        else if (ball.x < cpu.x - 20 && ball.y < G_Y - 100) {
+            cpu.targetX = ball.x;
+            if (!cpu.air) { cpu.dy = JUMP_POWER; cpu.air = true; }
+            cpu.cpuSkill = Math.random() > 0.5 ? 'spike' : 'lob';
         } 
         else {
             cpu.targetX = landingX; cpu.comboPhase = 0; cpu.cpuSkill = 'lob';
@@ -195,24 +197,19 @@ function loop() {
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    
+                    if (p === cpu) p.comboPhase = 0; // Reset phase on hit
+
                     if(act === 'spike') { 
                         ball.dx = dir * 18.5; ball.dy = 5.5; ball.y = p.y - 30; 
                     }
                     else if(act === 'lift') { 
                         ball.dx = dir * 1.2; ball.dy = -7; 
+                        if (p === cpu) p.comboPhase = 1; // Re-arm phase for the follow-up strike
                     } 
                     else if(act === 'lob') { 
-                        // FAIR PLAY LOGIC:
-                        // High/Back lobs are now rare (10%)
                         let rareShot = Math.random() > 0.90; 
-                        if(rareShot) {
-                             ball.dx = dir * 11.5; // Hits deep corner
-                             ball.dy = -10.5;      // High arc
-                        } else {
-                             ball.dx = dir * 8.5;  // Standard reachable lob
-                             ball.dy = -8.5;       // Medium height
-                        }
+                        if(rareShot) { ball.dx = dir * 11.5; ball.dy = -10.5; } 
+                        else { ball.dx = dir * 8.5; ball.dy = -8.5; }
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
