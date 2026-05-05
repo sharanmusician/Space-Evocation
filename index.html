@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Dice Tactics</title>
+    <title>Elite Volley: 5-Dice AI</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -53,7 +53,7 @@ const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
 function goFullscreen() {
     const el = document.documentElement;
-    const rfs = el.requestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    const rfs = el.requestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen;
     if (rfs) rfs.call(el).catch(() => {});
 }
 
@@ -127,17 +127,17 @@ class Athlete {
     constructor(side, color) { 
         this.side = side; this.color = color; this.h = 38; 
         this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0;
-        this.lastDice = 0; this.strategyGoalX = W * 0.1; this.hasJumped = false;
+        this.lastDice = 0; this.strategyGoalX = W * 0.1; this.netFail = false;
     }
     reset() { 
         this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; 
         this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; 
-        this.lastDice = 0; this.strategyGoalX = W * 0.1;
+        this.lastDice = 0; this.strategyGoalX = W * 0.1; this.netFail = false;
     }
     update() {
         this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.55; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; this.hasJumped = false; }
+        if(this.y < G_Y - this.h) this.dy += 1.55; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
         this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
@@ -170,6 +170,7 @@ const ball = {
             this.x += this.dx/4; this.y += this.dy/4;
             if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
                 this.dx *= -0.3; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
+                if (this.x < NET.x) cpu.netFail = true;
             }
         }
         this.dy += 0.22;
@@ -191,25 +192,33 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // THE DICE BRAIN (AI)
+    // THE 5-DICE AI ENGINE
     if (ball.x < NET.x + 30) {
-        // Roll Dice if ball is new or coming back
-        if (ball.lock === 0 && Math.abs(ball.x - cpu.x) > 100) {
-            let roll; do { roll = Math.floor(Math.random() * 3) + 1; } while (roll === cpu.lastDice);
+        // Roll Dice logic
+        if (ball.lock === 0 && Math.abs(ball.x - cpu.x) > 110) {
+            let roll;
+            if (cpu.netFail) { roll = 4; cpu.netFail = false; } 
+            else { do { roll = Math.floor(Math.random() * 5) + 1; if(roll === 4) roll = 5; } while (roll === cpu.lastDice); }
             cpu.lastDice = roll;
+            
             if (roll === 1) { cpu.strategyGoalX = W * 0.05; cpu.cpuSkill = 'lob'; } // STAY BACK LOB
-            if (roll === 2) { cpu.strategyGoalX = W * 0.25; cpu.cpuSkill = 'lob'; } // MID LOB
-            if (roll === 3) { cpu.strategyGoalX = W * 0.35; cpu.cpuSkill = 'lift'; } // LIFT & STRIKE
+            if (roll === 2) { cpu.strategyGoalX = W * 0.22; cpu.cpuSkill = 'lob'; } // MID LOB
+            if (roll === 3) { cpu.strategyGoalX = W * 0.30; cpu.cpuSkill = 'lift'; } // LIFT & STRIKE
+            if (roll === 4) { cpu.strategyGoalX = ball.x; cpu.cpuSkill = 'lift'; } // NET RECOVERY
+            if (roll === 5) { cpu.strategyGoalX = W * 0.40; cpu.cpuSkill = 'lob'; } // FORWARD LOB
         }
         
         let targetX = (ball.lock > 0) ? cpu.x : ball.x;
-        if (cpu.lastDice === 1) targetX = Math.min(ball.x, W * 0.1); // Force stay back
+        if (cpu.lastDice === 1) targetX = Math.min(ball.x, W * 0.08); // Lock to back
 
-        cpu.cpuDX = (targetX - cpu.x) > 5 ? 9.5 : (targetX - cpu.x) < -5 ? -9.5 : 0;
+        cpu.cpuDX = (targetX - cpu.x) > 5 ? 9.6 : (targetX - cpu.x) < -5 ? -9.6 : 0;
 
-        // Combo Logic for Strike
-        if (cpu.lastDice === 3 && Math.abs(ball.x - cpu.x) < 40 && ball.y < cpu.y) {
-            if (!cpu.air && !cpu.hasJumped) { cpu.dy = -17.5; cpu.air = true; cpu.hasJumped = true; cpu.cpuSkill = 'spike'; }
+        // Action Logic
+        if (Math.abs(ball.x - cpu.x) < 40 && ball.y < cpu.y) {
+            // Dice 3 & 4 need jumps
+            if ((cpu.lastDice === 3 || cpu.lastDice === 4) && !cpu.air && ball.y < G_Y - 80) {
+                cpu.dy = -17.5; cpu.air = true; cpu.cpuSkill = 'spike';
+            }
         }
     } else {
         cpu.cpuDX = (cpu.x > W * 0.15) ? -6 : 0;
@@ -219,15 +228,18 @@ function loop() {
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-        let xr = 60, yrT = (act === 'spike') ? 140 : 80, yrB = 45;
+        let xr = 62, yrT = (act === 'spike') ? 145 : 85, yrB = 45;
         
         if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
             if (act) {
                 ball.lock = 18; p.actionAnim = 12; p.lastAction = act;
                 let dir = (p.side === 'right') ? -1 : 1;
-                if(act === 'spike') { ball.dx = dir * 21.5; ball.dy = 5.5; ball.y = p.y - 25; }
-                else if(act === 'lift') { ball.dx = dir * 0.3; ball.dy = -15.5; }
-                else if(act === 'lob') { ball.dx = dir * (p.x < W*0.1 ? 10.5 : 8); ball.dy = -19; }
+                if(act === 'spike') { ball.dx = dir * 21.8; ball.dy = 5.8; ball.y = p.y - 25; }
+                else if(act === 'lift') { ball.dx = dir * 0.5; ball.dy = -15.8; }
+                else if(act === 'lob') { 
+                    let power = (p.x < W*0.1) ? 10.8 : (p.x < W*0.3) ? 8.5 : 6.5;
+                    ball.dx = dir * power; ball.dy = -19.5; 
+                }
                 if(p === p1) inputs.buffer = 0;
             }
         }
