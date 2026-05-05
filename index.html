@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Motion Edition</title>
+    <title>Elite Volley: Ultra Pro Edition</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -154,29 +154,19 @@ class Athlete {
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
         ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5;
-        
         let walk = Math.sin(this.anim) * 5;
-        // Legs
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 38); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
-        
-        // Arms Logic
         let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : this.cpuSkill;
-        let armY = 12;
         ctx.beginPath();
         if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) {
-            // High to Low Swing
-            ctx.moveTo(0, 10); ctx.lineTo(15, -15 + (Math.sin(Date.now()*0.02)*5)); 
-        } else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0 && (this.lastAction === 'lift' || this.lastAction === 'lob'))) {
-            // Underhand scoop
+            ctx.moveTo(0, 10); ctx.lineTo(15, -15); 
+        } else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0)) {
             ctx.moveTo(0, 10); ctx.lineTo(18, 25);
         } else {
-            // Default walk swing
             ctx.moveTo(0, 10); ctx.lineTo(walk, 25);
         }
         ctx.stroke();
-
-        // Body & Head
         ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
         ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
         ctx.restore();
@@ -213,34 +203,42 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // AI Decision logic
-    let fX = ball.x + (ball.dx * 12), dist = fX - cpu.x, nNet = Math.abs(ball.x - NET.x) < 80;
-    if (ball.x < NET.x) {
-        cpu.cpuDX = dist > 8 ? 6.5 : dist < -8 ? -6.5 : 0;
-        if ((Math.abs(ball.x - cpu.x) < 45 && ball.dy > 0 && ball.y > G_Y-170 && !cpu.air) || (cpu.cpuSkill === 'lift' && !cpu.air)) { 
-            cpu.dy = -17; cpu.air = true; 
+    // ULTRA PRO AI TRAINING
+    let predictX = ball.x + (ball.dx * 15);
+    let dist = predictX - cpu.x;
+    if (ball.x < NET.x + 50) {
+        cpu.cpuDX = dist > 5 ? 7.5 : dist < -5 ? -7.5 : 0;
+        // Pro Tactic: Underhand lift into self-smash
+        if (Math.abs(ball.x - cpu.x) < 30 && ball.y > G_Y - 120 && !cpu.air) {
+            cpu.cpuSkill = 'lift';
+            setTimeout(() => { if(!cpu.air) { cpu.dy = -18; cpu.air = true; cpu.cpuSkill = 'spike'; } }, 150);
+        } else if (ball.y < cpu.y && Math.abs(ball.x - cpu.x) < 60) {
+            cpu.cpuSkill = 'spike';
+        } else {
+            cpu.cpuSkill = (Math.abs(ball.x - NET.x) < 100) ? 'spike' : 'lob';
         }
-        if (nNet) {
-            let rnd = Math.random();
-            if (rnd > 0.6) cpu.cpuSkill = 'lift'; else if (rnd > 0.3) cpu.cpuSkill = 'lob'; else cpu.cpuSkill = 'spike';
-        } else { cpu.cpuSkill = (Math.random() > 0.4) ? 'lob' : 'spike'; }
-        if (Math.abs(ball.x - cpu.x) > 100) cpu.cpuSkill = null;
-    } else { 
-        cpu.cpuDX = (cpu.x < W*0.15-10)?5:(cpu.x > W*0.15+10)?-5:0; cpu.cpuSkill = null; 
+    } else {
+        cpu.cpuDX = (cpu.x < W*0.2) ? 6 : (cpu.x > W*0.25) ? -6 : 0;
+        cpu.cpuSkill = null;
     }
     
     [p1, cpu].forEach(p => {
         p.update(); p.draw();
         let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : cpu.cpuSkill;
-        if(Math.abs(ball.x - p.x) < 45 && Math.abs(ball.y - p.y) < 55 && ball.lock === 0) {
-            ball.lock = 25;
-            p.actionAnim = 15; // Hold arm pose
+        
+        // ENHANCED OVERHEAD STRIKE RADIUS
+        let xRange = 45;
+        let yRange = (act === 'spike') ? 85 : 55; // Extended Y-range for spikes
+        
+        if(Math.abs(ball.x - p.x) < xRange && ball.y < p.y + 20 && ball.y > p.y - yRange && ball.lock === 0) {
+            ball.lock = 20;
+            p.actionAnim = 12;
             p.lastAction = act;
             let dir = (p.side === 'right') ? -1 : 1;
-            if(act === 'spike') { ball.dx = dir * 14.5; ball.dy = 0.5; }
-            else if(act === 'lift') { ball.dx = dir * 0.2; ball.dy = -12.5; }
-            else if(act === 'lob') { ball.dx = dir * 6.5; ball.dy = -15.5; }
-            else { ball.dx = dir * 4.5; ball.dy = -6.5; }
+            if(act === 'spike') { ball.dx = dir * 15; ball.dy = 2; }
+            else if(act === 'lift') { ball.dx = dir * 0.5; ball.dy = -13; }
+            else if(act === 'lob') { ball.dx = dir * 7; ball.dy = -16; }
+            else { ball.dx = dir * 5; ball.dy = -7; }
             if(p === p1) inputs.buffer = 0;
         }
     });
