@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball</title>
+    <title>Skelly Ball: Tactical AI</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -20,7 +20,6 @@
         .btn.active { background: #fff; color: #000; }
         #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
         .screen { position: fixed; inset: 0; background: rgba(0,0,0,1); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #end-screen { display: none; }
         .status-text { color: #fff; font-size: 42px; font-weight: 900; margin-bottom: 10px; text-align: center; }
         .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; }
     </style>
@@ -28,7 +27,7 @@
 <body>
 <div id="game-container">
     <div id="start-screen" class="screen"><h1 class="status-text">SKELLY BALL</h1><button class="action-btn" id="start-btn">PLAY NOW</button></div>
-    <div id="end-screen" class="screen"><h1 id="result-title" class="status-text">MATCH OVER</h1><p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p><button class="action-btn" id="rematch-btn">REMATCH</button></div>
+    <div id="end-screen" class="screen" style="display:none"><h1 id="result-title" class="status-text">MATCH OVER</h1><p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p><button class="action-btn" id="rematch-btn">REMATCH</button></div>
     <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -44,9 +43,7 @@ const knob = document.getElementById('knob'), joyZone = document.getElementById(
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
-function goFullscreen() { const el = document.documentElement; if (el.requestFullscreen) el.requestFullscreen(); }
-
-document.getElementById('start-btn').onclick = () => { goFullscreen(); document.getElementById('start-screen').style.display='none'; initMatch(); };
+document.getElementById('start-btn').onclick = () => { document.getElementById('start-screen').style.display='none'; initMatch(); };
 document.getElementById('rematch-btn').onclick = () => { document.getElementById('end-screen').style.display='none'; initMatch(); };
 
 function initMatch() {
@@ -90,8 +87,8 @@ window.addEventListener('touchmove', e => { for (let t of e.touches) if (t.ident
 window.addEventListener('touchend', e => { for (let t of e.changedTouches) { if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); } ['lift', 'lob', 'spike', 'jump'].forEach(k => document.getElementById(k).classList.remove('active')); } });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.homeBase = 0; this.netFail = false; }
-    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; this.homeBase = W * 0.12; this.netFail = false; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.targetX = 0; this.isRecovering = false; }
+    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; this.targetX = W * 0.1; this.isRecovering = false; }
     update(stepSize = 1) {
         this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
         this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
@@ -118,7 +115,14 @@ const ball = {
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update(stepSize = 1) {
         if(this.lock > 0) this.lock--; this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
-        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) { this.dx *= -0.3; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1); if (this.x < NET.x) cpu.netFail = true; }
+        // Net Hit Detection
+        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+            let prevDx = this.dx;
+            this.dx *= -0.4; 
+            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
+            // If ball was going right and hit net back to left
+            if (prevDx > 0 && this.dx <= 0) cpu.isRecovering = true;
+        }
         this.dy += 0.22 * stepSize; if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
@@ -127,54 +131,70 @@ const ball = {
 
 const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
 
+function projectLandingX() {
+    let tx = ball.x, ty = ball.y, tdx = ball.dx, tdy = ball.dy;
+    while (ty < G_Y - ball.r) {
+        tx += tdx; ty += tdy; tdy += 0.22;
+        if (tx < 20 || tx > W-20) tdx *= -1;
+    }
+    return tx;
+}
+
 function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // ANTI-RUSH AI LOGIC
-    if (ball.x < NET.x) {
-        // Decide logic once per ball entry
-        if (ball.lock === 0 && !cpu.air) {
-            if (cpu.netFail) { // Forced recovery
-                cpu.homeBase = ball.x + 20; cpu.cpuSkill = 'lift';
-                if (Math.abs(ball.x - cpu.x) < 30) cpu.netFail = false;
-            } else if (ball.dx > 6) { // Hard shot coming from player
-                cpu.homeBase = Math.min(ball.x - 20, W * 0.15); // Stay back
-                cpu.cpuSkill = 'lob';
-            } else { // Normal travel
-                cpu.homeBase = W * 0.12; cpu.cpuSkill = 'lift';
+    // TACTICAL AI BRAIN
+    if (ball.x < NET.x + 50) {
+        let landingX = projectLandingX();
+        
+        // Logic 1: Net Recovery (Uplift + Strike)
+        if (cpu.isRecovering) {
+            cpu.targetX = ball.x + 15;
+            cpu.cpuSkill = 'lift';
+            if (Math.abs(ball.x - cpu.x) < 30) {
+                if (!cpu.air && ball.y < G_Y - 50) { cpu.dy = -18; cpu.air = true; cpu.cpuSkill = 'spike'; cpu.isRecovering = false; }
+            }
+        } 
+        // Logic 2: Dynamic Positioning (Back vs Front)
+        else {
+            // Only come front if projected landing is in the front zone
+            if (landingX > W * 0.3) {
+                cpu.targetX = Math.min(landingX, NET.x - 40);
+                cpu.cpuSkill = 'lift';
+            } else {
+                // Stay back
+                cpu.targetX = Math.max(landingX, 40);
+                cpu.cpuSkill = (ball.y < H*0.4) ? 'lob' : 'lift';
             }
         }
-        
-        // Horizontal Movement
-        let diff = cpu.homeBase - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 11 : 0;
 
-        // Vertical Trigger (Uplift/Jump/Strike)
-        if (Math.abs(ball.x - cpu.x) < 60 && ball.y < cpu.y) {
-            if (cpu.cpuSkill === 'lift' && !cpu.air && ball.y < G_Y - 50) {
-                cpu.dy = -18.2; cpu.air = true; cpu.cpuSkill = 'spike';
-            }
+        let diff = cpu.targetX - cpu.x;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 12 : 0;
+
+        // Auto-Jump Strike if ball is high and target reached
+        if (Math.abs(ball.x - cpu.x) < 50 && ball.y < G_Y - 140 && !cpu.air && !cpu.isRecovering) {
+            cpu.dy = -18; cpu.air = true; cpu.cpuSkill = 'spike';
         }
     } else {
-        // Return to back court when ball is on user side
-        let diff = (W * 0.1) - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 7 : 0;
+        cpu.isRecovering = false;
+        let diff = (W * 0.15) - cpu.x;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 8 : 0;
         cpu.cpuSkill = null;
     }
     
-    const subSteps = 12; // Ultra Refresh Simulation
+    const subSteps = 12;
     for(let s=0; s<subSteps; s++) {
         p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
         [p1, cpu].forEach(p => {
             let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-            let xr = 68, yrT = (act === 'spike') ? 160 : 100, yrB = 45;
+            let xr = 70, yrT = (act === 'spike') ? 160 : 100, yrB = 45;
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 26.5; ball.dy = 7.5; ball.y = p.y - 30; }
-                    else if(act === 'lift') { ball.dx = dir * 0.8; ball.dy = -18.5; }
-                    else if(act === 'lob') { ball.dx = dir * (p.x < W*0.2 ? 14 : 9); ball.dy = -22.5; }
+                    if(act === 'spike') { ball.dx = dir * 27; ball.dy = 7.8; ball.y = p.y - 30; }
+                    else if(act === 'lift') { ball.dx = dir * 1.2; ball.dy = -18; }
+                    else if(act === 'lob') { ball.dx = dir * (p.x < W*0.2 ? 14 : 10); ball.dy = -23; }
                     if(p === p1) inputs.buffer = 0;
                 }
             }
@@ -187,4 +207,3 @@ window.onresize = resize; window.onload = resize;
 </script>
 </body>
 </html>
-
