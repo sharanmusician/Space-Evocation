@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro AI Edition</title>
+    <title>Elite Volley: Motion Edition</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -140,8 +140,8 @@ window.addEventListener('touchend', e => {
 });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; }
-    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; }
     update() {
         this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
         this.x += this.dx; this.y += this.dy;
@@ -149,13 +149,34 @@ class Athlete {
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
         this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
+        if(this.actionAnim > 0) this.actionAnim--;
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5;
+        
         let walk = Math.sin(this.anim) * 5;
+        // Legs
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 38); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
+        
+        // Arms Logic
+        let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : this.cpuSkill;
+        let armY = 12;
+        ctx.beginPath();
+        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) {
+            // High to Low Swing
+            ctx.moveTo(0, 10); ctx.lineTo(15, -15 + (Math.sin(Date.now()*0.02)*5)); 
+        } else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0 && (this.lastAction === 'lift' || this.lastAction === 'lob'))) {
+            // Underhand scoop
+            ctx.moveTo(0, 10); ctx.lineTo(18, 25);
+        } else {
+            // Default walk swing
+            ctx.moveTo(0, 10); ctx.lineTo(walk, 25);
+        }
+        ctx.stroke();
+
+        // Body & Head
         ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
         ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill();
         ctx.restore();
@@ -192,7 +213,7 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // AI - PRO VARIETY LOGIC
+    // AI Decision logic
     let fX = ball.x + (ball.dx * 12), dist = fX - cpu.x, nNet = Math.abs(ball.x - NET.x) < 80;
     if (ball.x < NET.x) {
         cpu.cpuDX = dist > 8 ? 6.5 : dist < -8 ? -6.5 : 0;
@@ -213,6 +234,8 @@ function loop() {
         let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : cpu.cpuSkill;
         if(Math.abs(ball.x - p.x) < 45 && Math.abs(ball.y - p.y) < 55 && ball.lock === 0) {
             ball.lock = 25;
+            p.actionAnim = 15; // Hold arm pose
+            p.lastAction = act;
             let dir = (p.side === 'right') ? -1 : 1;
             if(act === 'spike') { ball.dx = dir * 14.5; ball.dy = 0.5; }
             else if(act === 'lift') { ball.dx = dir * 0.2; ball.dy = -12.5; }
