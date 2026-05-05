@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Pro AI Fix</title>
+    <title>Elite Volley: Ultra High-Speed AI</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -134,10 +134,11 @@ class Athlete {
         this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; 
         this.lastDice = 0; this.strategyGoalX = W * 0.1; this.netFail = false;
     }
-    update() {
+    update(stepSize = 1) {
         this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
-        this.x += this.dx; this.y += this.dy;
-        if(this.y < G_Y - this.h) this.dy += 1.55; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
+        this.x += (this.dx * stepSize); 
+        this.y += (this.dy * stepSize);
+        if(this.y < G_Y - this.h) this.dy += 1.55 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
         this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
         this.anim += Math.abs(this.dx) * 0.2;
@@ -164,17 +165,17 @@ class Athlete {
 const ball = {
     r: 8, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
-    update() {
+    update(stepSize = 1) {
         if(this.lock > 0) this.lock--;
-        for(let i=0; i<4; i++) {
-            this.x += this.dx/4; this.y += this.dy/4;
-            if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-                this.dx *= -0.3; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
-                // Trigger fail early if ball is on AI side of court
-                if (this.x < NET.x) cpu.netFail = true;
-            }
+        this.x += (this.dx * stepSize); 
+        this.y += (this.dy * stepSize);
+        
+        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
+            this.dx *= -0.3; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
+            if (this.x < NET.x) cpu.netFail = true;
         }
-        this.dy += 0.22;
+        
+        this.dy += 0.22 * stepSize;
         if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
         if(this.y >= G_Y - this.r) {
             this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5;
@@ -193,74 +194,74 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // THE ADVANCED PRIORITY AI ENGINE
-    if (ball.x < NET.x + 50) {
+    // AI LOGIC - Run at full frame rate
+    if (ball.x < NET.x + 80) { // Increased detection range
         if (ball.lock === 0) {
-            // Priority 1: Net Recovery (Always Sprint + Uplift + Spike)
-            if (cpu.netFail) {
-                cpu.strategyGoalX = ball.x + 20;
+            // Priority 1: Net Hit OR Fast Incoming Strike from player
+            // Force Uplift + Jump + Strike
+            if (cpu.netFail || (p1.actionAnim > 0 && ball.dx > 12) || ball.x < W * 0.15) {
+                cpu.strategyGoalX = ball.x + 10;
                 cpu.cpuSkill = 'lift';
-                if (Math.abs(ball.x - cpu.x) < 40) cpu.netFail = false; 
+                if (Math.abs(ball.x - cpu.x) < 30) cpu.netFail = false; 
             } 
-            // Priority 2: Countering a User Strike (No leaving the ball!)
-            else if (p1.actionAnim > 0 || ball.dx > 10) {
-                // If can lob (ball high), lob. Else Uplift and strike.
-                cpu.cpuSkill = (ball.dy < -4 && ball.y < G_Y - 120) ? 'lob' : 'lift';
-                cpu.strategyGoalX = ball.x;
-            }
-            // Priority 3: Random Dice Strategy (When ball is just traveling)
-            else if (Math.abs(ball.x - cpu.x) > 110) {
+            else if (Math.abs(ball.x - cpu.x) > 90) {
+                // Priority 2: Standard Dice Logic
                 let roll;
                 do { roll = Math.floor(Math.random() * 6) + 1; } while (roll === cpu.lastDice);
                 cpu.lastDice = roll;
                 if (roll === 1) { cpu.strategyGoalX = W * 0.35; cpu.cpuSkill = 'lob'; }
                 if (roll === 2) { cpu.strategyGoalX = W * 0.05; cpu.cpuSkill = 'lob'; }
                 if (roll === 3) { cpu.strategyGoalX = W * 0.20; cpu.cpuSkill = 'lob'; }
-                if (roll === 4) { cpu.strategyGoalX = ball.x + 10; cpu.cpuSkill = 'lift'; }
+                if (roll === 4) { cpu.strategyGoalX = ball.x + 5; cpu.cpuSkill = 'lift'; }
                 if (roll === 5) { cpu.strategyGoalX = W * 0.25; cpu.cpuSkill = 'lift'; }
                 if (roll === 6) { cpu.strategyGoalX = W * 0.10; cpu.cpuSkill = 'lift'; }
             }
         }
         
-        // MOVEMENT: Faster reaction when user strikes or ball hits net
-        let reactionSpeed = (p1.actionAnim > 0 || cpu.netFail || ball.dx > 8) ? 13.5 : 9.8;
+        let moveSpeed = (p1.actionAnim > 0 || cpu.netFail || ball.dx > 10) ? 14.5 : 10.5;
         let targetX = (ball.lock > 0) ? cpu.x : ball.x;
-        cpu.cpuDX = (targetX - cpu.x) > 5 ? reactionSpeed : (targetX - cpu.x) < -5 ? -reactionSpeed : 0;
+        cpu.cpuDX = (targetX - cpu.x) > 4 ? moveSpeed : (targetX - cpu.x) < -4 ? -moveSpeed : 0;
 
-        // COMBO: Jump-Strike Trigger
-        if (Math.abs(ball.x - cpu.x) < 50 && ball.y < cpu.y) {
-            // Trigger jump if we are lifting or if we were forced into a recovery
-            if ((cpu.cpuSkill === 'lift' || cpu.lastAction === 'lift') && !cpu.air && ball.y < G_Y - 60) {
-                cpu.dy = -17.8; cpu.air = true; cpu.cpuSkill = 'spike';
+        // Auto-Jump Strike Logic
+        if (Math.abs(ball.x - cpu.x) < 55 && ball.y < cpu.y) {
+            if ((cpu.cpuSkill === 'lift' || cpu.lastAction === 'lift') && !cpu.air && ball.y < G_Y - 50) {
+                cpu.dy = -18.2; cpu.air = true; cpu.cpuSkill = 'spike';
             }
         }
     } else {
-        // Return to base position when ball is on user side
-        cpu.cpuDX = (cpu.x > W * 0.12) ? -6.5 : 0;
+        cpu.cpuDX = (cpu.x > W * 0.15) ? -7 : 0;
         cpu.cpuSkill = null;
     }
     
-    [p1, cpu].forEach(p => {
-        p.update(); p.draw();
-        let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-        let xr = 62, yrT = (act === 'spike') ? 145 : 85, yrB = 45;
+    // PHYSICS SUB-STEPPING (Simulation Refresh Rate)
+    const subSteps = 8;
+    for(let s=0; s<subSteps; s++) {
+        p1.update(1/subSteps);
+        cpu.update(1/subSteps);
+        ball.update(1/subSteps);
         
-        if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
-            if (act) {
-                ball.lock = 18; p.actionAnim = 15; p.lastAction = act;
-                let dir = (p.side === 'right') ? -1 : 1;
-                if(act === 'spike') { ball.dx = dir * 22.5; ball.dy = 6.2; ball.y = p.y - 25; }
-                else if(act === 'lift') { ball.dx = dir * 0.6; ball.dy = -16.2; }
-                else if(act === 'lob') { 
-                    let power = (p.x < W*0.1) ? 11.2 : (p.x < W*0.3) ? 8.8 : 6.8;
-                    ball.dx = dir * power; ball.dy = -20.0; 
+        // Check Collision inside sub-steps for maximum precision
+        [p1, cpu].forEach(p => {
+            let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
+            let xr = 65, yrT = (act === 'spike') ? 150 : 90, yrB = 45;
+            
+            if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
+                if (act) {
+                    ball.lock = 18; p.actionAnim = 15; p.lastAction = act;
+                    let dir = (p.side === 'right') ? -1 : 1;
+                    if(act === 'spike') { ball.dx = dir * 23.5; ball.dy = 6.5; ball.y = p.y - 25; }
+                    else if(act === 'lift') { ball.dx = dir * 0.8; ball.dy = -16.5; }
+                    else if(act === 'lob') { 
+                        let power = (p.x < W*0.1) ? 11.5 : (p.x < W*0.3) ? 9.0 : 7.0;
+                        ball.dx = dir * power; ball.dy = -20.5; 
+                    }
+                    if(p === p1) inputs.buffer = 0;
                 }
-                if(p === p1) inputs.buffer = 0;
             }
-        }
-    });
+        });
+    }
     
-    ball.update(); ball.draw();
+    p1.draw(); cpu.draw(); ball.draw();
     document.getElementById('s-u').innerText = state.u;
     document.getElementById('s-c').innerText = state.c;
     requestAnimationFrame(loop);
