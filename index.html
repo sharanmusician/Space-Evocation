@@ -44,8 +44,8 @@ let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: nul
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
 // Physics Constants
-const GRAVITY = 0.22; 
-const JUMP_POWER = -12;
+const GRAVITY = 0.24; 
+const JUMP_POWER = -12.5;
 
 function toggleFullscreen() {
     let docEl = document.documentElement;
@@ -128,8 +128,16 @@ const ball = {
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
         }
-        this.dy += GRAVITY * stepSize;
-        if(this.y < 20) { this.y = 20; this.dy = 1; } 
+        
+        // --- SOFT CEILING LOGIC ---
+        // If ball is near the top (within 60px), apply extra gravity to pull it down fast
+        let curGrav = GRAVITY;
+        if (this.y < 60) curGrav *= 2.5; 
+        this.dy += curGrav * stepSize;
+
+        // Hard cap at the top (can't go above y=10)
+        if(this.y < 10) { this.y = 10; this.dy = 1; } 
+
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
     draw() { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
@@ -187,12 +195,24 @@ function loop() {
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 18.5; ball.dy = 5; ball.y = p.y - 30; }
-                    else if(act === 'lift') { ball.dx = dir * 1; ball.dy = -6.5; } 
+                    
+                    if(act === 'spike') { 
+                        ball.dx = dir * 18.5; ball.dy = 5.5; ball.y = p.y - 30; 
+                    }
+                    else if(act === 'lift') { 
+                        ball.dx = dir * 1.2; ball.dy = -7; 
+                    } 
                     else if(act === 'lob') { 
-                        let isHigh = Math.random() > 0.8; 
-                        ball.dx = dir * (isHigh ? 6 : 10); 
-                        ball.dy = isHigh ? -11 : -7.5; 
+                        // FAIR PLAY LOGIC:
+                        // High/Back lobs are now rare (10%)
+                        let rareShot = Math.random() > 0.90; 
+                        if(rareShot) {
+                             ball.dx = dir * 11.5; // Hits deep corner
+                             ball.dy = -10.5;      // High arc
+                        } else {
+                             ball.dx = dir * 8.5;  // Standard reachable lob
+                             ball.dy = -8.5;       // Medium height
+                        }
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
