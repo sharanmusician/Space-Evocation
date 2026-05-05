@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball: Pro Control</title>
+    <title>Skelly Ball: Precision</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -124,7 +124,7 @@ const ball = {
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
         }
-        this.dy += 0.15 * stepSize; // SLOWER GRAVITY
+        this.dy += 0.15 * stepSize;
         if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
@@ -143,6 +143,7 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
+    // AI TACTICS
     if (ball.x < NET.x + 50) {
         let landingX = projectLandingX();
         if (landingX > W * 0.32) {
@@ -150,7 +151,7 @@ function loop() {
             if (cpu.comboPhase === 0 && Math.abs(ball.x - cpu.x) < 45 && ball.y > G_Y - 80) {
                 cpu.cpuSkill = 'lift'; cpu.comboPhase = 1; 
             }
-            if (cpu.comboPhase === 1 && ball.dy < 0.4 && ball.y < G_Y - 110) {
+            if (cpu.comboPhase === 1 && ball.dy < 0.4 && ball.y < G_Y - 100) {
                 if (!cpu.air) { cpu.dy = -13.5; cpu.air = true; }
                 cpu.cpuSkill = 'spike';
                 if (ball.lock > 0) cpu.comboPhase = 0;
@@ -172,16 +173,23 @@ function loop() {
         p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
         [p1, cpu].forEach(p => {
             let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-            let xr = 72, yrT = (act === 'spike') ? 165 : 105, yrB = 45;
+            
+            // STRICT COLLISION BOX: Ball must be near body height
+            // yrT (Top reach) and yrB (Bottom reach) narrowed to prevent hitting ball high in air
+            let xr = 60; 
+            let yrT = (act === 'spike') ? 110 : 65; 
+            let yrB = 35;
+
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 20; ball.dy = 6.5; ball.y = p.y - 30; } // SLOWER SPIKE
-                    else if(act === 'lift') { ball.dx = dir * 1.0; ball.dy = -15; }
+                    if(act === 'spike') { ball.dx = dir * 18.5; ball.dy = 5.5; ball.y = p.y - 30; }
+                    else if(act === 'lift') { ball.dx = dir * 1.0; ball.dy = -14; }
                     else if(act === 'lob') { 
-                        let rand = Math.random();
-                        let targetPower = (rand < 0.33) ? 13 : (rand < 0.66) ? 10 : 7; // SLOWER LOBS
-                        ball.dx = dir * targetPower; ball.dy = -20; 
+                        // AI VARIATION LOGIC: Rotates between 3 power levels
+                        let cycle = Math.floor(Date.now() / 3000) % 3;
+                        let targetPower = (cycle === 0) ? 12.5 : (cycle === 1) ? 9.5 : 6.5; 
+                        ball.dx = dir * targetPower; ball.dy = -19; 
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
