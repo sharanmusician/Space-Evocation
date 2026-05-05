@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball: Tactical AI</title>
+    <title>Skelly Ball: Pro AI</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
         html, body { width: 100vw; height: 100vh; background: var(--bg); overflow: hidden; position: fixed; top: 0; left: 0; font-family: 'Inter', sans-serif; }
         #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
-        #hud { position: absolute; top: 25px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; }
+        #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; }
         .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 600; backdrop-filter: blur(5px); }
         #timer { color: #fff; font-size: 24px; font-weight: 800; width: 100px; text-align: center; }
         #joy-zone { position: absolute; bottom: 55px; left: 60px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
@@ -21,13 +21,13 @@
         #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
         .screen { position: fixed; inset: 0; background: rgba(0,0,0,1); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .status-text { color: #fff; font-size: 42px; font-weight: 900; margin-bottom: 10px; text-align: center; }
-        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; }
+        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; cursor: pointer; }
     </style>
 </head>
 <body>
 <div id="game-container">
     <div id="start-screen" class="screen"><h1 class="status-text">SKELLY BALL</h1><button class="action-btn" id="start-btn">PLAY NOW</button></div>
-    <div id="end-screen" class="screen" style="display:none"><h1 id="result-title" class="status-text">MATCH OVER</h1><p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p><button class="action-btn" id="rematch-btn">REMATCH</button></div>
+    <div id="end-screen" class="screen" style="display:none"><h1 class="status-text">MATCH OVER</h1><p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p><button class="action-btn" id="rematch-btn">REMATCH</button></div>
     <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
     <div id="joy-zone"></div><div id="knob"></div>
@@ -43,7 +43,13 @@ const knob = document.getElementById('knob'), joyZone = document.getElementById(
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
-document.getElementById('start-btn').onclick = () => { document.getElementById('start-screen').style.display='none'; initMatch(); };
+function toggleFullscreen() {
+    let docEl = document.documentElement;
+    let rfs = docEl.requestFullscreen || docEl.webkitRequestFullScreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+    if(rfs) rfs.call(docEl);
+}
+
+document.getElementById('start-btn').onclick = () => { toggleFullscreen(); document.getElementById('start-screen').style.display='none'; initMatch(); };
 document.getElementById('rematch-btn').onclick = () => { document.getElementById('end-screen').style.display='none'; initMatch(); };
 
 function initMatch() {
@@ -115,12 +121,9 @@ const ball = {
     spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
     update(stepSize = 1) {
         if(this.lock > 0) this.lock--; this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
-        // Net Hit Detection
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             let prevDx = this.dx;
-            this.dx *= -0.4; 
-            this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
-            // If ball was going right and hit net back to left
+            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
             if (prevDx > 0 && this.dx <= 0) cpu.isRecovering = true;
         }
         this.dy += 0.22 * stepSize; if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
@@ -133,10 +136,7 @@ const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
 
 function projectLandingX() {
     let tx = ball.x, ty = ball.y, tdx = ball.dx, tdy = ball.dy;
-    while (ty < G_Y - ball.r) {
-        tx += tdx; ty += tdy; tdy += 0.22;
-        if (tx < 20 || tx > W-20) tdx *= -1;
-    }
+    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += 0.22; if (tx < 20 || tx > W-20) tdx *= -1; }
     return tx;
 }
 
@@ -144,41 +144,38 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // TACTICAL AI BRAIN
-    if (ball.x < NET.x + 50) {
+    // SKELLY AI CORE
+    if (ball.x < NET.x + 40) {
         let landingX = projectLandingX();
         
-        // Logic 1: Net Recovery (Uplift + Strike)
+        // 1. RECOVERY (Always Front Court)
         if (cpu.isRecovering) {
-            cpu.targetX = ball.x + 15;
+            cpu.targetX = ball.x + 10;
             cpu.cpuSkill = 'lift';
-            if (Math.abs(ball.x - cpu.x) < 30) {
-                if (!cpu.air && ball.y < G_Y - 50) { cpu.dy = -18; cpu.air = true; cpu.cpuSkill = 'spike'; cpu.isRecovering = false; }
+            if (Math.abs(ball.x - cpu.x) < 40 && !cpu.air && ball.y < G_Y - 50) { 
+                cpu.dy = -18.5; cpu.air = true; cpu.cpuSkill = 'spike'; cpu.isRecovering = false; 
             }
         } 
-        // Logic 2: Dynamic Positioning (Back vs Front)
         else {
-            // Only come front if projected landing is in the front zone
-            if (landingX > W * 0.3) {
-                cpu.targetX = Math.min(landingX, NET.x - 40);
+            // 2. BACK COURT CHECK (Strict)
+            if (landingX < W * 0.28) {
+                cpu.targetX = Math.max(landingX, 35);
+                cpu.cpuSkill = 'lob'; // No Uplift allowed here
+            } 
+            // 3. FRONT COURT CHECK (Uplift -> Spike)
+            else {
+                cpu.targetX = Math.min(landingX, NET.x - 30);
                 cpu.cpuSkill = 'lift';
-            } else {
-                // Stay back
-                cpu.targetX = Math.max(landingX, 40);
-                cpu.cpuSkill = (ball.y < H*0.4) ? 'lob' : 'lift';
+                if (Math.abs(ball.x - cpu.x) < 45 && !cpu.air && ball.y < G_Y - 140) {
+                    cpu.dy = -18.5; cpu.air = true; cpu.cpuSkill = 'spike';
+                }
             }
         }
-
         let diff = cpu.targetX - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 12 : 0;
-
-        // Auto-Jump Strike if ball is high and target reached
-        if (Math.abs(ball.x - cpu.x) < 50 && ball.y < G_Y - 140 && !cpu.air && !cpu.isRecovering) {
-            cpu.dy = -18; cpu.air = true; cpu.cpuSkill = 'spike';
-        }
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 13 : 0;
     } else {
         cpu.isRecovering = false;
-        let diff = (W * 0.15) - cpu.x;
+        let diff = (W * 0.1) - cpu.x;
         cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 8 : 0;
         cpu.cpuSkill = null;
     }
@@ -188,13 +185,16 @@ function loop() {
         p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
         [p1, cpu].forEach(p => {
             let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-            let xr = 70, yrT = (act === 'spike') ? 160 : 100, yrB = 45;
+            let xr = 72, yrT = (act === 'spike') ? 165 : 105, yrB = 45;
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 27; ball.dy = 7.8; ball.y = p.y - 30; }
-                    else if(act === 'lift') { ball.dx = dir * 1.2; ball.dy = -18; }
-                    else if(act === 'lob') { ball.dx = dir * (p.x < W*0.2 ? 14 : 10); ball.dy = -23; }
+                    if(act === 'spike') { ball.dx = dir * 28; ball.dy = 8.2; ball.y = p.y - 30; }
+                    else if(act === 'lift') { ball.dx = dir * 1.5; ball.dy = -18.8; }
+                    else if(act === 'lob') { 
+                        let power = (p.x < W * 0.15) ? 15.5 : 11.5;
+                        ball.dx = dir * power; ball.dy = -24; 
+                    }
                     if(p === p1) inputs.buffer = 0;
                 }
             }
