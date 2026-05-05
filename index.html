@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: 6-Dice AI</title>
+    <title>Elite Volley: Priority AI</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -192,41 +192,43 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // THE 6-DICE AI ENGINE
+    // THE PRIORITY AI ENGINE
     if (ball.x < NET.x + 30) {
         if (ball.lock === 0 && Math.abs(ball.x - cpu.x) > 110) {
-            let roll;
-            if (cpu.netFail) { 
-                roll = 4; // Net Recovery: Front Uplift & Strike
-                cpu.netFail = false; 
-            } else { 
-                do { roll = Math.floor(Math.random() * 6) + 1; } while (roll === cpu.lastDice); 
+            // Priority Check
+            if (cpu.netFail) {
+                // If neted and returned -> Uplift and Strike
+                cpu.strategyGoalX = ball.x + 15;
+                cpu.cpuSkill = 'lift';
+                cpu.netFail = false;
+            } else if (p1.actionAnim > 0) {
+                // If user strikes: check if we can lob
+                if (ball.dy < -5) { 
+                    cpu.cpuSkill = 'lob'; // Ball is high/slow enough to lob
+                } else {
+                    cpu.cpuSkill = 'lift'; // Ball is too fast/flat -> Force uplift & strike
+                }
+            } else {
+                // Default Random Dice Strategy
+                let roll;
+                do { roll = Math.floor(Math.random() * 6) + 1; } while (roll === cpu.lastDice);
+                cpu.lastDice = roll;
+                if (roll === 1) { cpu.strategyGoalX = W * 0.35; cpu.cpuSkill = 'lob'; }
+                if (roll === 2) { cpu.strategyGoalX = W * 0.05; cpu.cpuSkill = 'lob'; }
+                if (roll === 3) { cpu.strategyGoalX = W * 0.20; cpu.cpuSkill = 'lob'; }
+                if (roll === 4) { cpu.strategyGoalX = ball.x + 10; cpu.cpuSkill = 'lift'; }
+                if (roll === 5) { cpu.strategyGoalX = W * 0.25; cpu.cpuSkill = 'lift'; }
+                if (roll === 6) { cpu.strategyGoalX = W * 0.10; cpu.cpuSkill = 'lift'; }
             }
-            cpu.lastDice = roll;
-            
-            // Dice Strategic Goals
-            if (roll === 1) { cpu.strategyGoalX = W * 0.35; cpu.cpuSkill = 'lob'; }   // Forward and lob
-            if (roll === 2) { cpu.strategyGoalX = W * 0.05; cpu.cpuSkill = 'lob'; }   // From back itself lob
-            if (roll === 3) { cpu.strategyGoalX = W * 0.20; cpu.cpuSkill = 'lob'; }   // Come mid lob
-            if (roll === 4) { cpu.strategyGoalX = ball.x + 10; cpu.cpuSkill = 'lift'; } // Come front uplift and strike
-            if (roll === 5) { cpu.strategyGoalX = W * 0.25; cpu.cpuSkill = 'lift'; } // Come mid uplift and strike
-            if (roll === 6) { cpu.strategyGoalX = W * 0.10; cpu.cpuSkill = 'lift'; } // From back uplift and strike
         }
         
-        // Anti-Miss logic: Increase speed if player strikes
-        let reactionSpeed = (p1.actionAnim > 0) ? 12.0 : 9.8;
+        let reactionSpeed = (p1.actionAnim > 0 || cpu.netFail) ? 12.5 : 9.8;
         let targetX = (ball.lock > 0) ? cpu.x : ball.x;
-        
-        // Constraint positioning based on dice
-        if (cpu.lastDice === 1 || cpu.lastDice === 4) targetX = Math.max(targetX, W * 0.28);
-        if (cpu.lastDice === 2 || cpu.lastDice === 6) targetX = Math.min(targetX, W * 0.15);
-
         cpu.cpuDX = (targetX - cpu.x) > 5 ? reactionSpeed : (targetX - cpu.x) < -5 ? -reactionSpeed : 0;
 
-        // Action Logic
+        // Auto-Combo for Lift -> Strike
         if (Math.abs(ball.x - cpu.x) < 45 && ball.y < cpu.y) {
-            // Strike if dice 4,5,6 OR if it's a follow-up to a lift
-            if ((cpu.lastDice >= 4 || cpu.lastAction === 'lift') && !cpu.air && ball.y < G_Y - 75) {
+            if ((cpu.cpuSkill === 'lift' || cpu.lastAction === 'lift') && !cpu.air && ball.y < G_Y - 70) {
                 cpu.dy = -17.5; cpu.air = true; cpu.cpuSkill = 'spike';
             }
         }
@@ -265,3 +267,4 @@ window.onload = resize;
 </script>
 </body>
 </html>
+
