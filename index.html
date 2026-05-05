@@ -194,11 +194,11 @@ function loop() {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
                     if(act === 'spike') { ball.dx = dir * 18.5; ball.dy = 5.5; ball.y = p.y - 30; }
-                    else if(act === 'lift') { ball.dx = dir * 1.0; ball.dy = -14; }
+                    else if(act === 'lift') { ball.dx = dir * 1.0; ball.dy = -8; } // Changed to -8
                     else if(act === 'lob') { 
                         let cycle = Math.floor(Date.now() / 3000) % 3;
                         let targetPower = (cycle === 0) ? 12.5 : (cycle === 1) ? 9.5 : 6.5; 
-                        ball.dx = dir * targetPower; ball.dy = -19; 
+                        ball.dx = dir * targetPower; ball.dy = -11; // Changed to -11
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
