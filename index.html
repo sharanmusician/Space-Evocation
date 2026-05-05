@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Ultra High-Speed AI</title>
+    <title>Elite Volley: Dynamic AI</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -128,11 +128,13 @@ class Athlete {
         this.side = side; this.color = color; this.h = 38; 
         this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0;
         this.lastDice = 0; this.strategyGoalX = W * 0.1; this.netFail = false;
+        this.moveHistory = []; // Tracks last moves to prevent repetition
     }
     reset() { 
         this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; 
         this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; 
         this.lastDice = 0; this.strategyGoalX = W * 0.1; this.netFail = false;
+        this.moveHistory = [];
     }
     update(stepSize = 1) {
         this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
@@ -169,12 +171,10 @@ const ball = {
         if(this.lock > 0) this.lock--;
         this.x += (this.dx * stepSize); 
         this.y += (this.dy * stepSize);
-        
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.3; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
             if (this.x < NET.x) cpu.netFail = true;
         }
-        
         this.dy += 0.22 * stepSize;
         if(this.y < 25) { this.y = 25; this.dy *= -0.2; }
         if(this.y >= G_Y - this.r) {
@@ -194,66 +194,84 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // AI LOGIC - Run at full frame rate
-    if (ball.x < NET.x + 80) { // Increased detection range
+    // VARIETY-DRIVEN AI ENGINE
+    if (ball.x < NET.x + 100) {
         if (ball.lock === 0) {
-            // Priority 1: Net Hit OR Fast Incoming Strike from player
-            // Force Uplift + Jump + Strike
-            if (cpu.netFail || (p1.actionAnim > 0 && ball.dx > 12) || ball.x < W * 0.15) {
-                cpu.strategyGoalX = ball.x + 10;
+            // Priority 1: Mandatory Net Recovery
+            if (cpu.netFail) {
+                cpu.strategyGoalX = ball.x + 15;
                 cpu.cpuSkill = 'lift';
                 if (Math.abs(ball.x - cpu.x) < 30) cpu.netFail = false; 
             } 
-            else if (Math.abs(ball.x - cpu.x) > 90) {
-                // Priority 2: Standard Dice Logic
+            // Priority 2: Anti-Repetition Logic
+            else if (Math.abs(ball.x - cpu.x) > 100) {
                 let roll;
-                do { roll = Math.floor(Math.random() * 6) + 1; } while (roll === cpu.lastDice);
+                let attempts = 0;
+                do {
+                    roll = Math.floor(Math.random() * 6) + 1;
+                    attempts++;
+                    // Prevent same roll twice in a row, and force mid/back if hit count is high
+                } while ((roll === cpu.lastDice || (cpu.moveHistory.slice(-2).includes(roll))) && attempts < 10);
+                
                 cpu.lastDice = roll;
-                if (roll === 1) { cpu.strategyGoalX = W * 0.35; cpu.cpuSkill = 'lob'; }
-                if (roll === 2) { cpu.strategyGoalX = W * 0.05; cpu.cpuSkill = 'lob'; }
-                if (roll === 3) { cpu.strategyGoalX = W * 0.20; cpu.cpuSkill = 'lob'; }
-                if (roll === 4) { cpu.strategyGoalX = ball.x + 5; cpu.cpuSkill = 'lift'; }
-                if (roll === 5) { cpu.strategyGoalX = W * 0.25; cpu.cpuSkill = 'lift'; }
-                if (roll === 6) { cpu.strategyGoalX = W * 0.10; cpu.cpuSkill = 'lift'; }
+                cpu.moveHistory.push(roll);
+                if(cpu.moveHistory.length > 5) cpu.moveHistory.shift();
+
+                // DIVERSE STRATEGIES
+                if (roll === 1) { cpu.strategyGoalX = W * 0.38; cpu.cpuSkill = 'lob'; }   // Aggressive Forward Lob
+                if (roll === 2) { cpu.strategyGoalX = W * 0.05; cpu.cpuSkill = 'lob'; }   // Deep Back Defense
+                if (roll === 3) { cpu.strategyGoalX = W * 0.22; cpu.cpuSkill = 'lob'; }   // Neutral Mid Play
+                if (roll === 4) { cpu.strategyGoalX = ball.x + 8; cpu.cpuSkill = 'lift'; } // Net-Rush Uplift
+                if (roll === 5) { cpu.strategyGoalX = W * 0.28; cpu.cpuSkill = 'lift'; } // Mid-Court Set
+                if (roll === 6) { cpu.strategyGoalX = W * 0.12; cpu.cpuSkill = 'lift'; } // Back-Row Setup
             }
         }
         
-        let moveSpeed = (p1.actionAnim > 0 || cpu.netFail || ball.dx > 10) ? 14.5 : 10.5;
+        // MOVEMENT: Contextual speed
+        let reactionSpeed = (p1.actionAnim > 0 || cpu.netFail || ball.dx > 11) ? 14.8 : 10.2;
         let targetX = (ball.lock > 0) ? cpu.x : ball.x;
-        cpu.cpuDX = (targetX - cpu.x) > 4 ? moveSpeed : (targetX - cpu.x) < -4 ? -moveSpeed : 0;
+        
+        // Prevent AI from always sticking to the net if it just made a forward move
+        if (cpu.lastDice === 1 || cpu.lastDice === 4) {
+             targetX = Math.max(targetX, W * 0.25);
+        }
 
-        // Auto-Jump Strike Logic
-        if (Math.abs(ball.x - cpu.x) < 55 && ball.y < cpu.y) {
-            if ((cpu.cpuSkill === 'lift' || cpu.lastAction === 'lift') && !cpu.air && ball.y < G_Y - 50) {
-                cpu.dy = -18.2; cpu.air = true; cpu.cpuSkill = 'spike';
+        cpu.cpuDX = (targetX - cpu.x) > 4 ? reactionSpeed : (targetX - cpu.x) < -4 ? -reactionSpeed : 0;
+
+        // COMBAT: Only Jump if the skill dictates or if forced by a back-court save
+        if (Math.abs(ball.x - cpu.x) < 58 && ball.y < cpu.y) {
+            let needsJump = (cpu.cpuSkill === 'lift' || cpu.lastAction === 'lift' || ball.x < W * 0.1);
+            if (needsJump && !cpu.air && ball.y < G_Y - 55) {
+                cpu.dy = -18.5; cpu.air = true; cpu.cpuSkill = 'spike';
             }
         }
     } else {
-        cpu.cpuDX = (cpu.x > W * 0.15) ? -7 : 0;
+        // Return to a dynamic base position (randomly mid or back)
+        let base = (state.u % 2 === 0) ? W * 0.1 : W * 0.18;
+        cpu.cpuDX = (cpu.x > base) ? -7 : 0;
         cpu.cpuSkill = null;
     }
     
-    // PHYSICS SUB-STEPPING (Simulation Refresh Rate)
+    // PHYSICS SUB-STEPPING (8x Refresh Rate)
     const subSteps = 8;
     for(let s=0; s<subSteps; s++) {
         p1.update(1/subSteps);
         cpu.update(1/subSteps);
         ball.update(1/subSteps);
         
-        // Check Collision inside sub-steps for maximum precision
         [p1, cpu].forEach(p => {
             let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
             let xr = 65, yrT = (act === 'spike') ? 150 : 90, yrB = 45;
             
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
-                    ball.lock = 18; p.actionAnim = 15; p.lastAction = act;
+                    ball.lock = 18; p.actionAnim = 16; p.lastAction = act;
                     let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 23.5; ball.dy = 6.5; ball.y = p.y - 25; }
-                    else if(act === 'lift') { ball.dx = dir * 0.8; ball.dy = -16.5; }
+                    if(act === 'spike') { ball.dx = dir * 24.2; ball.dy = 6.8; ball.y = p.y - 25; }
+                    else if(act === 'lift') { ball.dx = dir * 0.9; ball.dy = -16.8; }
                     else if(act === 'lob') { 
-                        let power = (p.x < W*0.1) ? 11.5 : (p.x < W*0.3) ? 9.0 : 7.0;
-                        ball.dx = dir * power; ball.dy = -20.5; 
+                        let power = (p.x < W*0.1) ? 11.8 : (p.x < W*0.3) ? 9.2 : 7.2;
+                        ball.dx = dir * power; ball.dy = -21.0; 
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
