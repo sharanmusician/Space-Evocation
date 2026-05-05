@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Elite Volley: Champion Reactive</title>
+    <title>Elite Volley: Pro AI Edition</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -28,7 +28,7 @@
 <body>
 <div id="game-container">
     <div id="start-screen" class="screen">
-        <h1 class="status-text">CHAMPION VOLLEY</h1>
+        <h1 class="status-text">ELITE PRO VOLLEY</h1>
         <button class="action-btn" id="start-btn">KICKOFF</button>
     </div>
     <div id="end-screen" class="screen">
@@ -91,7 +91,7 @@ function endMatch() {
     state.active = false;
     clearInterval(state.timerInt);
     const title = document.getElementById('result-title');
-    title.innerText = (state.u > state.c) ? "PRO DOMINANCE" : "CHALLENGER";
+    title.innerText = (state.u > state.c) ? "PRO DOMINATED" : "CHALLENGER";
     document.getElementById('result-score').innerText = `YOU ${state.u} - ${state.c} CPU`;
     document.getElementById('end-screen').style.display = 'flex';
 }
@@ -143,12 +143,12 @@ class Athlete {
     constructor(side, color) { 
         this.side = side; this.color = color; this.h = 38; 
         this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0;
-        this.lastSkill = ''; this.idleX = W * 0.15; this.retryFlag = false;
+        this.lastSkill = ''; this.strategyPos = 0.15; this.retryFlag = false;
     }
     reset() { 
         this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; this.y = G_Y - this.h; 
         this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; 
-        this.lastSkill = ''; this.idleX = W * 0.15; this.retryFlag = false;
+        this.lastSkill = ''; this.strategyPos = 0.15; this.retryFlag = false;
     }
     update() {
         this.dx = (this === p1) ? inputs.moveX * 8.2 : this.cpuDX;
@@ -190,8 +190,7 @@ const ball = {
             this.x += this.dx/4; this.y += this.dy/4;
             if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
                 this.dx *= -0.3; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
-                // IF BALL RETURNS TO AI SIDE AFTER AI HIT
-                if (this.x < NET.x) { cpu.retryFlag = true; }
+                if (this.x < NET.x) cpu.retryFlag = true;
             }
         }
         this.dy += 0.22;
@@ -213,33 +212,33 @@ function loop() {
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2);
     ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // NATIONAL CHAMPION AI - REACTIVE LOGIC
-    let targetX = (ball.x < NET.x) ? ball.x : cpu.idleX;
+    // VARIETY ENGINE: Position and Move selection
+    let aiTargetX = (ball.x < NET.x) ? ball.x : W * cpu.strategyPos;
     
     if (ball.x < NET.x + 50) {
-        cpu.cpuDX = (targetX - cpu.x) > 5 ? 8.8 : (targetX - cpu.x) < -5 ? -8.8 : 0;
+        cpu.cpuDX = (aiTargetX - cpu.x) > 5 ? 9.2 : (aiTargetX - cpu.x) < -5 ? -9.2 : 0;
         
         if (Math.abs(ball.x - cpu.x) < 45) {
-            // IF PREVIOUS HIT FAILED (BALL RETURNED) -> FORCE CHANGE
-            if (cpu.retryFlag) {
-                // Change Position & Change Button
-                cpu.idleX = W * (Math.random() * 0.3 + 0.05); // Relocate
-                const alternatives = ['lift', 'lob', 'spike'].filter(s => s !== cpu.lastSkill);
-                cpu.cpuSkill = alternatives[Math.floor(Math.random() * alternatives.length)];
+            // IF PREVIOUS HIT FAILED OR JUST FINISHED A PLAY -> RANDOMIZE POSITION DEPTH
+            if (cpu.retryFlag || ball.lock === 17) {
+                const depths = [0.05, 0.15, 0.25, 0.35]; // Close to net -> Far back
+                cpu.strategyPos = depths[Math.floor(Math.random() * depths.length)];
                 cpu.retryFlag = false;
-                if(!cpu.air) { cpu.dy = -17; cpu.air = true; }
-            } else {
-                // Standard Non-Repetitive Choice
-                const choices = ['spike', 'lob', 'lift'].filter(s => s !== cpu.lastSkill);
-                cpu.cpuSkill = choices[Math.floor(Math.random() * choices.length)];
-                
-                if (ball.y < cpu.y - 20 && !cpu.air && Math.random() > 0.4) {
-                    cpu.dy = -18; cpu.air = true;
-                }
+            }
+
+            // ACTION SELECTION (BASED ON POSITION)
+            const moves = ['spike', 'lob', 'lift'].filter(s => s !== cpu.lastSkill);
+            cpu.cpuSkill = moves[Math.floor(Math.random() * moves.length)];
+
+            // FORCE JUMP IF STRIKING OR BALL IS HIGH
+            if ((cpu.cpuSkill === 'spike' || ball.y < cpu.y - 30) && !cpu.air) {
+                cpu.dy = -18; cpu.air = true;
             }
         }
     } else {
-        cpu.cpuDX = (cpu.x < cpu.idleX) ? 6 : (cpu.x > cpu.idleX + 10) ? -6 : 0;
+        // Return to the currently chosen strategic idle depth
+        let idleGoal = W * cpu.strategyPos;
+        cpu.cpuDX = (cpu.x < idleGoal) ? 6 : (cpu.x > idleGoal + 10) ? -6 : 0;
         cpu.cpuSkill = null;
     }
     
@@ -248,22 +247,24 @@ function loop() {
         let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
         
         // INTERCEPTOR (AIR & OVERHEAD)
-        let xRange = 55, yRangeTop = (act === 'spike') ? 130 : 70, yRangeBot = 45;
+        let xRange = 58, yRangeTop = (act === 'spike') ? 135 : 75, yRangeBot = 45;
         
         if(Math.abs(ball.x - p.x) < xRange && ball.y < p.y + yRangeBot && ball.y > p.y - yRangeTop && ball.lock === 0) {
             if (act) {
                 ball.lock = 18;
                 p.actionAnim = 12;
                 p.lastAction = act;
-                p.lastSkill = act; // Cache move to prevent immediate repeat
+                p.lastSkill = act; 
                 let dir = (p.side === 'right') ? -1 : 1;
                 
                 if(act === 'spike') { 
-                    ball.dx = dir * 20; ball.dy = 4.5; ball.y = p.y - 25; 
+                    ball.dx = dir * 21; ball.dy = 5; ball.y = p.y - 25; 
                 } else if(act === 'lift') { 
-                    ball.dx = dir * 0.3; ball.dy = -15; 
+                    ball.dx = dir * 0.2; ball.dy = -15.5; 
                 } else if(act === 'lob') { 
-                    ball.dx = dir * 8.5; ball.dy = -19; 
+                    // Distance aware lob: If at net, hit harder/higher
+                    let power = (p.x < W*0.15) ? 9.5 : 7.5;
+                    ball.dx = dir * power; ball.dy = -19.5; 
                 }
                 if(p === p1) inputs.buffer = 0;
             }
