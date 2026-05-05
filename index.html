@@ -3,257 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball: Pro Online</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>Skelly Ball: Firebase Pro</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        html, body { width: 100vw; height: 100vh; background: var(--bg); overflow: hidden; position: fixed; top: 0; left: 0; font-family: 'Inter', sans-serif; }
+        html, body { width: 100vw; height: 100vh; background: var(--bg); overflow: hidden; position: fixed; font-family: 'Inter', sans-serif; }
         #game-container { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); }
         canvas { width: 100%; height: 100%; display: block; }
-        #hud { position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; pointer-events: none; z-index: 10; opacity: 0; }
-        .score-box { background: var(--glass); border: 1px solid var(--border); border-radius: 8px; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 600; backdrop-filter: blur(5px); }
-        #timer { color: #fff; font-size: 24px; font-weight: 800; width: 100px; text-align: center; }
-        #joy-zone { position: absolute; bottom: 55px; left: 60px; width: 140px; height: 45px; z-index: 20; background: var(--glass); border: 1px solid var(--border); border-radius: 20px; opacity: 0; }
-        #knob { position: absolute; width: 34px; height: 34px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #act-zone { position: absolute; bottom: 30px; right: 30px; width: 210px; height: 100px; z-index: 20; opacity: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 45px 45px; gap: 8px; }
-        .btn { background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; border-radius: 8px; text-transform: uppercase; }
-        .btn.active { background: #fff; color: #000; }
-        #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
-        .screen { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .status-text { color: #fff; font-size: 42px; font-weight: 900; margin-bottom: 10px; text-align: center; }
-        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; cursor: pointer; margin: 5px; }
+        .screen { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; cursor: pointer; margin: 10px; }
+        input { padding: 15px; border-radius: 4px; text-align: center; font-size: 20px; width: 220px; color: #000; margin-bottom: 10px; }
+        #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; gap: 20px; opacity: 0; pointer-events: none; }
+        .score-box { background: var(--glass); border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; color: white; }
+        #joy-zone { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 40px; background: var(--glass); border-radius: 20px; opacity: 0; border: 1px solid var(--border); }
+        #knob { position: absolute; width: 30px; height: 30px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #act-zone { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; opacity: 0; }
+        .btn { background: var(--glass); border: 1px solid var(--border); padding: 15px; border-radius: 8px; font-size: 10px; color: white; }
         .hidden { display: none !important; }
-        input { padding: 15px; border-radius: 4px; border: none; text-align: center; font-size: 20px; width: 220px; margin-bottom: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
+
 <div id="game-container">
-    <div id="menu-overlay" class="screen">
-        <h1 class="status-text">SKELLY BALL</h1>
-        <button class="action-btn" onclick="startMode('offline')">OFFLINE AI</button>
-        <button class="action-btn" onclick="openOnlineMenu()" style="background:#333; color:#fff">ONLINE PLAY</button>
+    <div id="main-menu" class="screen">
+        <h1 style="font-size: 40px; margin-bottom: 20px;">SKELLY BALL</h1>
+        <button class="action-btn" id="off-btn">OFFLINE AI</button>
+        <button class="action-btn" id="on-btn" style="background:#333; color:#fff">ONLINE PLAY</button>
     </div>
 
     <div id="online-menu" class="screen hidden">
-        <h1 class="status-text">ONLINE</h1>
-        <button class="action-btn" onclick="hostGame()">CREATE ROOM</button>
-        <p style="color:#666; margin: 10px;">- OR -</p>
-        <input type="number" id="room-input" placeholder="4-DIGIT CODE">
-        <button class="action-btn" onclick="joinGame()">JOIN ROOM</button>
-        <button style="background:transparent; color:#fff; border:none; margin-top:20px;" onclick="location.reload()">BACK</button>
+        <button class="action-btn" id="host-btn">CREATE ROOM</button>
+        <p style="margin: 10px;">- OR -</p>
+        <input type="number" id="room-input" placeholder="ENTER CODE">
+        <button class="action-btn" id="join-btn">JOIN ROOM</button>
     </div>
 
     <div id="waiting-screen" class="screen hidden">
-        <h2 style="color:#fff; letter-spacing:2px;">ROOM CODE</h2>
-        <h1 id="display-code" style="color:#00ffcc; font-size:60px; font-weight:900;">----</h1>
-        <p style="color:#666;">Waiting for opponent...</p>
+        <p>YOUR ROOM CODE:</p>
+        <h1 id="display-code" style="font-size: 60px; color: #00ffcc;">----</h1>
+        <p>Waiting for opponent...</p>
     </div>
 
-    <div id="end-screen" class="screen hidden">
-        <h1 class="status-text">GAME OVER</h1>
-        <p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p>
-        <button class="action-btn" onclick="location.reload()">MAIN MENU</button>
+    <div id="hud">
+        <div class="score-box" id="s-c">0</div>
+        <div style="color: white; font-size: 24px; font-weight: bold;" id="timer">01:00</div>
+        <div class="score-box" id="s-u">0</div>
     </div>
-
-    <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
     <canvas id="canvas"></canvas>
-    <div id="joy-zone"></div><div id="knob"></div>
+    <div id="joy-zone"></div><div id="knob" style="left: -100px;"></div>
     <div id="act-zone">
-        <div class="btn" id="lift">Lift</div><div class="btn" id="lob">Lob</div><div class="btn" id="spike">Strike</div>
-        <div class="btn" id="jump">JUMP</div>
+        <div class="btn" id="lift">LIFT</div><div class="btn" id="lob">LOB</div><div class="btn" id="spike">SPIKE</div>
     </div>
 </div>
 
-<script>
-const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
-let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
-const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
+<script type="module">
+    // --- FIREBASE SETUP ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// ONLINE VARS
-let socket, roomID = null, isOnline = false, isHost = false;
-const SERVER_URL = "https://socket-io-chat.now.sh"; // FREE PUBLIC SERVER
+    const firebaseConfig = {
+        apiKey: "AIzaSyAMfZLzlY_uivMNeoaEY6CTegVf2RtUHtU",
+        authDomain: "skelly-ball.firebaseapp.com",
+        projectId: "skelly-ball",
+        storageBucket: "skelly-ball.firebasestorage.app",
+        messagingSenderId: "51373655501",
+        appId: "1:51373655501:web:25774aad43cf709845f084"
+    };
 
-const GRAVITY = 0.24, JUMP_POWER = -12.5;
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-function openOnlineMenu() {
-    document.getElementById('menu-overlay').classList.add('hidden');
-    document.getElementById('online-menu').classList.remove('hidden');
-}
+    // --- GAME VARIABLES ---
+    const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+    const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
+    let W, H, G_Y, NET, state = { u: 0, c: 0, active: false };
+    const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
-function hostGame() {
-    socket = io(SERVER_URL);
-    roomID = Math.floor(1000 + Math.random() * 9000).toString();
-    isHost = true;
-    document.getElementById('online-menu').classList.add('hidden');
-    document.getElementById('waiting-screen').classList.remove('hidden');
-    document.getElementById('display-code').innerText = roomID;
-    
-    socket.emit('join', {room: roomID});
-    socket.on('user joined', () => startMode('online'));
-    setupSocket();
-}
+    let isOnline = false, isHost = false, roomID = null;
 
-function joinGame() {
-    roomID = document.getElementById('room-input').value;
-    if(roomID.length !== 4) return alert("Enter 4 digits");
-    socket = io(SERVER_URL);
-    isHost = false;
-    socket.emit('join', {room: roomID});
-    startMode('online');
-    setupSocket();
-}
+    // --- NAVIGATION ---
+    document.getElementById('off-btn').onclick = () => startMatch('offline');
+    document.getElementById('on-btn').onclick = () => {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('online-menu').classList.remove('hidden');
+    };
 
-function setupSocket() {
-    socket.on('message', (msg) => {
-        if(msg.type === 'sync') {
-            cpu.x = W - msg.x; // Mirror opponent
-            cpu.y = msg.y;
-            cpu.actionAnim = msg.anim;
-            if(!isHost && msg.ball) { ball.x = W - msg.ball.x; ball.y = msg.ball.y; }
+    document.getElementById('host-btn').onclick = () => {
+        roomID = Math.floor(1000 + Math.random() * 9000).toString();
+        isHost = true;
+        document.getElementById('online-menu').classList.add('hidden');
+        document.getElementById('waiting-screen').classList.remove('hidden');
+        document.getElementById('display-code').innerText = roomID;
+
+        // Create Room in Firebase
+        set(ref(db, 'rooms/' + roomID), { status: 'waiting' });
+        
+        // Listen for Joiner
+        onValue(ref(db, 'rooms/' + roomID + '/status'), (snap) => {
+            if(snap.val() === 'playing') startMatch('online');
+        });
+    };
+
+    document.getElementById('join-btn').onclick = () => {
+        roomID = document.getElementById('room-input').value;
+        if(roomID.length !== 4) return alert("Enter 4 digits");
+        isHost = false;
+        
+        // Update Room Status
+        update(ref(db, 'rooms/' + roomID), { status: 'playing' });
+        startMatch('online');
+    };
+
+    function startMatch(mode) {
+        isOnline = (mode === 'online');
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById('hud').style.opacity = 1;
+        document.getElementById('joy-zone').style.opacity = 1;
+        document.getElementById('act-zone').style.opacity = 1;
+        state.active = true;
+        resize();
+        ball.spawn();
+        
+        if(isOnline) {
+            const myPath = isHost ? 'host' : 'joiner';
+            const oppPath = isHost ? 'joiner' : 'host';
+
+            // Sync Opponent Position
+            onValue(ref(db, `rooms/${roomID}/${oppPath}`), (snap) => {
+                const data = snap.val();
+                if(data) {
+                    cpu.x = W - data.x; // MIRROR LOGIC
+                    cpu.y = data.y;
+                    cpu.actionAnim = data.anim;
+                }
+            });
+
+            // If Joiner, sync ball from Host
+            if(!isHost) {
+                onValue(ref(db, `rooms/${roomID}/ball`), (snap) => {
+                    const data = snap.val();
+                    if(data) { ball.x = W - data.x; ball.y = data.y; }
+                });
+            }
+        }
+        requestAnimationFrame(loop);
+    }
+
+    // --- GAME ENGINE ---
+    class Athlete {
+        constructor(side) { this.side = side; this.x=0; this.y=0; this.actionAnim=0; }
+        reset() { this.x = (this.side === 'right') ? W * 0.8 : W * 0.2; this.y = G_Y - 40; }
+        update() {
+            if(this.side === 'right') this.x += inputs.moveX * 7;
+            const lim = NET.x + (this.side === 'right' ? 25 : -25);
+            this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
+            if(this.actionAnim > 0) this.actionAnim--;
+        }
+        draw() {
+            ctx.fillStyle = (this.side === 'right') ? "#fff" : "#555";
+            ctx.fillRect(this.x-10, this.y, 20, 40);
+        }
+    }
+
+    const ball = {
+        x: 0, y: 0, dx: 2, dy: 0,
+        spawn() { this.x = W/2; this.y = 100; },
+        update() {
+            if(!isOnline || isHost) {
+                this.x += this.dx; this.y += this.dy; this.dy += 0.25;
+                if(this.y > G_Y) { this.dy *= -0.8; this.y = G_Y; }
+                if(this.x < 10 || this.x > W-10) this.dx *= -1;
+            }
+        },
+        draw() { ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, 8, 0, Math.PI*2); ctx.fill(); }
+    };
+
+    const p1 = new Athlete('right'), cpu = new Athlete('left');
+
+    function resize() {
+        W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+        G_Y = H - 100; NET = { x: W/2 };
+        p1.reset(); cpu.reset();
+    }
+
+    function loop() {
+        if(!state.active) return;
+        ctx.clearRect(0,0,W,H);
+        ctx.fillStyle = "gray"; ctx.fillRect(W/2-2, G_Y-80, 4, 80); // Net
+
+        p1.update();
+        ball.update();
+
+        // Simple Collision
+        if(Math.abs(ball.x - p1.x) < 30 && Math.abs(ball.y - p1.y) < 40) {
+            ball.dy = -8; ball.dx = (ball.x < p1.x) ? -4 : 4;
+            p1.actionAnim = 10;
+        }
+
+        // --- FIREBASE SYNC ---
+        if(isOnline) {
+            const myPath = isHost ? 'host' : 'joiner';
+            update(ref(db, `rooms/${roomID}/${myPath}`), {
+                x: p1.x, y: p1.y, anim: p1.actionAnim
+            });
+            if(isHost) {
+                update(ref(db, `rooms/${roomID}/ball`), { x: ball.x, y: ball.y });
+            }
+        }
+
+        p1.draw(); cpu.draw(); ball.draw();
+        requestAnimationFrame(loop);
+    }
+
+    // Controls
+    window.addEventListener('touchstart', e => {
+        let t = e.touches[0];
+        if(t.clientX < W/2) {
+            const rJ = joyZone.getBoundingClientRect();
+            inputs.moveX = (t.clientX - (rJ.left + rJ.width/2)) / 30;
+            knob.style.left = t.clientX + "px"; knob.style.top = t.clientY + "px";
         }
     });
-}
-
-function startMode(mode) {
-    isOnline = (mode === 'online');
-    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-    initMatch();
-}
-
-function initMatch() {
-    state.active = true; state.time = 60;
-    document.getElementById('hud').style.opacity = 1; 
-    document.getElementById('joy-zone').style.opacity = 1; 
-    document.getElementById('act-zone').style.opacity = 1;
-    resize(); ball.spawn();
-    if(state.timerInt) clearInterval(state.timerInt);
-    state.timerInt = setInterval(() => {
-        if(state.time > 0 && state.active) { 
-            state.time--; 
-            document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; 
-        } else if(state.time <= 0 && state.active) endMatch();
-    }, 1000);
-    requestAnimationFrame(loop);
-}
-
-function endMatch() { state.active = false; document.getElementById('result-score').innerText = `YOU ${state.u} - ${state.c} OPP`; document.getElementById('end-screen').classList.remove('hidden'); }
-
-function resize() {
-    W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    G_Y = H - 50; NET = { x: W/2, y: G_Y - 80, w: 6, h: 80 };
-    updateKnobUI(0); p1.reset(); cpu.reset();
-}
-
-function updateKnobUI(val) { const r = joyZone.getBoundingClientRect(); knob.style.left = (r.left + r.width/2 + val * (r.width/2 - 17)) + "px"; knob.style.top = (r.top + r.height/2) + "px"; }
-
-window.addEventListener('touchstart', e => {
-    for (let t of e.changedTouches) {
-        if (t.clientX < W / 2) { inputs.joyID = t.identifier; handleJoy(t); }
-        ['lift', 'lob', 'spike', 'jump'].forEach(id => {
-            const b = document.getElementById(id).getBoundingClientRect();
-            if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                if (id === 'jump' && !p1.air) { p1.dy = JUMP_POWER; p1.air = true; }
-                else { inputs.buffer = 25; inputs.type = id; }
-                document.getElementById(id).classList.add('active');
-            }
-        });
-    }
-});
-
-function handleJoy(t) { const rJ = joyZone.getBoundingClientRect(); inputs.moveX = Math.max(-1, Math.min(1, (t.clientX - (rJ.left + rJ.width/2)) / (rJ.width/2 - 17))); updateKnobUI(inputs.moveX); }
-window.addEventListener('touchmove', e => { for (let t of e.touches) if (t.identifier === inputs.joyID) handleJoy(t); });
-window.addEventListener('touchend', e => { for (let t of e.changedTouches) { if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); } ['lift', 'lob', 'spike', 'jump'].forEach(k => document.getElementById(k).classList.remove('active')); } });
-
-class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.targetX = 0; this.comboPhase = 0; }
-    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; }
-    update(stepSize = 1) {
-        if(this === p1) this.dx = inputs.moveX * 6.8; 
-        else if(!isOnline) this.dx = this.cpuDX; 
-
-        this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
-        if(this.y < G_Y - this.h) this.dy += 1.1 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
-        const lim = NET.x + (this.side === 'right' ? 22 : -22);
-        this.x = (this.side === 'right') ? Math.max(lim, Math.min(W-20, this.x)) : Math.min(lim, Math.max(20, this.x));
-        this.anim += Math.abs(this.dx) * 0.2; if(this.actionAnim > 0) this.actionAnim--;
-    }
-    draw() {
-        ctx.save(); ctx.translate(this.x, this.y); if(this.side === 'right') ctx.scale(-1, 1);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; let walk = Math.sin(this.anim) * 5;
-        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 38); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
-        let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : this.cpuSkill;
-        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(20, -20); ctx.stroke(); } 
-        else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0)) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(18, 25); ctx.stroke(); } 
-        ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
-        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill(); ctx.restore();
-    }
-}
-
-const ball = {
-    r: 8, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
-    spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
-    update(stepSize = 1) {
-        if(this.lock > 0) this.lock--; this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
-        if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
-            this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
-        }
-        this.dy += GRAVITY * stepSize;
-        if(this.y >= G_Y - this.r) { 
-            this.y = G_Y - this.r; 
-            if(Math.abs(this.dy) > 2) this.dy *= -0.5; 
-            else { 
-                if(!isOnline || isHost) { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); }
-            } 
-        }
-    },
-    draw() { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
-};
-
-const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
-
-function loop() {
-    if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
-    ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
-    
-    // OFFLINE AI (Only runs if not online)
-    if (!isOnline && ball.x < NET.x + 50) {
-        let diff = ball.x - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 10 ? Math.sign(diff) * 7 : 0;
-        cpu.cpuSkill = ball.y > G_Y - 100 ? 'lob' : null;
-    }
-
-    const subSteps = 10;
-    for(let s=0; s<subSteps; s++) {
-        p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
-        [p1, cpu].forEach(p => {
-            let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : (isOnline ? null : p.cpuSkill);
-            if(Math.abs(ball.x - p.x) < 65 && ball.y < p.y + 35 && ball.y > p.y - 110 && ball.lock === 0 && act) {
-                ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                if(act === 'spike') { ball.dx = dir * 25; ball.dy = 1; }
-                else if(act === 'lift') { ball.dx = dir * 1.5; ball.dy = -8; }
-                else { ball.dx = dir * 8; ball.dy = -10; }
-                if(p === p1) inputs.buffer = 0;
-            }
-        });
-    }
-
-    // SYNC DATA
-    if(isOnline && socket) {
-        socket.emit('message', {
-            type: 'sync',
-            x: p1.x, y: p1.y, anim: p1.actionAnim,
-            ball: isHost ? { x: ball.x, y: ball.y } : null
-        });
-    }
-
-    p1.draw(); cpu.draw(); ball.draw(); 
-    document.getElementById('s-u').innerText = state.u; document.getElementById('s-c').innerText = state.c;
-    requestAnimationFrame(loop);
-}
-window.onresize = resize; window.onload = resize;
+    window.addEventListener('touchend', () => { inputs.moveX = 0; knob.style.left = "-100px"; });
+    window.onresize = resize;
 </script>
 </body>
 </html>
