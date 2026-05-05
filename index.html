@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Skelly Ball: Pro Online</title>
+    <title>Skelly Ball: Real Multiplayer</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.2); --bg: #0a0a0a; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; margin: 0; padding: 0; }
@@ -19,9 +19,9 @@
         .btn { background: var(--glass); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; border-radius: 8px; text-transform: uppercase; }
         .btn.active { background: #fff; color: #000; }
         #jump { grid-column: span 3; font-size: 13px; letter-spacing: 2px; }
-        .screen { position: fixed; inset: 0; background: rgba(0,0,0,1); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .screen { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .status-text { color: #fff; font-size: 42px; font-weight: 900; margin-bottom: 10px; text-align: center; }
-        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; cursor: pointer; margin: 5px; }
+        .action-btn { padding: 18px 45px; background: #fff; color: #000; border: none; border-radius: 4px; font-weight: 800; font-size: 14px; letter-spacing: 2px; cursor: pointer; margin: 10px; }
         input { padding: 15px; border-radius: 5px; border: none; text-align: center; font-size: 20px; width: 220px; margin-bottom: 10px; }
         .hidden { display: none !important; }
     </style>
@@ -30,28 +30,29 @@
 <div id="game-container">
     <div id="main-menu" class="screen">
         <h1 class="status-text">SKELLY BALL</h1>
-        <button class="action-btn" id="offline-btn">OFFLINE</button>
-        <button class="action-btn" id="online-choice-btn" style="background:#444; color:#fff;">ONLINE</button>
+        <button class="action-btn" id="offline-btn">OFFLINE AI</button>
+        <button class="action-btn" id="online-choice-btn" style="background:#333; color:#fff">ONLINE MULTIPLAYER</button>
     </div>
 
     <div id="online-lobby" class="screen hidden">
-        <h1 class="status-text">ONLINE</h1>
+        <h1 class="status-text" style="font-size:24px">ONLINE</h1>
         <button class="action-btn" id="create-btn">CREATE ROOM</button>
-        <p style="color:white; margin:10px;">- OR -</p>
-        <input type="number" id="join-input" placeholder="ENTER CODE">
+        <p style="color:#666; margin:10px">OR</p>
+        <input type="number" id="join-input" placeholder="4-DIGIT CODE">
         <button class="action-btn" id="join-btn">JOIN ROOM</button>
+        <button style="background:transparent; color:white; border:none; margin-top:20px" onclick="location.reload()">BACK</button>
     </div>
 
     <div id="waiting-room" class="screen hidden">
-        <h1 class="status-text" style="font-size:20px;">ROOM CODE</h1>
-        <div id="display-code" style="font-size:60px; font-weight:bold; color:#00ffcc; letter-spacing:5px;">----</div>
-        <p style="color:white; margin-top:10px;">Waiting for friend...</p>
+        <h1 class="status-text" style="font-size:18px">ROOM CODE</h1>
+        <div id="display-code" style="font-size:60px; color:#00ffcc; font-weight:bold">----</div>
+        <p style="color:white; margin-top:10px">Waiting for friend...</p>
     </div>
 
     <div id="end-screen" class="screen" style="display:none">
         <h1 class="status-text">MATCH OVER</h1>
         <p id="result-score" style="color: #fff; margin-bottom: 20px;">Score: 0 - 0</p>
-        <button class="action-btn" onclick="location.reload()">MENU</button>
+        <button class="action-btn" onclick="location.reload()">RETRY</button>
     </div>
 
     <div id="hud"><div class="score-box" id="s-c">0</div><div id="timer">01:00</div><div class="score-box" id="s-u">0</div></div>
@@ -64,7 +65,6 @@
 </div>
 
 <script type="module">
-// --- FIREBASE IMPORT ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -74,14 +74,12 @@ const firebaseConfig = {
   projectId: "skelly-ball",
   storageBucket: "skelly-ball.firebasestorage.app",
   messagingSenderId: "51373655501",
-  appId: "1:51373655501:web:25774aad43cf709845f084",
-  measurementId: "G-69MJHFK4DB"
+  appId: "1:51373655501:web:25774aad43cf709845f084"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// --- GAME CORE ---
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 const knob = document.getElementById('knob'), joyZone = document.getElementById('joy-zone');
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
@@ -96,7 +94,6 @@ function toggleFullscreen() {
     if(rfs) rfs.call(docEl);
 }
 
-// --- MENU LOGIC ---
 document.getElementById('offline-btn').onclick = () => { isOnline = false; startMatch(); };
 document.getElementById('online-choice-btn').onclick = () => {
     document.getElementById('main-menu').classList.add('hidden');
@@ -109,17 +106,14 @@ document.getElementById('create-btn').onclick = () => {
     document.getElementById('online-lobby').classList.add('hidden');
     document.getElementById('waiting-room').classList.remove('hidden');
     document.getElementById('display-code').innerText = roomID;
-    
-    set(ref(db, 'rooms/' + roomID), { status: 'waiting' });
-    onValue(ref(db, 'rooms/' + roomID + '/status'), (snap) => {
-        if(snap.val() === 'playing') startMatch();
-    });
+    set(ref(db, 'rooms/' + roomID), { status: 'waiting', scoreU: 0, scoreC: 0 });
+    onValue(ref(db, 'rooms/' + roomID + '/status'), (snap) => { if(snap.val() === 'playing') startMatch(); });
 };
 
 document.getElementById('join-btn').onclick = () => {
     roomID = document.getElementById('join-input').value;
     if(roomID.length !== 4) return alert("Enter 4 digits");
-    isHost = false;
+    isOnline = true; isHost = false;
     update(ref(db, 'rooms/' + roomID), { status: 'playing' });
     startMatch();
 };
@@ -130,45 +124,41 @@ function startMatch() {
     document.getElementById('hud').style.opacity = 1; 
     document.getElementById('joy-zone').style.opacity = 1; 
     document.getElementById('act-zone').style.opacity = 1;
-    
-    state.active = true; state.time = 60; state.u = 0; state.c = 0;
-    resize(); ball.spawn();
-    
-    if(isOnline) setupOnlineSync();
+    state.active = true; resize(); ball.spawn();
 
-    if(state.timerInt) clearInterval(state.timerInt);
+    if(isOnline) {
+        const oppPath = isHost ? 'joiner' : 'host';
+        onValue(ref(db, `rooms/${roomID}/${oppPath}`), (snap) => {
+            const data = snap.val();
+            if(data) { 
+                cpu.x = W - data.x; // MIRROR
+                cpu.y = data.y; 
+                cpu.actionAnim = data.anim; 
+                cpu.lastAction = data.lastAct;
+            }
+        });
+        onValue(ref(db, `rooms/${roomID}/scores`), (snap) => {
+            const s = snap.val();
+            if(s) { state.u = isHost ? s.u : s.c; state.c = isHost ? s.c : s.u; }
+        });
+        if(!isHost) {
+            onValue(ref(db, `rooms/${roomID}/ball`), (snap) => {
+                const b = snap.val();
+                if(b) { ball.x = W - b.x; ball.y = b.y; }
+            });
+        }
+    }
+
     state.timerInt = setInterval(() => {
         if(state.time > 0 && state.active) { 
             state.time--; 
             document.getElementById('timer').innerText = `00:${state.time.toString().padStart(2, '0')}`; 
-        }
-        else if(state.time <= 0 && state.active) endMatch();
+        } else if(state.time <= 0) endMatch();
     }, 1000);
     requestAnimationFrame(loop);
 }
 
-function setupOnlineSync() {
-    const myPath = isHost ? 'host' : 'joiner';
-    const oppPath = isHost ? 'joiner' : 'host';
-
-    onValue(ref(db, `rooms/${roomID}/${oppPath}`), (snap) => {
-        const data = snap.val();
-        if(data) {
-            cpu.x = W - data.x; // MIRROR
-            cpu.y = data.y;
-            cpu.actionAnim = data.anim;
-        }
-    });
-
-    if(!isHost) {
-        onValue(ref(db, `rooms/${roomID}/ball`), (snap) => {
-            const bData = snap.val();
-            if(bData) { ball.x = W - bData.x; ball.y = bData.y; }
-        });
-    }
-}
-
-function endMatch() { state.active = false; clearInterval(state.timerInt); document.getElementById('result-score').innerText = `YOU ${state.u} - ${state.c} OPP`; document.getElementById('end-screen').style.display = 'flex'; }
+function endMatch() { state.active = false; clearInterval(state.timerInt); document.getElementById('end-screen').style.display = 'flex'; }
 
 function resize() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
@@ -197,10 +187,13 @@ window.addEventListener('touchmove', e => { for (let t of e.touches) if (t.ident
 window.addEventListener('touchend', e => { for (let t of e.changedTouches) { if (t.identifier === inputs.joyID) { inputs.joyID = null; inputs.moveX = 0; updateKnobUI(0); } ['lift', 'lob', 'spike', 'jump'].forEach(k => document.getElementById(k).classList.remove('active')); } });
 
 class Athlete {
-    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuSkill = null; this.cpuDX = 0; this.actionAnim = 0; this.targetX = 0; this.comboPhase = 0; }
-    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.1; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; this.targetX = W * 0.1; this.comboPhase = 0; }
+    constructor(side, color) { this.side = side; this.color = color; this.h = 38; this.cpuDX = 0; this.actionAnim = 0; }
+    reset() { this.x = (this.side === 'right') ? W * 0.85 : W * 0.15; this.y = G_Y - this.h; this.dx = this.dy = 0; this.air = false; this.anim = 0; this.actionAnim = 0; }
     update(stepSize = 1) {
-        this.dx = (this === p1) ? inputs.moveX * 6.8 : (isOnline ? 0 : this.cpuDX);
+        if(this === p1) this.dx = inputs.moveX * 6.8;
+        else if(!isOnline) this.dx = this.cpuDX;
+        else this.dx = 0; // Online opponent moves via Firebase sync
+
         this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
         if(this.y < G_Y - this.h) this.dy += 1.1 * stepSize; else { this.y = G_Y - this.h; this.dy = 0; this.air = false; }
         const lim = NET.x + (this.side === 'right' ? 22 : -22);
@@ -212,9 +205,9 @@ class Athlete {
         ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; let walk = Math.sin(this.anim) * 5;
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(walk, 38); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-walk, 38); ctx.stroke();
-        let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : (isOnline ? null : this.cpuSkill);
-        if(skill === 'spike' || (this.actionAnim > 0 && this.lastAction === 'spike')) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(20, -20); ctx.stroke(); } 
-        else if(skill === 'lift' || skill === 'lob' || (this.actionAnim > 0)) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(18, 25); ctx.stroke(); } 
+        let skill = (this === p1) ? (inputs.buffer > 0 ? inputs.type : null) : (isOnline ? this.lastAction : this.cpuSkill);
+        if((this.actionAnim > 0) && (this.lastAction === 'spike')) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(20, -20); ctx.stroke(); } 
+        else if(this.actionAnim > 0) { ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(18, 25); ctx.stroke(); } 
         ctx.fillStyle = this.color; ctx.fillRect(-6, 6, 12, 20);
         ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI*2); ctx.fill(); ctx.restore();
     }
@@ -222,9 +215,9 @@ class Athlete {
 
 const ball = {
     r: 8, dx: 0, dy: 0, x: 0, y: 0, lock: 0,
-    spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (state.u > state.c) ? W*0.3 : W*0.7; this.lock = 0; },
+    spawn() { this.y = H * 0.3; this.dx = 0; this.dy = 0; this.x = (isHost || !isOnline) ? W*0.3 : W*0.7; this.lock = 0; },
     update(stepSize = 1) {
-        if(this.lock > 0) this.lock--; 
+        if(this.lock > 0) this.lock--;
         if(!isOnline || isHost) {
             this.x += (this.dx * stepSize); this.y += (this.dy * stepSize);
             if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
@@ -235,7 +228,12 @@ const ball = {
                 this.y = G_Y - this.r; 
                 if(Math.abs(this.dy) > 2) this.dy *= -0.5; 
                 else { 
-                    state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); 
+                    if(isHost || !isOnline) {
+                        const pointForLeft = this.x > NET.x;
+                        if(pointForLeft) state.c++; else state.u++;
+                        if(isOnline) update(ref(db, `rooms/${roomID}/scores`), { u: state.u, c: state.c });
+                        this.spawn(); p1.reset(); cpu.reset(); 
+                    }
                 } 
             }
         }
@@ -249,14 +247,13 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // OFFLINE AI
     if (!isOnline && ball.x < NET.x + 50) {
         let diff = ball.x - cpu.x;
-        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 10 : 0;
+        cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 8 : 0;
         cpu.cpuSkill = (ball.y > G_Y - 100) ? 'lob' : null;
     }
 
-    const subSteps = 12;
+    const subSteps = 10;
     for(let s=0; s<subSteps; s++) {
         p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
         [p1, cpu].forEach(p => {
@@ -271,10 +268,9 @@ function loop() {
         });
     }
 
-    // SYNC
     if(isOnline) {
         const myPath = isHost ? 'host' : 'joiner';
-        update(ref(db, `rooms/${roomID}/${myPath}`), { x: p1.x, y: p1.y, anim: p1.actionAnim });
+        update(ref(db, `rooms/${roomID}/${myPath}`), { x: p1.x, y: p1.y, anim: p1.actionAnim, lastAct: p1.lastAction });
         if(isHost) update(ref(db, `rooms/${roomID}/ball`), { x: ball.x, y: ball.y });
     }
 
