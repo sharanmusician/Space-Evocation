@@ -43,6 +43,10 @@ const knob = document.getElementById('knob'), joyZone = document.getElementById(
 let W, H, G_Y, NET, state = { u: 0, c: 0, active: false, time: 60, timerInt: null };
 const inputs = { moveX: 0, buffer: 0, type: '', joyID: null };
 
+// Physics Constants
+const GRAVITY = 0.22; 
+const JUMP_POWER = -12;
+
 function toggleFullscreen() {
     let docEl = document.documentElement;
     let rfs = docEl.requestFullscreen || docEl.webkitRequestFullScreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
@@ -80,7 +84,7 @@ window.addEventListener('touchstart', e => {
         ['lift', 'lob', 'spike', 'jump'].forEach(id => {
             const b = document.getElementById(id).getBoundingClientRect();
             if (t.clientX > b.left && t.clientX < b.right && t.clientY > b.top && t.clientY < b.bottom) {
-                if (id === 'jump' && !p1.air) { p1.dy = -13.5; p1.air = true; }
+                if (id === 'jump' && !p1.air) { p1.dy = JUMP_POWER; p1.air = true; }
                 else { inputs.buffer = 25; inputs.type = id; }
                 document.getElementById(id).classList.add('active');
             }
@@ -124,9 +128,8 @@ const ball = {
         if(this.y + this.r > NET.y && Math.abs(this.x - NET.x) < this.r + NET.w/2) {
             this.dx *= -0.4; this.x = (this.x < NET.x) ? NET.x - (NET.w/2 + this.r + 1) : NET.x + (NET.w/2 + this.r + 1);
         }
-        this.dy += 0.15 * stepSize;
-        // Anti-Ceiling Clamping: Prevent ball from ever escaping the top
-        if(this.y < 30) { this.y = 30; this.dy = Math.max(0, this.dy * -0.2); }
+        this.dy += GRAVITY * stepSize;
+        if(this.y < 20) { this.y = 20; this.dy = 1; } 
         if(this.y >= G_Y - this.r) { this.y = G_Y - this.r; if(Math.abs(this.dy) > 2) this.dy *= -0.5; else { state[this.x > NET.x ? 'c' : 'u']++; this.spawn(); p1.reset(); cpu.reset(); } }
     },
     draw() { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill(); }
@@ -136,7 +139,7 @@ const p1 = new Athlete('right', '#fff'), cpu = new Athlete('left', '#555');
 
 function projectLandingX() {
     let tx = ball.x, ty = ball.y, tdx = ball.dx, tdy = ball.dy;
-    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += 0.15; if (tx < 20 || tx > W-20) tdx *= -1; }
+    while (ty < G_Y - ball.r) { tx += tdx; ty += tdy; tdy += GRAVITY; if (tx < 20 || tx > W-20) tdx *= -1; }
     return tx;
 }
 
@@ -144,14 +147,11 @@ function loop() {
     if(!state.active) return; ctx.clearRect(0,0,W,H); if(inputs.buffer > 0) inputs.buffer--;
     ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(0, G_Y, W, 2); ctx.fillRect(NET.x - NET.w/2, NET.y, NET.w, NET.h);
     
-    // --- SKELLY AI RECOVERY LOGIC ---
     if (ball.x < NET.x + 50) {
         let landingX = projectLandingX();
-        
-        // CHECK IF BALL IS BEHIND AI (Emergency Zone)
         if (ball.x < cpu.x - 20 && ball.y < G_Y - 100) {
             cpu.targetX = ball.x; 
-            if (!cpu.air) { cpu.dy = -13.5; cpu.air = true; } 
+            if (!cpu.air) { cpu.dy = JUMP_POWER; cpu.air = true; } 
             cpu.cpuSkill = Math.random() > 0.5 ? 'spike' : 'lob'; 
         } 
         else if (landingX > W * 0.32) {
@@ -160,7 +160,7 @@ function loop() {
                 cpu.cpuSkill = 'lift'; cpu.comboPhase = 1; 
             }
             if (cpu.comboPhase === 1 && ball.dy < 0.4 && ball.y < G_Y - 100) {
-                if (!cpu.air) { cpu.dy = -13.5; cpu.air = true; }
+                if (!cpu.air) { cpu.dy = JUMP_POWER; cpu.air = true; }
                 cpu.cpuSkill = 'spike';
                 if (ball.lock > 0) cpu.comboPhase = 0;
             }
@@ -168,7 +168,6 @@ function loop() {
         else {
             cpu.targetX = landingX; cpu.comboPhase = 0; cpu.cpuSkill = 'lob';
         }
-        
         let diff = cpu.targetX - cpu.x;
         cpu.cpuDX = Math.abs(diff) > 5 ? Math.sign(diff) * 10 : 0;
     } else {
@@ -183,20 +182,17 @@ function loop() {
         p1.update(1/subSteps); cpu.update(1/subSteps); ball.update(1/subSteps);
         [p1, cpu].forEach(p => {
             let act = (p === p1) ? (inputs.buffer > 0 ? inputs.type : null) : p.cpuSkill;
-            
-            let xr = 65; 
-            let yrT = (act === 'spike') ? 110 : 65; 
-            let yrB = 35;
+            let xr = 65, yrT = (act === 'spike') ? 110 : 65, yrB = 35;
 
             if(Math.abs(ball.x - p.x) < xr && ball.y < p.y + yrB && ball.y > p.y - yrT && ball.lock === 0) {
                 if (act) {
                     ball.lock = 22; p.actionAnim = 18; p.lastAction = act; let dir = (p.side === 'right') ? -1 : 1;
-                    if(act === 'spike') { ball.dx = dir * 18.5; ball.dy = 4.5; ball.y = p.y - 30; }
-                    else if(act === 'lift') { ball.dx = dir * 0.8; ball.dy = -7.5; } // Softened further
+                    if(act === 'spike') { ball.dx = dir * 18.5; ball.dy = 5; ball.y = p.y - 30; }
+                    else if(act === 'lift') { ball.dx = dir * 1; ball.dy = -6.5; } 
                     else if(act === 'lob') { 
-                        let cycle = Math.floor(Date.now() / 3000) % 3;
-                        let targetPower = (cycle === 0) ? 11.5 : (cycle === 1) ? 8.5 : 5.5; 
-                        ball.dx = dir * targetPower; ball.dy = -9.5; // Lowered to keep arc shallow
+                        let isHigh = Math.random() > 0.8; 
+                        ball.dx = dir * (isHigh ? 6 : 10); 
+                        ball.dy = isHigh ? -11 : -7.5; 
                     }
                     if(p === p1) inputs.buffer = 0;
                 }
